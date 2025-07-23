@@ -2,9 +2,9 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
 use colored::Colorize;
+use dotenvx_rs::common::get_profile_name_from_file;
 use std::collections::HashMap;
 use std::fs;
-use dotenvx_rs::common::get_profile_name_from_file;
 
 pub fn decrypt_command(command_matches: &ArgMatches) {
     let env_file = if let Some(arg_value) = command_matches.get_one::<String>("env-file") {
@@ -20,6 +20,7 @@ pub fn decrypt_command(command_matches: &ArgMatches) {
         );
         return;
     }
+    let mut is_changed = false;
     let entries = decrypt_env_entries(&env_file).unwrap();
     let file_content = fs::read_to_string(&env_file_path).unwrap();
     let mut new_lines: Vec<String> = Vec::new();
@@ -30,14 +31,19 @@ pub fn decrypt_command(command_matches: &ArgMatches) {
                 // todo value escape
                 let new_value = value.replace("\n", "\\n");
                 new_lines.push(format!("{}={}", key, new_value));
+                is_changed = true;
             }
         } else {
             new_lines.push(line.to_string());
         }
     }
-    let new_file_content = new_lines.join("\n");
-    fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
-    println!("{}", format!("✔ decrypted ({})", env_file).green());
+    if !is_changed {
+        println!("{}", format!("✔ no changes ({})", env_file).green());
+    } else {
+        let new_file_content = new_lines.join("\n");
+        fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
+        println!("{}", format!("✔ decrypted ({})", env_file).green());
+    }
 }
 
 pub fn decrypt_env_entries(
