@@ -1,6 +1,7 @@
 use crate::clap_app::build_dotenvx_app;
 use crate::commands::decrypt::decrypt_command;
 use crate::commands::encrypt::encrypt_command;
+use crate::commands::keypair::keypair_command;
 use crate::commands::run::run_command;
 use std::env;
 
@@ -26,6 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match command {
             "encrypt" => encrypt_command(command_matches),
             "decrypt" => decrypt_command(command_matches),
+            "keypair" => keypair_command(command_matches),
             &_ => println!("Unknown command"),
         }
     }
