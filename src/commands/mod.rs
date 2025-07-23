@@ -10,6 +10,7 @@ pub mod decrypt;
 pub mod encrypt;
 pub mod keypair;
 pub mod run;
+pub mod list;
 
 pub struct EcKeyPair {
     pub public_key: PublicKey,
