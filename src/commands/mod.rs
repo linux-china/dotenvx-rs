@@ -8,9 +8,11 @@ use std::{env, fs};
 
 pub mod decrypt;
 pub mod encrypt;
+pub mod get_cmd;
 pub mod keypair;
-pub mod run;
 pub mod list;
+pub mod run;
+pub mod set_cmd;
 
 pub struct EcKeyPair {
     pub public_key: PublicKey,
@@ -252,6 +254,26 @@ pub fn get_env_file_arg(command_matches: &ArgMatches) -> String {
     } else {
         ".env".to_string()
     }
+}
+
+pub fn wrap_value(value: &str) -> String {
+    let mut wrapped_value = value.to_string();
+    let mut double_quote_required = false;
+    if wrapped_value.contains("\n") {
+        wrapped_value = wrapped_value.replace("\n", "\\n");
+        double_quote_required = true;
+    }
+    if wrapped_value.contains("\"") {
+        wrapped_value = wrapped_value.replace('"', "\\\"");
+        double_quote_required = true;
+    }
+    if wrapped_value.contains(' ') {
+        double_quote_required = true;
+    }
+    if double_quote_required {
+        wrapped_value = format!("\"{}\"", wrapped_value);
+    }
+    wrapped_value
 }
 
 #[cfg(test)]
