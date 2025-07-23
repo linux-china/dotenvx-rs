@@ -4,6 +4,7 @@ build:
 release:
     cargo build --release
     ls -ls target/release/dotenvx
+    cp target/release/dotenvx ~/bin/dotenvx
 
 cli-help:
     cargo run --bin dotenvx -- --help
