@@ -18,11 +18,13 @@ fn test_dotenv_load() {
 
 # dotenvx CLI
 
-Run `cargo install dotenvx-rs` to install the dotenvx CLI tool.
+Run `cargo install dotenvx-rs` to install the dotenvx CLI Rust edition.
 
-```shell
-$ dotenvx encrypt
-```
+dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
+with some differences:
+
+- Smaller and faster: less 2M binary size, faster because Rust rewrite.
+- No ext sub command
 
 # References
 
