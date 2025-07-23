@@ -1,3 +1,4 @@
+use clap::ArgMatches;
 use colored::Colorize;
 use ecies::utils::generate_keypair;
 use ecies::{PublicKey, SecretKey};
@@ -7,6 +8,7 @@ use std::{env, fs};
 
 pub mod decrypt;
 pub mod encrypt;
+pub mod keypair;
 pub mod run;
 
 pub struct EcKeyPair {
@@ -241,6 +243,14 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
         }
     }
     Ok(())
+}
+
+pub fn get_env_file_arg(command_matches: &ArgMatches) -> String {
+    if let Some(arg_value) = command_matches.get_one::<String>("env-file") {
+        arg_value.clone()
+    } else {
+        ".env".to_string()
+    }
 }
 
 #[cfg(test)]
