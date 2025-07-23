@@ -44,6 +44,8 @@ pub fn set_command(command_matches: &ArgMatches) {
 #/       [how it works](https://dotenvx.com/encryption)     /
 #/----------------------------------------------------------/
 DOTENV_PUBLIC_KEY="{}"
+
+# env variables
 {}
 "#,
             &public_key, pair
