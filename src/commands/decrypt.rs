@@ -68,7 +68,7 @@ pub fn decrypt_env_entries(
     Ok(entries)
 }
 
-fn decrypt_env_item(
+pub fn decrypt_env_item(
     private_key: &str,
     encrypted_text: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
