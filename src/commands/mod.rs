@@ -1,5 +1,6 @@
 use clap::ArgMatches;
 use colored::Colorize;
+use dotenvx_rs::common::get_profile_name_from_file;
 use ecies::utils::generate_keypair;
 use ecies::{PublicKey, SecretKey};
 use std::collections::HashMap;
@@ -11,6 +12,7 @@ pub mod encrypt;
 pub mod get_cmd;
 pub mod keypair;
 pub mod list;
+pub mod rotate;
 pub mod run;
 pub mod set_cmd;
 
@@ -38,12 +40,12 @@ impl EcKeyPair {
         }
     }
 
-    pub fn get_pk_hex(self) -> String {
+    pub fn get_pk_hex(&self) -> String {
         let pk_compressed_bytes = self.public_key.serialize_compressed();
         hex::encode(pk_compressed_bytes)
     }
 
-    pub fn get_sk_hex(self) -> String {
+    pub fn get_sk_hex(&self) -> String {
         let sk_bytes = self.secret_key.serialize();
         hex::encode(sk_bytes)
     }
@@ -126,17 +128,19 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
     env_file: P,
     public_key: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
+    let profile_name = get_profile_name_from_file(file_name);
+    let env_pub_key_name = get_public_key_name(&profile_name);
     let header_text = format!(
         r#"
 #/-------------------[DOTENV_PUBLIC_KEY]--------------------/
 #/            public-key encryption for .env files          /
 #/       [how it works](https://dotenvx.com/encryption)     /
 #/----------------------------------------------------------/
-DOTENV_PUBLIC_KEY="{}"
+{}="{}"
 "#,
-        public_key
+        &env_pub_key_name, public_key
     );
-    let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
     // file does not exist, and we create it
     if !env_file.as_ref().exists() {
         fs::write(&env_file, header_text.as_bytes())?;
@@ -147,7 +151,7 @@ DOTENV_PUBLIC_KEY="{}"
         return Ok(());
     } else {
         let env_file_content = fs::read_to_string(&env_file).unwrap();
-        if !env_file_content.contains("DOTENV_PUBLIC_KEY") {
+        if !env_file_content.contains(&env_pub_key_name) {
             let file_content = format!("{}\n{}", header_text.trim(), env_file_content);
             fs::write(&env_file, file_content.as_bytes())?;
             println!("{}", format!("✔ public key added in {}", file_name).green());
@@ -155,8 +159,8 @@ DOTENV_PUBLIC_KEY="{}"
             // update existing public key
             let mut new_content = String::new();
             for line in env_file_content.lines() {
-                if line.starts_with("DOTENV_PUBLIC_KEY") {
-                    new_content.push_str(&format!("DOTENV_PUBLIC_KEY=\"{}\"\n", public_key));
+                if line.starts_with(&env_pub_key_name) {
+                    new_content.push_str(&format!("{}=\"{}\"\n", env_pub_key_name, public_key));
                 } else {
                     new_content.push_str(line);
                     new_content.push('\n');
@@ -253,6 +257,22 @@ pub fn get_env_file_arg(command_matches: &ArgMatches) -> String {
         arg_value.clone()
     } else {
         ".env".to_string()
+    }
+}
+
+pub fn get_public_key_name(profile_name: &Option<String>) -> String {
+    if let Some(name) = profile_name {
+        format!("DOTENV_PUBLIC_KEY_{}", name.to_uppercase())
+    } else {
+        "DOTENV_PUBLIC_KEY".to_string()
+    }
+}
+
+pub fn get_private_key_name(profile_name: &Option<String>) -> String {
+    if let Some(name) = profile_name {
+        format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
+    } else {
+        "DOTENV_PRIVATE_KEY".to_string()
     }
 }
 
