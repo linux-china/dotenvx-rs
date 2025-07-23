@@ -69,23 +69,27 @@ pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_private_key_name(profile_name);
+    let dotenv_file_path = PathBuf::from(KEYS_FILE_NAME);
+    let key_entries = if dotenv_file_path.exists() {
+        read_dotenv_file(&dotenv_file_path)?
+    } else {
+        HashMap::new()
+    };
+    // read from .env.keys file
+    if let Some(val) = key_entries.get(&env_key_name) {
+        return Ok(val.trim_matches('"').to_owned());
+    }
+    // read from environment variables
     if let Ok(private_key) = env::var(&env_key_name) {
         return Ok(private_key);
     }
-    let dotenv_file_path = PathBuf::from(KEYS_FILE_NAME);
-    if dotenv_file_path.exists() {
-        let entries = read_dotenv_file(&dotenv_file_path)?;
-        if let Some(val) = entries.get(&env_key_name) {
-            return Ok(val.trim_matches('"').to_owned());
-        } else if let Some(val) = entries.get("DOTENV_PRIVATE_KEY") {
-            return Ok(val.trim_matches('"').to_owned());
-        }
+    // fallback to check default key from .env.keys
+    if let Some(val) = key_entries.get("DOTENV_PRIVATE_KEY") {
+        return Ok(val.trim_matches('"').to_owned());
     }
-    // Fallback to checking the default environment variable directly
-    if env_key_name != "DOTENV_PRIVATE_KEY" {
-        if let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY") {
-            return Ok(private_key);
-        }
+    // fallback to environment variable
+    if let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY") {
+        return Ok(private_key);
     }
     // create a new private key if not found
     let key_pair = EcKeyPair::generate();
@@ -96,21 +100,31 @@ pub fn get_private_key(
 
 pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_public_key_name(profile_name);
-    if let Ok(public_key) = env::var(&env_key_name) {
-        return Ok(public_key);
-    }
     let dotenv_file_path = if let Some(name) = profile_name {
         PathBuf::from(format!(".env.{}", name))
     } else {
         PathBuf::from(".env")
     };
-    if dotenv_file_path.exists() {
-        let entries = read_dotenv_file(dotenv_file_path)?;
-        if let Some(val) = entries.get(&env_key_name) {
-            return Ok(val.trim_matches('"').to_owned());
-        } else if let Some(val) = entries.get("DOTENV_PUBLIC_KEY") {
-            return Ok(val.trim_matches('"').to_owned());
-        }
+    let entries = if dotenv_file_path.exists() {
+        read_dotenv_file(&dotenv_file_path)?
+    } else {
+        HashMap::new()
+    };
+    // read from env file
+    if let Some(val) = entries.get(&env_key_name) {
+        return Ok(val.trim_matches('"').to_owned());
+    }
+    // read from environment variables
+    if let Ok(public_key) = env::var(&env_key_name) {
+        return Ok(public_key);
+    }
+    // read from env file
+    if let Some(val) = entries.get("DOTENV_PUBLIC_KEY") {
+        return Ok(val.trim_matches('"').to_owned());
+    }
+    // read from environment variable
+    if let Some(val) = entries.get("DOTENV_PUBLIC_KEY") {
+        return Ok(val.trim_matches('"').to_owned());
     }
     // get public key from the default private key
     let private_key_hex = get_private_key(profile_name)?;
