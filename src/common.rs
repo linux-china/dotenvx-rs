@@ -1,6 +1,6 @@
 use std::env;
 
-pub fn get_profile_name() -> Option<String> {
+pub fn get_profile_name_from_env() -> Option<String> {
     let env_vars = ["NODE_ENV", "RUN_ENV", "APP_ENV", "SPRING_PROFILES_ACTIVE"];
     for var in env_vars.iter() {
         if let Ok(value) = env::var(var) {
@@ -8,6 +8,14 @@ pub fn get_profile_name() -> Option<String> {
                 return Some(value);
             }
         }
+    }
+    None
+}
+
+pub fn get_profile_name_from_file(env_file_name: &str) -> Option<String> {
+    if env_file_name.starts_with(".env.") {
+        let profile_name = env_file_name.replace(".env.", "");
+        return Some(profile_name);
     }
     None
 }
