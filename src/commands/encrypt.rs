@@ -81,7 +81,7 @@ pub fn encrypt_env_entries(
     Ok(entries)
 }
 
-fn encrypt_env_item(
+pub fn encrypt_env_item(
     public_key: &str,
     value_plain: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
