@@ -1,0 +1,58 @@
+use crate::commands::{get_env_file_arg, get_private_key, get_public_key};
+use clap::ArgMatches;
+use colored_json::to_colored_json_auto;
+use dotenvx_rs::common::get_profile_name_from_file;
+use std::env;
+use std::path::Path;
+
+pub fn keypair_command(command_matches: &ArgMatches) {
+    let env_file = get_env_file_arg(command_matches);
+    let format = if let Some(arg_value) = command_matches.get_one::<String>("format") {
+        arg_value.clone()
+    } else {
+        "json".to_owned()
+    };
+    let profile_name = get_profile_name_from_file(&env_file);
+    let env_private_key_name = if let Some(name) = &profile_name {
+        format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
+    } else {
+        "DOTENV_PRIVATE_KEY".to_string()
+    };
+    let env_pub_key_name = if let Some(name) = &profile_name {
+        format!("DOTENV_PUBLIC_KEY_{}", name.to_uppercase())
+    } else {
+        "DOTENV_PUBLIC_KEY".to_string()
+    };
+    if env::var(&env_private_key_name).is_err() && !Path::new(".env.keys").exists() {
+        if format == "shell" {
+            println!("{}=\n{}=", env_pub_key_name, env_private_key_name);
+        } else {
+            let body = serde_json::json!({
+                env_pub_key_name: "".to_string(),
+                env_private_key_name: "".to_string(),
+            });
+            println!("{}", to_colored_json_auto(&body).unwrap());
+        }
+    } else {
+        let private_key = get_private_key(&profile_name);
+        let public_key = get_public_key(&profile_name);
+        if format == "shell" {
+            println!(
+                "{}={}",
+                env_pub_key_name,
+                public_key.unwrap_or_else(|_| "".to_owned())
+            );
+            println!(
+                "{}={}",
+                env_private_key_name,
+                private_key.unwrap_or_else(|_| "".to_owned())
+            );
+        } else {
+            let body = serde_json::json!({
+                env_pub_key_name: public_key.unwrap_or_else(|_| "".to_owned()),
+                env_private_key_name: private_key.unwrap_or_else(|_| "".to_owned()),
+            });
+            println!("{}", to_colored_json_auto(&body).unwrap());
+        }
+    }
+}
