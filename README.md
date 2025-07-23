@@ -16,6 +16,14 @@ fn test_dotenv_load() {
 }
 ```
 
+# dotenvx CLI
+
+Run `cargo install dotenvx-rs` to install the dotenvx CLI tool.
+
+```shell
+$ dotenvx encrypt
+```
+
 # References
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
