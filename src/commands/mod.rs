@@ -10,6 +10,7 @@ use std::{env, fs};
 pub mod decrypt;
 pub mod encrypt;
 pub mod get_cmd;
+pub mod init;
 pub mod keypair;
 pub mod list;
 pub mod rotate;
@@ -130,6 +131,28 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
     let private_key_hex = get_private_key(profile_name)?;
     let kp = EcKeyPair::from_secret_key(&private_key_hex);
     Ok(kp.get_pk_hex())
+}
+
+pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Option<&str>) {
+    let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
+    let profile_name = get_profile_name_from_file(file_name);
+    let env_pub_key_name = get_public_key_name(&profile_name);
+    let header_text = format!(
+        r#"
+#/-------------------[DOTENV_PUBLIC_KEY]--------------------/
+#/            public-key encryption for .env files          /
+#/       [how it works](https://dotenvx.com/encryption)     /
+#/----------------------------------------------------------/
+{}="{}"
+
+# env variables
+{}
+"#,
+        &env_pub_key_name,
+        public_key,
+        pairs.unwrap_or("")
+    );
+    fs::write(env_file, header_text.trim_start().as_bytes()).unwrap();
 }
 
 pub fn write_public_key_to_file<P: AsRef<Path>>(
