@@ -46,7 +46,7 @@ pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = if let Some(name) = profile_name {
-        format!("DOTENV_PRIVATE_KEY_{}", name)
+        format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
     } else {
         "DOTENV_PRIVATE_KEY".to_string()
     };
