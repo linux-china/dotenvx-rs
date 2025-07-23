@@ -1,4 +1,4 @@
-use crate::commands::{get_public_key, write_public_key_to_file};
+use crate::commands::{get_env_file_arg, get_public_key, write_public_key_to_file};
 use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
@@ -8,11 +8,7 @@ use std::collections::HashMap;
 use std::fs;
 
 pub fn encrypt_command(command_matches: &ArgMatches) {
-    let env_file = if let Some(arg_value) = command_matches.get_one::<String>("env-file") {
-        arg_value.clone()
-    } else {
-        ".env".to_string()
-    };
+    let env_file = get_env_file_arg(command_matches);
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
         // create default env file if it does not exist
