@@ -1,4 +1,5 @@
 use clap::ArgMatches;
+use dotenvx_rs::dotenvx;
 use std::env;
 use std::process::{Command, Stdio};
 
@@ -7,6 +8,12 @@ pub fn run_command(command_and_args: &[String], command_matches: &ArgMatches) ->
         eprintln!("Please supply command to run");
         return 1;
     }
+    let env_file = if let Some(arg_value) = command_matches.get_one::<String>("env-file") {
+        arg_value.clone()
+    } else {
+        ".env".to_string()
+    };
+    dotenvx::from_path(&env_file).unwrap();
     let command_name = &command_and_args[0];
     let mut command_args: Vec<String> = command_and_args[1..].to_vec();
     command_args.iter_mut().for_each(|arg| {

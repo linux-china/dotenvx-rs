@@ -55,13 +55,6 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
     Ok(entries)
 }
 
-pub fn get_profile_name(env_file_name: &str) -> Option<String> {
-    if env_file_name.starts_with(".env.") {
-        let profile_name = env_file_name.replace(".env.", "");
-        return Some(profile_name);
-    }
-    None
-}
 pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
