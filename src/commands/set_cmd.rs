@@ -18,7 +18,7 @@ pub fn set_command(command_matches: &ArgMatches) {
     let key = key_arg.unwrap().to_uppercase();
     let value = value_arg.unwrap();
     let env_file_exists = Path::new(&env_file).exists();
-    let mut encrypt_mode = true;
+    let mut encrypt_mode = false;
     let mut env_file_content = String::new();
     if !env_file_exists {
         encrypt_mode = true;
