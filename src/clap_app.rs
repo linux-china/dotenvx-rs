@@ -6,26 +6,10 @@ pub fn build_dotenvx_app() -> Command {
     let run_command = Command::new("run")
         .about("inject env at runtime [dotenvx run -- your-command]")
         .arg(
-            Arg::new("env")
-                .short('e')
-                .long("env")
-                .help("environment variable(s) set as string (example: \"HELLO=World\") (default: [])")
-                .num_args(0..)
-                .required(false)
-        )
-        .arg(
             Arg::new("env-file")
                 .short('f')
                 .long("env-file")
-                .help("path(s) to your env file(s) (default: [])")
-                .num_args(1)
-                .required(false)
-        )
-        .arg(
-            Arg::new("env-keys-file")
-                .short('k')
-                .long("env-keys-file")
-                .help("path to your .env.keys file (default: same path as your env file)")
+                .help("path to your env file (default: .env)")
                 .num_args(1)
                 .required(false)
         )
@@ -54,7 +38,7 @@ pub fn build_dotenvx_app() -> Command {
             Arg::new("env-file")
                 .short('f')
                 .long("env-file")
-                .help("path to your env file(s) (default: .env)")
+                .help("path to your env file (default: .env)")
                 .num_args(1)
                 .required(false),
         );
@@ -71,9 +55,18 @@ pub fn build_dotenvx_app() -> Command {
     let keypair_command = Command::new("keypair")
         .about("print public/private keys for .env file(s)")
         .arg(
-            Arg::new("key")
-                .help("environment variable key name")
-                .index(1)
+            Arg::new("env-file")
+                .short('f')
+                .long("env-file")
+                .help("path to your env file (default: .env)")
+                .num_args(1)
+                .required(false),
+        )
+        .arg(
+            Arg::new("format")
+                .long("format")
+                .help("format of the output (json, shell) (default: \"json\")")
+                .num_args(1)
                 .required(false),
         );
     let ls_command = Command::new("ls")
@@ -84,8 +77,16 @@ pub fn build_dotenvx_app() -> Command {
                 .index(1)
                 .required(false),
         );
-    let rotate_command =
-        Command::new("rotate").about("rotate keypair(s) and re-encrypt .env file(s)");
+    let rotate_command = Command::new("rotate")
+        .about("rotate keypair(s) and re-encrypt .env file(s)")
+        .arg(
+            Arg::new("env-file")
+                .short('f')
+                .long("env-file")
+                .help("path to your env file (default: .env)")
+                .num_args(1)
+                .required(false),
+        );
     Command::new("dotenvx")
         .version(VERSION)
         .author("linux_china <libing.chen@gmail.com>")
