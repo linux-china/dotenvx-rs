@@ -17,6 +17,7 @@ pub fn decrypt_command(command_matches: &ArgMatches) {
         );
         return;
     }
+    let is_stdout = command_matches.get_flag("stdout");
     let mut is_changed = false;
     let entries = decrypt_env_entries(&env_file).unwrap();
     let file_content = fs::read_to_string(&env_file_path).unwrap();
@@ -33,6 +34,12 @@ pub fn decrypt_command(command_matches: &ArgMatches) {
         } else {
             new_lines.push(line.to_string());
         }
+    }
+    if is_stdout {
+        for line in new_lines {
+            println!("{}", line);
+        }
+        return;
     }
     if !is_changed {
         println!("{}", format!("✔ no changes ({})", env_file).green());
