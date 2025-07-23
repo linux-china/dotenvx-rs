@@ -51,6 +51,12 @@ pub fn build_dotenvx_app() -> Command {
                 .help("path to your env file(s) (default: .env)")
                 .num_args(1)
                 .required(false),
+        )
+        .arg(
+            Arg::new("stdout")
+                .long("stdout")
+                .help("send to stdout")
+                .action(ArgAction::SetTrue),
         );
     let keypair_command = Command::new("keypair")
         .about("print public/private keys for .env file(s)")
