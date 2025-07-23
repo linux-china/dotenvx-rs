@@ -26,6 +26,25 @@ with some differences:
 - Smaller and faster: less 2M binary size, faster because Rust rewrite.
 - No ext sub command
 
+# FAQ
+
+### How CLI to find private key?
+
+The CLI looks for the private key in the following order:
+
+For example the private key name is `DOTENVX_PRIVATE_KEY_PROD`:
+
+- Find from `.env.keys` file in the current directory
+- Find from `DOTENVX_PRIVATE_KEY_PROD` environment variable
+- Use `DOTENVX_PRIVATE_KEY` from `.env.keys` file in the current directory
+- Use `DOTENVX_PRIVATE_KEY` environment variable
+
+If you want to use unified private key for different environments, ad you can set environment variables:
+
+- `DOTENVX_PRIVATE_KEY` for local development
+- `DOTENVX_PRIVATE_KEY_PROD` for production
+- `DOTENVX_PRIVATE_KEY_TEST` for testing
+
 # References
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
