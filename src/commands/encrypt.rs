@@ -1,3 +1,4 @@
+use crate::commands::{get_public_key, write_public_key_to_file};
 use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
@@ -14,10 +15,14 @@ pub fn encrypt_command(command_matches: &ArgMatches) {
     };
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
-        eprintln!(
-            "Error: The specified env file '{}' does not exist.",
+        // create default env file if it does not exist
+        let profile_name = get_profile_name_from_file(&env_file);
+        let public_key = get_public_key(&profile_name).unwrap();
+        println!(
+            "'{}' does not exist, creating a new file with public key.",
             env_file
         );
+        write_public_key_to_file(&env_file_path, &public_key).unwrap();
         return;
     }
     let mut is_changed = false;
