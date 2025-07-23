@@ -40,6 +40,30 @@ pub fn build_dotenvx_app() -> Command {
         );
     let set_command = Command::new("set")
         .about("set a single environment variable")
+        .arg(
+            Arg::new("env-file")
+                .short('f')
+                .long("env-file")
+                .help("path to your env file (default: .env)")
+                .num_args(1)
+                .required(false),
+        )
+        .arg(
+            Arg::new("encrypt")
+                .short('c')
+                .long("encrypt")
+                .help("encrypt value (default: true)")
+                .num_args(1)
+                .required(false),
+        )
+        .arg(
+            Arg::new("plain")
+                .short('p')
+                .long("plain")
+                .help("store value as plain text (default: false)")
+                .num_args(1)
+                .required(false),
+        )
         .arg(Arg::new("key").help("key's name").index(1).required(true))
         .arg(
             Arg::new("value")
