@@ -9,6 +9,7 @@ use std::fs;
 
 pub fn encrypt_command(command_matches: &ArgMatches) {
     let env_file = get_env_file_arg(command_matches);
+    let is_stdout = command_matches.get_flag("stdout");
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
         // create default env file if it does not exist
@@ -46,6 +47,12 @@ pub fn encrypt_command(command_matches: &ArgMatches) {
                 is_changed = true;
             }
         }
+    }
+    if is_stdout {
+        for line in new_lines {
+            println!("{}", line);
+        }
+        return;
     }
     if !is_changed {
         println!("{}", format!("✔ no changes ({})", env_file).green());

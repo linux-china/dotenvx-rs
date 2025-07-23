@@ -41,6 +41,12 @@ pub fn build_dotenvx_app() -> Command {
                 .help("path to your env file (default: .env)")
                 .num_args(1)
                 .required(false),
+        )
+        .arg(
+            Arg::new("stdout")
+                .long("stdout")
+                .help("send to stdout")
+                .action(ArgAction::SetTrue),
         );
     let decrypt_command = Command::new("decrypt")
         .about("convert encrypted .env file(s) to plain .env file(s)")
