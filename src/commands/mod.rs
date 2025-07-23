@@ -206,6 +206,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             "{}",
             format!("✔ {} file created with the private key", file_name).green()
         );
+        append_to_ignores(KEYS_FILE_NAME);
     } else {
         let env_keys_content = fs::read_to_string(&env_keys_file).unwrap();
         // no key in the file, we add it
@@ -290,6 +291,33 @@ pub fn wrap_shell_value(value: &str) -> String {
         wrapped_value = format!("\"{}\"", wrapped_value);
     }
     wrapped_value
+}
+
+pub fn append_to_ignores(file_name: &str) {
+    // git repository but no .gitignore file
+    if Path::new(".git").exists() && !Path::new(".gitignore").exists() {
+        fs::write(".gitignore", format!("{}\n", file_name)).unwrap();
+    }
+    let ignore_files = [".gitignore", ".dockerignore"];
+    for ignore_file in &ignore_files {
+        let path = PathBuf::from(ignore_file);
+        if path.exists() {
+            let mut content = fs::read_to_string(&path).unwrap_or_default();
+            if !content.contains(format!("{}\n", file_name).as_str()) {
+                content.push_str(&format!("\n{}", file_name));
+                fs::write(&path, content).expect("Failed to write to ignore file");
+                println!(
+                    "{}",
+                    format!("✔ {} added to {}", file_name, ignore_file).green()
+                );
+            } else {
+                println!(
+                    "{}",
+                    format!("✔ {} already exists in {}", file_name, ignore_file).green()
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]
