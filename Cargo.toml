@@ -1,0 +1,39 @@
+[package]
+name = "dotenvx-rs"
+version = "0.1.0"
+edition = "2024"
+authors = ["linux_china <libing.chen@gmail.com>"]
+description = "Dotenvx is a command-line toolchain for managing environment variables with Rust"
+keywords = ["dotenv", "dotenvx", "secret"]
+categories = ["command-line-utilities"]
+documentation = "https://github.com/linux-china/dotenvx-rs"
+readme = "README.md"
+homepage = "https://github.com/linux-china/dotenvx-rs"
+repository = "https://github.com/linux-china/dotenvx-rs"
+license = "Apache-2.0"
+
+
+[[bin]]
+name = "dotenvx"
+path = "src/main.rs"
+
+[dependencies]
+base64 = "0.22.1"
+clap = "4.5.41"
+dotenvy = "0.15.7"
+ecies = { version = "0.2", features = ["std"] }
+hex = "0.4.3"
+
+[profile.dev]
+opt-level = 0
+debug = 0
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+strip = true
+lto = true
+opt-level = "z"
+codegen-units = 1
+panic = "abort"
