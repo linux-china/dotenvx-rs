@@ -1,4 +1,4 @@
-use crate::commands::get_env_file_arg;
+use crate::commands::{get_env_file_arg, wrap_value};
 use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
@@ -26,8 +26,7 @@ pub fn decrypt_command(command_matches: &ArgMatches) {
         if line.contains("=encrypted:") {
             let key = line.split('=').next().unwrap().trim();
             if let Some(value) = entries.get(key) {
-                // todo value escape
-                let new_value = value.replace("\n", "\\n");
+                let new_value = wrap_value(value);
                 new_lines.push(format!("{}={}", key, new_value));
                 is_changed = true;
             }
