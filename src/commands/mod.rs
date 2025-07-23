@@ -16,6 +16,8 @@ pub mod rotate;
 pub mod run;
 pub mod set_cmd;
 
+const KEYS_FILE_NAME: &str = ".env.keys";
+
 pub struct EcKeyPair {
     pub public_key: PublicKey,
     pub secret_key: SecretKey,
@@ -66,15 +68,11 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
 pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let env_key_name = if let Some(name) = profile_name {
-        format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
-    } else {
-        "DOTENV_PRIVATE_KEY".to_string()
-    };
+    let env_key_name = get_private_key_name(profile_name);
     if let Ok(private_key) = env::var(&env_key_name) {
         return Ok(private_key);
     }
-    let dotenv_file_path = PathBuf::from(".env.keys");
+    let dotenv_file_path = PathBuf::from(KEYS_FILE_NAME);
     if dotenv_file_path.exists() {
         let entries = read_dotenv_file(&dotenv_file_path)?;
         if let Some(val) = entries.get(&env_key_name) {
@@ -97,11 +95,7 @@ pub fn get_private_key(
 }
 
 pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn std::error::Error>> {
-    let env_key_name = if let Some(name) = profile_name {
-        format!("DOTENV_PUBLIC_KEY_{}", name.to_uppercase())
-    } else {
-        "DOTENV_PUBLIC_KEY".to_string()
-    };
+    let env_key_name = get_public_key_name(profile_name);
     if let Ok(public_key) = env::var(&env_key_name) {
         return Ok(public_key);
     }
@@ -138,12 +132,14 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
 #/       [how it works](https://dotenvx.com/encryption)     /
 #/----------------------------------------------------------/
 {}="{}"
+
+# env variables
 "#,
         &env_pub_key_name, public_key
     );
     // file does not exist, and we create it
     if !env_file.as_ref().exists() {
-        fs::write(&env_file, header_text.as_bytes())?;
+        fs::write(&env_file, header_text.trim_start().as_bytes())?;
         println!(
             "{}",
             format!("✔ {} file created with the public key", file_name).green()
@@ -196,16 +192,16 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
     if !env_keys_file.as_ref().exists() {
         let file_content = format!(
             r#"
-#/-------------------[DOTENV_PUBLIC_KEY]--------------------/
-#/            public-key encryption for .env files          /
-#/       [how it works](https://dotenvx.com/encryption)     /
+#/------------------!DOTENV_PRIVATE_KEYS!-------------------/
+#/ private decryption keys. DO NOT commit to source control /
+#/     [how it works](https://dotenvx.com/encryption)       /
 #/----------------------------------------------------------/
 
 {}="{}"
 "#,
             private_key_name, private_key_value
         );
-        fs::write(&env_keys_file, file_content.as_bytes())?;
+        fs::write(&env_keys_file, file_content.trim_start().as_bytes())?;
         println!(
             "{}",
             format!("✔ {} file created with the private key", file_name).green()
@@ -323,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_write_private_key() {
-        let env_file = PathBuf::from(".env.keys");
+        let env_file = PathBuf::from(KEYS_FILE_NAME);
         write_private_key_to_file(&env_file, "DOTENV_PRIVATE_KEY_TEST", "xxxx").unwrap();
     }
 }

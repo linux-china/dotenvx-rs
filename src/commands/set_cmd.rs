@@ -51,7 +51,7 @@ DOTENV_PUBLIC_KEY="{}"
             &public_key, pair
         );
         fs::write(&env_file, new_content).expect("Failed to write to the .env file");
-        println!("Added {} to {}", key, env_file);
+        println!("Added {} to {}", key, env_file.trim_start());
     } else {
         if env_file_content.contains(&format!("{}=", key)) {
             // Update existing key

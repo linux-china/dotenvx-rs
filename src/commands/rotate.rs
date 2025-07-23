@@ -1,9 +1,6 @@
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::encrypt::encrypt_env_entries;
-use crate::commands::{
-    get_env_file_arg, get_private_key_name, wrap_value, write_private_key_to_file, write_public_key_to_file,
-    EcKeyPair,
-};
+use crate::commands::{get_env_file_arg, get_private_key_name, wrap_value, write_private_key_to_file, write_public_key_to_file, EcKeyPair, KEYS_FILE_NAME};
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_file;
 use std::fs;
@@ -38,7 +35,7 @@ pub fn rotate_command(command_matches: &ArgMatches) {
         write_public_key_to_file(&env_file, &pk_hex).unwrap();
         let profile_name = get_profile_name_from_file(&env_file);
         let private_key_name = get_private_key_name(&profile_name);
-        write_private_key_to_file(".env.keys", &private_key_name, &sk_hex).unwrap();
+        write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &sk_hex).unwrap();
         // encrypt the .env file again
         if encrypt_mode {
             let file_content = fs::read_to_string(&env_file).unwrap();
