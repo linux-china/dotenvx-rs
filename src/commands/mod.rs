@@ -272,7 +272,7 @@ pub fn get_private_key_name(profile_name: &Option<String>) -> String {
     }
 }
 
-pub fn wrap_value(value: &str) -> String {
+pub fn wrap_shell_value(value: &str) -> String {
     let mut wrapped_value = value.to_string();
     let mut double_quote_required = false;
     if wrapped_value.contains("\n") {

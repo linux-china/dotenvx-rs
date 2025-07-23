@@ -1,5 +1,5 @@
 use crate::commands::decrypt::{decrypt_env_entries, decrypt_env_item};
-use crate::commands::{get_env_file_arg, get_private_key, read_dotenv_file, wrap_value};
+use crate::commands::{get_env_file_arg, get_private_key, read_dotenv_file, wrap_shell_value};
 use clap::ArgMatches;
 use colored_json::{to_colored_json_auto, ToColoredJson};
 use dotenvx_rs::common::get_profile_name_from_file;
@@ -41,7 +41,7 @@ pub fn get_command(command_matches: &ArgMatches) {
         if let Ok(entries) = decrypt_env_entries(&env_file) {
             if format == "shell" {
                 for (key, value) in &entries {
-                    println!("{}={}", key, wrap_value(value));
+                    println!("{}={}", key, wrap_shell_value(value));
                 }
             } else {
                 println!(

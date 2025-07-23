@@ -1,6 +1,6 @@
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::encrypt::encrypt_env_entries;
-use crate::commands::{get_env_file_arg, get_private_key_name, wrap_value, write_private_key_to_file, write_public_key_to_file, EcKeyPair, KEYS_FILE_NAME};
+use crate::commands::{get_env_file_arg, get_private_key_name, wrap_shell_value, write_private_key_to_file, write_public_key_to_file, EcKeyPair, KEYS_FILE_NAME};
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_file;
 use std::fs;
@@ -17,7 +17,7 @@ pub fn rotate_command(command_matches: &ArgMatches) {
             if line.contains("=encrypted:") {
                 let key = line.split('=').next().unwrap().trim();
                 if let Some(value) = entries.get(key) {
-                    let new_value = wrap_value(value);
+                    let new_value = wrap_shell_value(value);
                     plain_lines.push(format!("{}={}", key, new_value));
                 }
             } else {
