@@ -23,6 +23,8 @@ clap = "4.5.41"
 dotenvy = "0.15.7"
 ecies = { version = "0.2", features = ["std"] }
 hex = "0.4.3"
+dirs = "6"
+colored = "3.0"
 
 [profile.dev]
 opt-level = 0
