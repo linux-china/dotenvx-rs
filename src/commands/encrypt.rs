@@ -23,8 +23,8 @@ pub fn encrypt_command(command_matches: &ArgMatches) {
         return;
     }
     let mut is_changed = false;
-    let entries = encrypt_env_entries(&env_file).unwrap();
     let file_content = fs::read_to_string(&env_file_path).unwrap();
+    let entries = encrypt_env_entries(&env_file).unwrap();
     let mut new_lines: Vec<String> = Vec::new();
     for line in file_content.lines() {
         if line.starts_with("#") {
