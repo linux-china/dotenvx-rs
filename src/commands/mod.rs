@@ -69,7 +69,7 @@ pub fn get_private_key(
     }
     let dotenv_file_path = PathBuf::from(".env.keys");
     if dotenv_file_path.exists() {
-        let entries = read_dotenv_file(dotenv_file_path)?;
+        let entries = read_dotenv_file(&dotenv_file_path)?;
         if let Some(val) = entries.get(&env_key_name) {
             return Ok(val.trim_matches('"').to_owned());
         } else if let Some(val) = entries.get("DOTENV_PRIVATE_KEY") {
@@ -82,7 +82,11 @@ pub fn get_private_key(
             return Ok(private_key);
         }
     }
-    Err("Private key not found".into())
+    // create a new private key if not found
+    let key_pair = EcKeyPair::generate();
+    let private_key_hex = key_pair.get_sk_hex();
+    write_private_key_to_file(dotenv_file_path, &env_key_name, &private_key_hex)?;
+    Ok(private_key_hex)
 }
 
 pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn std::error::Error>> {
@@ -107,7 +111,10 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
             return Ok(val.trim_matches('"').to_owned());
         }
     }
-    Err("Public key not found".into())
+    // get public key from the default private key
+    let private_key_hex = get_private_key(profile_name)?;
+    let kp = EcKeyPair::from_secret_key(&private_key_hex);
+    Ok(kp.get_pk_hex())
 }
 
 pub fn write_public_key_to_file<P: AsRef<Path>>(
