@@ -25,7 +25,7 @@ pub fn get_command(command_matches: &ArgMatches) {
                     value.clone()
                 };
                 if format == "shell" {
-                    println!("{}={}", key_name, plain_value);
+                    println!("export {}={}", key_name, wrap_shell_value(&plain_value));
                 } else {
                     let body = serde_json::json!({key_name: plain_value});
                     println!("{}", to_colored_json_auto(&body).unwrap());
@@ -41,7 +41,7 @@ pub fn get_command(command_matches: &ArgMatches) {
         if let Ok(entries) = decrypt_env_entries(&env_file) {
             if format == "shell" {
                 for (key, value) in &entries {
-                    println!("{}={}", key, wrap_shell_value(value));
+                    println!("export {}={}", key, wrap_shell_value(value));
                 }
             } else {
                 println!(
