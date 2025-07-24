@@ -3,8 +3,9 @@ use crate::commands::{
     create_env_file, get_env_file_arg, get_public_key_for_file, wrap_shell_value,
 };
 use clap::ArgMatches;
-use std::fs;
+use std::io::Read;
 use std::path::Path;
+use std::{fs, io};
 
 pub fn set_command(command_matches: &ArgMatches) {
     let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());
@@ -17,7 +18,18 @@ pub fn set_command(command_matches: &ArgMatches) {
     }
     let env_file = get_env_file_arg(command_matches);
     let key = key_arg.unwrap().to_uppercase();
-    let value = value_arg.unwrap();
+    let mut value = value_arg.unwrap().to_string();
+    // read from stdin if value is "-"
+    if value == "-" {
+        // Create a new String to store the piped input
+        let mut input = String::new();
+        // Read all data from stdin
+        io::stdin()
+            .read_to_string(&mut input)
+            .expect("Failed to read from stdin");
+        // Trim the input to remove any leading/trailing whitespace
+        value = input.trim().to_string();
+    }
     let env_file_exists = Path::new(&env_file).exists();
     let mut encrypt_mode = true;
     let mut env_file_content = String::new();
@@ -29,10 +41,10 @@ pub fn set_command(command_matches: &ArgMatches) {
     }
     let public_key = get_public_key_for_file(&env_file).unwrap();
     let pair = if encrypt_mode {
-        let encrypted_value = encrypt_env_item(&public_key, value).unwrap();
+        let encrypted_value = encrypt_env_item(&public_key, &value).unwrap();
         format!("{}={}", key, encrypted_value)
     } else {
-        format!("{}={}", key, wrap_shell_value(value))
+        format!("{}={}", key, wrap_shell_value(&value))
     };
     if command_matches.get_flag("stdout") {
         print!("export {}", pair);
