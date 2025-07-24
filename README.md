@@ -121,6 +121,9 @@ and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
 You can use the `dotenvx diff key1,key2` command to display the difference values from .env files,
 and dotenvx will search all .env files in the current directory and compare the values of the specified keys.
 
+**Tips**: you can use `dotenvx diff --format csv key1,key2` to output the difference in CSV format,
+and use other tools to process the CSV data for further analysis.
+
 # References
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
