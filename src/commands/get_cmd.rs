@@ -16,10 +16,16 @@ pub fn get_command(command_matches: &ArgMatches) {
     // if a key is provided, we read the .env file and print the value of the key
     if let Some(key_name) = key_arg {
         let key_name = &key_name.to_uppercase();
+        let private_key = get_private_key_for_file(&env_file).unwrap();
+        // get the value from the command line arguments if provided
+        if let Some(value) = command_matches.get_one::<String>("value") {
+            let plain_value = decrypt_env_item(&private_key, value).unwrap_or(value.clone());
+            println!("export {}:{}", key_name, wrap_shell_value(&plain_value));
+            return;
+        }
         if let Ok(entries) = read_dotenv_file(&env_file) {
             if let Some(value) = entries.get(key_name) {
                 let plain_value = if value.starts_with("encrypted:") {
-                    let private_key = get_private_key_for_file(&env_file).unwrap();
                     decrypt_env_item(&private_key, value).unwrap_or(value.clone())
                 } else {
                     value.clone()
