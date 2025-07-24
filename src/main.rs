@@ -9,6 +9,7 @@ use crate::commands::rotate::rotate_command;
 use crate::commands::run::run_command;
 use crate::commands::set_cmd::set_command;
 use clap::ArgMatches;
+use dotenvx_rs::common::get_profile_name_from_env;
 use std::env;
 
 mod clap_app;
@@ -57,14 +58,7 @@ fn get_profile(global_matches: &ArgMatches) -> Option<String> {
         .map(|s| s.to_owned());
     // If profile is not set, try to read from environment variables
     if profile.is_none() {
-        let profile_env_names = vec!["NODE_ENV", "RUN_ENV", "APP_ENV", "SPRING_PROFILES_ACTIVE"];
-        for env_name in profile_env_names {
-            if let Ok(value) = env::var(env_name) {
-                if !value.is_empty() {
-                    return Some(value);
-                }
-            }
-        }
+        return get_profile_name_from_env();
     }
     profile
 }
