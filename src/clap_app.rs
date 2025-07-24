@@ -64,6 +64,12 @@ pub fn build_dotenvx_app() -> Command {
                 .num_args(1)
                 .required(false),
         )
+        .arg(
+            Arg::new("stdout")
+                .long("stdout")
+                .help("Send encrypted value to stdout")
+                .action(ArgAction::SetTrue),
+        )
         .arg(Arg::new("key").help("key's name").index(1).required(true))
         .arg(
             Arg::new("value")
@@ -86,7 +92,7 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("stdout")
                 .long("stdout")
-                .help("send to stdout")
+                .help("Send to stdout")
                 .action(ArgAction::SetTrue),
         );
     let decrypt_command = Command::new("decrypt")
