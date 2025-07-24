@@ -3,8 +3,14 @@ use crate::commands::{get_private_key_for_file, read_dotenv_file};
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_file;
 use prettytable::{row, Cell, Table};
+use std::io;
 
 pub fn diff_command(command_matches: &ArgMatches) {
+    let format = if let Some(arg_value) = command_matches.get_one::<String>("format") {
+        arg_value.clone()
+    } else {
+        "text".to_owned()
+    };
     let key_names = command_matches
         .get_one::<String>("keys")
         .unwrap()
@@ -33,7 +39,7 @@ pub fn diff_command(command_matches: &ArgMatches) {
         return;
     }
     let mut table = Table::new();
-    let mut header_row = row!["Profile"];
+    let mut header_row = row!["profile"];
     for key_name in &key_names {
         header_row.add_cell(Cell::new(key_name));
     }
@@ -59,5 +65,9 @@ pub fn diff_command(command_matches: &ArgMatches) {
         }
         table.add_row(data_row);
     }
-    table.printstd();
+    if format == "csv" {
+        table.to_csv(io::stdout()).unwrap();
+    } else {
+        table.printstd();
+    }
 }
