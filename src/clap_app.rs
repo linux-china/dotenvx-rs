@@ -6,6 +6,14 @@ pub fn build_dotenvx_app() -> Command {
     let run_command = Command::new("run")
         .about("inject env at runtime [dotenvx run -- your-command]")
         .arg(
+            Arg::new("profile")
+                .short('p')
+                .long("profile")
+                .help("Profile to use (such as 'dev', 'prod', etc.)")
+                .num_args(1)
+                .required(false)
+        )
+        .arg(
             Arg::new("env-file")
                 .short('f')
                 .long("env-file")
@@ -22,6 +30,14 @@ pub fn build_dotenvx_app() -> Command {
         );
     let get_command = Command::new("get")
         .about("return a single environment variable")
+        .arg(
+            Arg::new("profile")
+                .short('p')
+                .long("profile")
+                .help("Profile to use (such as 'dev', 'prod', etc.)")
+                .num_args(1)
+                .required(false),
+        )
         .arg(
             Arg::new("env-file")
                 .short('f')
@@ -46,6 +62,14 @@ pub fn build_dotenvx_app() -> Command {
         );
     let set_command = Command::new("set")
         .about("set a single environment variable")
+        .arg(
+            Arg::new("profile")
+                .short('p')
+                .long("profile")
+                .help("Profile to use (such as 'dev', 'prod', etc.)")
+                .num_args(1)
+                .required(false),
+        )
         .arg(
             Arg::new("env-file")
                 .short('f')
@@ -88,6 +112,14 @@ pub fn build_dotenvx_app() -> Command {
     let encrypt_command = Command::new("encrypt")
         .about("convert .env file(s) to encrypted .env file(s)")
         .arg(
+            Arg::new("profile")
+                .short('p')
+                .long("profile")
+                .help("Profile to use (such as 'dev', 'prod', etc.)")
+                .num_args(1)
+                .required(false),
+        )
+        .arg(
             Arg::new("env-file")
                 .short('f')
                 .long("env-file")
@@ -103,6 +135,14 @@ pub fn build_dotenvx_app() -> Command {
         );
     let decrypt_command = Command::new("decrypt")
         .about("convert encrypted .env file(s) to plain .env file(s)")
+        .arg(
+            Arg::new("profile")
+                .short('p')
+                .long("profile")
+                .help("Profile to use (such as 'dev', 'prod', etc.)")
+                .num_args(1)
+                .required(false),
+        )
         .arg(
             Arg::new("env-file")
                 .short('f')
@@ -125,6 +165,14 @@ pub fn build_dotenvx_app() -> Command {
         );
     let keypair_command = Command::new("keypair")
         .about("print public/private keys for .env file(s)")
+        .arg(
+            Arg::new("profile")
+                .short('p')
+                .long("profile")
+                .help("Profile to use (such as 'dev', 'prod', etc.)")
+                .num_args(1)
+                .required(false),
+        )
         .arg(
             Arg::new("env-file")
                 .short('f')
@@ -149,7 +197,15 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         );
     let rotate_command = Command::new("rotate")
-        .about("rotate keypair(s) and re-encrypt .env file(s)")
+        .about("rotate keypair and re-encrypt .env file in current directory")
+        .arg(
+            Arg::new("profile")
+                .short('p')
+                .long("profile")
+                .help("Profile to use (such as 'dev', 'prod', etc.)")
+                .num_args(1)
+                .required(false),
+        )
         .arg(
             Arg::new("env-file")
                 .short('f')
@@ -160,6 +216,14 @@ pub fn build_dotenvx_app() -> Command {
         );
     let init_command = Command::new("init")
         .about("Create a .env file with a new public/private key pair")
+        .arg(
+            Arg::new("profile")
+                .short('p')
+                .long("profile")
+                .help("Profile to use (such as 'dev', 'prod', etc.)")
+                .num_args(1)
+                .required(false),
+        )
         .arg(
             Arg::new("env-file")
                 .short('f')
