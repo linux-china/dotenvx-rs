@@ -2,13 +2,14 @@
 
 # Task Keeper Changelog
 
-## [0.1.2] - 2025-07-24
+## [0.2.0] - 2025-07-24
 
 ### Added
 
 - Add `--profile <profile_name>` option as first citizen to manage different environments
 - Add `dotenvx init --stdout` to generate key pair and print to stdout
 - Add `dotenvx init --global` to generate `$HOME/.env.keys` for different global environments
+- Add `dotenvx diff <keys>` to compare keys from all `.env.keys` files in the current directory
 - Add `dotenvx decrypt --export` to decrypt dotenv file and export variables as shell script
 - Add `.aiignore` file to ignore AI-generated files
 - Add `dotenvx set <key> <value> --stdout` to output the key-value(encrypted) pair to stdout
