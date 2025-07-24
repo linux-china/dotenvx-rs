@@ -16,6 +16,7 @@ pub mod list;
 pub mod rotate;
 pub mod run;
 pub mod set_cmd;
+pub mod diff;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
