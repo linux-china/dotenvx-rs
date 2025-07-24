@@ -10,7 +10,7 @@ documentation = "https://github.com/linux-china/dotenvx-rs"
 readme = "README.md"
 homepage = "https://github.com/linux-china/dotenvx-rs"
 repository = "https://github.com/linux-china/dotenvx-rs"
-license = "Apache-2.0"
+license = "MIT"
 
 
 [[bin]]
