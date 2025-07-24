@@ -34,6 +34,10 @@ pub fn set_command(command_matches: &ArgMatches) {
     } else {
         format!("{}={}", key, wrap_shell_value(value))
     };
+    if command_matches.get_flag("stdout") {
+        print!("export {}", pair);
+        return;
+    }
     if !env_file_exists {
         create_env_file(&env_file, &public_key, Some(&pair));
         println!("Added {} to {}", key, env_file);
