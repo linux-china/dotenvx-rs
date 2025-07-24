@@ -149,6 +149,12 @@ pub fn build_dotenvx_app() -> Command {
                 .help("path to your env file (default: .env)")
                 .num_args(1)
                 .required(false),
+        )
+        .arg(
+            Arg::new("stdout")
+                .long("stdout")
+                .help("Send new key pair to stdout")
+                .action(ArgAction::SetTrue),
         );
     Command::new("dotenvx")
         .version(VERSION)
