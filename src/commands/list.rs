@@ -1,7 +1,7 @@
 use clap::ArgMatches;
 use colored::Colorize;
 
-pub fn ls_command(command_matches: &ArgMatches) {
+pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let directory = command_matches
         .get_one::<String>("directory")
         .map(|s| s.as_str())
@@ -11,10 +11,18 @@ pub fn ls_command(command_matches: &ArgMatches) {
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| {
-            e.file_type().is_file()
-                && e.file_name()
-                    .to_str()
-                    .map_or(false, |s| s.starts_with(".env"))
+            if e.file_type().is_file() {
+                let file_name = e.file_name().to_str().unwrap();
+                if let Some(profile_name) = profile {
+                    file_name.starts_with(&format!(".env.{}", profile_name))
+                } else if file_name == ".env.keys" {
+                    false
+                } else {
+                    file_name == ".env" || file_name.starts_with(".env.")
+                }
+            } else {
+                false
+            }
         })
         .collect::<Vec<_>>();
     if entries.is_empty() {
