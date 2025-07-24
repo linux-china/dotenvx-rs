@@ -8,7 +8,7 @@ use std::path::Path;
 
 pub fn init_command(command_matches: &ArgMatches) {
     if command_matches.get_flag("stdout") {
-        generate_kp_and_print();
+        generate_kp_and_export();
         return;
     }
     let env_file = get_env_file_arg(command_matches);
@@ -29,10 +29,10 @@ pub fn init_command(command_matches: &ArgMatches) {
     write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &kp.get_sk_hex()).unwrap();
 }
 
-fn generate_kp_and_print() {
+fn generate_kp_and_export() {
     let kp = EcKeyPair::generate();
     let public_key = kp.get_pk_hex();
     let private_key = kp.get_sk_hex();
-    println!("{}:  {}", "Public Key".green(), public_key);
-    println!("{}: {}", "Private Key".red(), private_key);
+    println!("export DOTENV_PUBLIC_KEY={}", public_key);
+    println!("export DOTENV_PRIVATE_KEY={}", private_key);
 }
