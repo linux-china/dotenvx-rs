@@ -7,7 +7,7 @@ use std::io::Read;
 use std::path::Path;
 use std::{fs, io};
 
-pub fn set_command(command_matches: &ArgMatches) {
+pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());
     let value_arg = command_matches
         .get_one::<String>("value")
@@ -16,7 +16,7 @@ pub fn set_command(command_matches: &ArgMatches) {
         eprintln!("Both key and value arguments are required.");
         return;
     }
-    let env_file = get_env_file_arg(command_matches);
+    let env_file = get_env_file_arg(command_matches, profile);
     let key = key_arg.unwrap().to_uppercase();
     let mut value = value_arg.unwrap().to_string();
     // read from stdin if value is "-"

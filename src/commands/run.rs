@@ -4,12 +4,16 @@ use dotenvx_rs::dotenvx;
 use std::env;
 use std::process::{Command, Stdio};
 
-pub fn run_command(command_and_args: &[String], command_matches: &ArgMatches) -> i32 {
+pub fn run_command(
+    command_and_args: &[String],
+    command_matches: &ArgMatches,
+    profile: &Option<String>,
+) -> i32 {
     if command_and_args.len() == 0 {
         eprintln!("Please supply command to run");
         return 1;
     }
-    let env_file = get_env_file_arg(command_matches);
+    let env_file = get_env_file_arg(command_matches, profile);
     dotenvx::from_path(&env_file).unwrap();
     let command_name = &command_and_args[0];
     let mut command_args: Vec<String> = command_and_args[1..].to_vec();

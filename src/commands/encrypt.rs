@@ -9,8 +9,8 @@ use dotenvx_rs::common::get_profile_name_from_file;
 use std::collections::HashMap;
 use std::fs;
 
-pub fn encrypt_command(command_matches: &ArgMatches) {
-    let env_file = get_env_file_arg(command_matches);
+pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
+    let env_file = get_env_file_arg(command_matches, profile);
     let is_stdout = command_matches.get_flag("stdout");
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {

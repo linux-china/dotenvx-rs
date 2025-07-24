@@ -6,8 +6,8 @@ use colored::Colorize;
 use std::collections::HashMap;
 use std::fs;
 
-pub fn decrypt_command(command_matches: &ArgMatches) {
-    let env_file = get_env_file_arg(command_matches);
+pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
+    let env_file = get_env_file_arg(command_matches, profile);
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
         eprintln!(

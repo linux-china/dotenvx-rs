@@ -5,9 +5,9 @@ use crate::commands::{
 use clap::ArgMatches;
 use colored_json::{to_colored_json_auto, ToColoredJson};
 
-pub fn get_command(command_matches: &ArgMatches) {
+pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());
-    let env_file = get_env_file_arg(command_matches);
+    let env_file = get_env_file_arg(command_matches, profile);
     let format = if let Some(arg_value) = command_matches.get_one::<String>("format") {
         arg_value.clone()
     } else {

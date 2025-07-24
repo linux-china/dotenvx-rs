@@ -1,16 +1,15 @@
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::encrypt::encrypt_env_entries;
 use crate::commands::{
-    get_env_file_arg, get_private_key_name_for_file, wrap_shell_value,
-    write_private_key_to_file, write_public_key_to_file, EcKeyPair,
-    KEYS_FILE_NAME,
+    get_env_file_arg, get_private_key_name_for_file, wrap_shell_value, write_private_key_to_file, write_public_key_to_file,
+    EcKeyPair, KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
 use std::fs;
 use std::path::Path;
 
-pub fn rotate_command(command_matches: &ArgMatches) {
-    let env_file = get_env_file_arg(command_matches);
+pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
+    let env_file = get_env_file_arg(command_matches, profile);
     if Path::new(&env_file).exists() {
         let entries = decrypt_env_entries(&env_file).unwrap();
         let file_content = fs::read_to_string(&env_file).unwrap();

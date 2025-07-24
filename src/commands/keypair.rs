@@ -8,8 +8,8 @@ use dotenvx_rs::common::get_profile_name_from_file;
 use std::env;
 use std::path::Path;
 
-pub fn keypair_command(command_matches: &ArgMatches) {
-    let env_file = get_env_file_arg(command_matches);
+pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
+    let env_file = get_env_file_arg(command_matches, profile);
     let format = if let Some(arg_value) = command_matches.get_one::<String>("format") {
         arg_value.clone()
     } else {

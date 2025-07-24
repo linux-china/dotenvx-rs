@@ -7,7 +7,7 @@ use colored::Colorize;
 use std::fs;
 use std::path::Path;
 
-pub fn init_command(command_matches: &ArgMatches) {
+pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if command_matches.get_flag("stdout") {
         generate_kp_and_export();
         return;
@@ -16,7 +16,7 @@ pub fn init_command(command_matches: &ArgMatches) {
         create_global_env_keys();
         return;
     }
-    let env_file = get_env_file_arg(command_matches);
+    let env_file = get_env_file_arg(command_matches, profile);
     let env_file_exists = Path::new(&env_file).exists();
     if env_file_exists {
         eprintln!("The .env file already exists: {}", env_file);
