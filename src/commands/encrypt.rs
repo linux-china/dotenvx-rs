@@ -1,5 +1,5 @@
 use crate::commands::{
-    get_env_file_arg, get_public_key, get_public_key_for_file, write_public_key_to_file,
+    get_env_file_arg, get_public_key_for_file, write_public_key_to_file,
 };
 use base64::engine::general_purpose;
 use base64::Engine;
