@@ -75,9 +75,9 @@ pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_private_key_name(profile_name);
-    let dotenv_file_path = PathBuf::from(KEYS_FILE_NAME);
-    let key_entries = if dotenv_file_path.exists() {
-        read_dotenv_file(&dotenv_file_path)?
+    let dotenv_keys_file_path = find_dotenv_keys_file_path(&env::current_dir()?);
+    let key_entries = if let Some(file_path) = &dotenv_keys_file_path {
+        read_dotenv_file(file_path)?
     } else {
         HashMap::new()
     };
@@ -92,7 +92,13 @@ pub fn get_private_key(
     // create a new private key if not found
     let key_pair = EcKeyPair::generate();
     let private_key_hex = key_pair.get_sk_hex();
-    write_private_key_to_file(dotenv_file_path, &env_key_name, &private_key_hex)?;
+    if let Some(file_path) = &dotenv_keys_file_path {
+        write_private_key_to_file(file_path, &env_key_name, &private_key_hex)?;
+    } else {
+        // if .env.keys file not found, create it in the current directory
+        let file_path = PathBuf::from(KEYS_FILE_NAME);
+        write_private_key_to_file(&file_path, &env_key_name, &private_key_hex)?;
+    }
     Ok(private_key_hex)
 }
 
@@ -345,7 +351,7 @@ pub fn append_to_ignores(file_name: &str) {
     if Path::new(".git").exists() && !Path::new(".gitignore").exists() {
         fs::write(".gitignore", format!("{}\n", file_name)).unwrap();
     }
-    let ignore_files = [".gitignore", ".dockerignore",".aiignore"];
+    let ignore_files = [".gitignore", ".dockerignore", ".aiignore"];
     for ignore_file in &ignore_files {
         let path = PathBuf::from(ignore_file);
         if path.exists() {
@@ -365,6 +371,15 @@ pub fn append_to_ignores(file_name: &str) {
             }
         }
     }
+}
+
+pub fn find_dotenv_keys_file_path(dir: &Path) -> Option<PathBuf> {
+    if dir.join(KEYS_FILE_NAME).exists() {
+        return Some(dir.join(KEYS_FILE_NAME));
+    } else if let Some(parent) = dir.parent() {
+        return find_dotenv_keys_file_path(parent);
+    }
+    None
 }
 
 #[cfg(test)]
