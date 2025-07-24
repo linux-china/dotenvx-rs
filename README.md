@@ -42,11 +42,13 @@ For example the private key name is `DOTENVX_PRIVATE_KEY_PROD`:
 - Find from `.env.keys` file in the current directory
 - Find from `DOTENVX_PRIVATE_KEY_PROD` environment variable
 
-If you want to use unified private key for different environments, ad you can set environment variables:
+If you want to use unified private key for different environments, and you can use following environment variables:
 
 - `DOTENVX_PRIVATE_KEY` for `.env` file and local development
 - `DOTENVX_PRIVATE_KEY_PROD` for `.env.prod` file and production
 - `DOTENVX_PRIVATE_KEY_TEST` for `.env.test` file and testing
+
+**Tips**: you can use `dotenvx init --stdout` to generate key pair.
 
 ### How to rotate/reset key pairs for env files?
 
