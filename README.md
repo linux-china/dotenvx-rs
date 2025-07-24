@@ -42,8 +42,8 @@ For example the private key name is `DOTENVX_PRIVATE_KEY_PROD`:
 If you want to use unified private key for different environments, ad you can set environment variables:
 
 - `DOTENVX_PRIVATE_KEY` for `.env` file and local development
-- `DOTENVX_PRIVATE_KEY_PROD` for `.env.prod` and production
-- `DOTENVX_PRIVATE_KEY_TEST` for `.env.test` and testing
+- `DOTENVX_PRIVATE_KEY_PROD` for `.env.prod` file and production
+- `DOTENVX_PRIVATE_KEY_TEST` for `.env.test` file and testing
 
 ### How to rotate/reset key pairs for env files?
 
