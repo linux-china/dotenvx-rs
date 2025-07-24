@@ -237,6 +237,12 @@ pub fn build_dotenvx_app() -> Command {
                 .long("stdout")
                 .help("Send new key pair to stdout")
                 .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("global")
+                .long("global")
+                .help("Create $HOME/.env.keys with profiles(dev, test, perf, sand, stage, prod)")
+                .action(ArgAction::SetTrue),
         );
     Command::new("dotenvx")
         .version(VERSION)
