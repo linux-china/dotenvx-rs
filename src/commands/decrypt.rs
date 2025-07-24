@@ -16,11 +16,22 @@ pub fn decrypt_command(command_matches: &ArgMatches) {
         );
         return;
     }
-    let is_stdout = command_matches.get_flag("stdout");
-    let mut is_changed = false;
     let entries = decrypt_env_entries(&env_file).unwrap();
+    // If the export flag is set, we print the entries in shell format
+    if command_matches.get_flag("export") {
+        // If the export flag is set, we print the entries in shell format
+        for (key, value) in &entries {
+            if !key.starts_with("DOTENV_PUBLIC_KEY") {
+                println!("export {}={}", key, wrap_shell_value(value));
+            }
+        }
+        println!("# Run this command to configure your shell:");
+        println!("# eval $(dotenvx decrypt -f {})", env_file);
+        return;
+    }
     let file_content = fs::read_to_string(&env_file_path).unwrap();
     let mut new_lines: Vec<String> = Vec::new();
+    let mut is_changed = false;
     for line in file_content.lines() {
         if line.contains("=encrypted:") {
             let key = line.split('=').next().unwrap().trim();
@@ -33,7 +44,7 @@ pub fn decrypt_command(command_matches: &ArgMatches) {
             new_lines.push(line.to_string());
         }
     }
-    if is_stdout {
+    if command_matches.get_flag("stdout") {
         for line in new_lines {
             println!("{}", line);
         }
