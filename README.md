@@ -28,7 +28,8 @@ fn test_dotenv_load() {
 
 ### Get Started
 
-- Install: Run `cargo binstall dotenvx-rs` or `cargo install dotenvx-rs` to install the dotenvx CLI Rust edition.
+- Install: Run `cargo binstall dotenvx-rs` or download it
+  from [releases](https://github.com/linux-china/dotenvx-rs/releases)
 - Initialize: Run `dotenvx init` to create `.env` and `.env.keys` files in the current directory.
 - Encrypt .env file: Run `dotenvx encrypt` to encrypt the `.env` file.
 - Decrypt .env file: Run `dotenvx decrypt` to decrypt the `.env` file.
@@ -104,7 +105,8 @@ you can use the `dotenvx rotate` command to generate a new key pair, examples:
 
 You can use the `dotenvx decrypt --export` command to decrypt the dotenv file and output as shell script.
 
-`eval $(dotenvx decrypt --export)` command will decrypt dotenv file and export the variables to the current shell.
+- `eval $(dotenvx decrypt --export)` command will decrypt dotenv file and export the variables to the current shell.
+- `eval $(dotenvx get key --format shell)` command will export key's value from .env as environment variable.
 
 ### How to add encrypted key-value pair from CLI?
 
