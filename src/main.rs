@@ -1,5 +1,6 @@
 use crate::clap_app::build_dotenvx_app;
 use crate::commands::decrypt::decrypt_command;
+use crate::commands::diff::diff_command;
 use crate::commands::encrypt::encrypt_command;
 use crate::commands::get_cmd::get_command;
 use crate::commands::init::init_command;
@@ -45,6 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "ls" => ls_command(command_matches, &profile),
             "get" => get_command(command_matches, &profile),
             "set" => set_command(command_matches, &profile),
+            "diff" => diff_command(command_matches),
             "rotate" => rotate_command(command_matches, &profile),
             &_ => println!("Unknown command"),
         }
