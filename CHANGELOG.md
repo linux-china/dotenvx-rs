@@ -13,6 +13,7 @@
 - Add `.aiignore` file to ignore AI-generated files
 - Add `dotenvx set <key> <value> --stdout` to output the key-value(encrypted) pair to stdout
 - Add `dotenvx get <key> <encrypted_value>` to output the key-value(plain) pair to stdout
+- Add validation for `dotenvx keypair` command to ensure the key pair is valid
 - Add dotenvx CLI cheat sheet: https://cheatography.com/linux-china/cheat-sheets/dotenvx/
 
 ## [0.1.1] - 2025-07-23
