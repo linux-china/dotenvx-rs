@@ -1,7 +1,8 @@
 use crate::commands::encrypt::encrypt_env_item;
-use crate::commands::{create_env_file, get_env_file_arg, get_public_key, wrap_shell_value};
+use crate::commands::{
+    create_env_file, get_env_file_arg, get_public_key_for_file, wrap_shell_value,
+};
 use clap::ArgMatches;
-use dotenvx_rs::common::get_profile_name_from_file;
 use std::fs;
 use std::path::Path;
 
@@ -18,18 +19,15 @@ pub fn set_command(command_matches: &ArgMatches) {
     let key = key_arg.unwrap().to_uppercase();
     let value = value_arg.unwrap();
     let env_file_exists = Path::new(&env_file).exists();
-    let mut encrypt_mode = false;
+    let mut encrypt_mode = true;
     let mut env_file_content = String::new();
-    if !env_file_exists {
-        encrypt_mode = true;
-    } else {
+    if env_file_exists {
         if let Ok(file_content) = fs::read_to_string(&env_file) {
             env_file_content = file_content;
         }
         encrypt_mode = env_file_content.contains("=encrypted:");
     }
-    let profile_name = get_profile_name_from_file(&env_file);
-    let public_key = get_public_key(&profile_name).unwrap();
+    let public_key = get_public_key_for_file(&env_file).unwrap();
     let pair = if encrypt_mode {
         let encrypted_value = encrypt_env_item(&public_key, value).unwrap();
         format!("{}={}", key, encrypted_value)

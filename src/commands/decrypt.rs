@@ -1,9 +1,8 @@
-use crate::commands::{get_env_file_arg, wrap_shell_value};
+use crate::commands::{get_env_file_arg, get_private_key_for_file, wrap_shell_value};
 use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
 use colored::Colorize;
-use dotenvx_rs::common::get_profile_name_from_file;
 use std::collections::HashMap;
 use std::fs;
 
@@ -52,8 +51,7 @@ pub fn decrypt_command(command_matches: &ArgMatches) {
 pub fn decrypt_env_entries(
     env_file: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let profile_name = get_profile_name_from_file(env_file);
-    let private_key = crate::commands::get_private_key(&profile_name)?;
+    let private_key = get_private_key_for_file(env_file)?;
     let mut entries: HashMap<String, String> = HashMap::new();
     for item in dotenvy::from_filename_iter(env_file)? {
         let (key, value) = &item.unwrap();

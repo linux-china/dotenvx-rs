@@ -1,8 +1,9 @@
 use crate::commands::decrypt::{decrypt_env_entries, decrypt_env_item};
-use crate::commands::{get_env_file_arg, get_private_key, read_dotenv_file, wrap_shell_value};
+use crate::commands::{
+    get_env_file_arg, get_private_key_for_file, read_dotenv_file, wrap_shell_value,
+};
 use clap::ArgMatches;
 use colored_json::{to_colored_json_auto, ToColoredJson};
-use dotenvx_rs::common::get_profile_name_from_file;
 
 pub fn get_command(command_matches: &ArgMatches) {
     let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());
@@ -18,8 +19,7 @@ pub fn get_command(command_matches: &ArgMatches) {
         if let Ok(entries) = read_dotenv_file(&env_file) {
             if let Some(value) = entries.get(key_name) {
                 let plain_value = if value.starts_with("encrypted:") {
-                    let profile_name = get_profile_name_from_file(&env_file);
-                    let private_key = get_private_key(&profile_name).unwrap();
+                    let private_key = get_private_key_for_file(&env_file).unwrap();
                     decrypt_env_item(&private_key, value).unwrap_or(value.clone())
                 } else {
                     value.clone()

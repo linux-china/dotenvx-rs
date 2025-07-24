@@ -66,6 +66,11 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
     Ok(entries)
 }
 
+pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let profile_name = get_profile_name_from_file(env_file);
+    get_private_key(&profile_name)
+}
+
 pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -97,6 +102,11 @@ pub fn get_private_key(
     let private_key_hex = key_pair.get_sk_hex();
     write_private_key_to_file(dotenv_file_path, &env_key_name, &private_key_hex)?;
     Ok(private_key_hex)
+}
+
+pub fn get_public_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let profile_name = get_profile_name_from_file(env_file);
+    get_public_key(&profile_name)
 }
 
 pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn std::error::Error>> {
@@ -304,6 +314,22 @@ pub fn get_public_key_name(profile_name: &Option<String>) -> String {
 
 pub fn get_private_key_name(profile_name: &Option<String>) -> String {
     if let Some(name) = profile_name {
+        format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
+    } else {
+        "DOTENV_PRIVATE_KEY".to_string()
+    }
+}
+
+pub fn get_public_key_name_for_file(env_file: &str) -> String {
+    if let Some(name) = get_profile_name_from_file(env_file) {
+        format!("DOTENV_PUBLIC_KEY_{}", name.to_uppercase())
+    } else {
+        "DOTENV_PUBLIC_KEY".to_string()
+    }
+}
+
+pub fn get_private_key_name_for_file(env_file: &str) -> String {
+    if let Some(name) = get_profile_name_from_file(env_file) {
         format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
     } else {
         "DOTENV_PRIVATE_KEY".to_string()

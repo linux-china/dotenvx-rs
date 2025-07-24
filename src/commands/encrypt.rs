@@ -1,4 +1,6 @@
-use crate::commands::{get_env_file_arg, get_public_key, write_public_key_to_file};
+use crate::commands::{
+    get_env_file_arg, get_public_key, get_public_key_for_file, write_public_key_to_file,
+};
 use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
@@ -66,8 +68,7 @@ pub fn encrypt_command(command_matches: &ArgMatches) {
 pub fn encrypt_env_entries(
     env_file: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let profile_name = get_profile_name_from_file(env_file);
-    let public_key = crate::commands::get_public_key(&profile_name)?;
+    let public_key = get_public_key_for_file(env_file)?;
     let mut entries: HashMap<String, String> = HashMap::new();
     for item in dotenvy::from_filename_iter(env_file)? {
         let (key, value) = &item.unwrap();
