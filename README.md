@@ -32,7 +32,7 @@ dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](
 with some differences:
 
 - Smaller and faster: less 6M binary size, faster because Rust rewrite
-- profile introduced to make key management easier
+- Global `--profile` as first citizen to make it easy to manage different environments
 - Global private key management: Use `dotenvx init --global` to create a global `$HOME/.env.keys` file and manage
   private keys for different environments by profile style.
 - Add `init` sub command to create `.env` and `.env.keys` file
@@ -40,6 +40,24 @@ with some differences:
 - No ext sub command
 
 # FAQ
+
+### What is profile?
+
+A profile is a way to manage different environments in dotenvx CLI, and you can specify the profile with the following
+ways:
+
+- Use `--profile <profile_name>` option to specify the profile, such as `dotenvx -p prod encrypt`
+- Get profile from .env file, such as `.env.prod` for `prod` profile, `.env.test` for `test` profile, etc.
+- GEt profile from environment variables: `NODE_ENV`, `RUN_ENV`, `APP_ENV`, `SPRING_PROFILES_ACTIVE`.
+
+Different profiles have different `.env` files, such as `.env.prod`, `.env.test`, `.env.dev`, etc.,  
+and different profiles have different private keys for encryption and decryption,
+such as `DOTENV_PRIVATE_KEY_PROD`, `DOTENV_PRIVATE_KEY_TEST`, etc.
+
+If no profile is specified, the CLI will use the `.env` file and `DOTENV_PRIVATE_KEY` private key by default.
+
+**Tips**: you can create alias for a profile, such as `alias prod-env='dotenvx -p prod'` to manage secrets for
+production profile.
 
 ### How CLI to find private key?
 
@@ -58,6 +76,16 @@ If you want to use unified private key for different environments, and you can u
 - `DOTENVX_PRIVATE_KEY_TEST` for `.env.test` file and testing
 
 **Tips**: you can use `dotenvx init --stdout` to generate key pair.
+
+### How to manage private keys?
+
+dotenvx CLI uses profile style to manage private keys, and you can use following practices to manage private keys:
+
+- Project specific private keys: use `dotenvx init` to create `.env.keys` file in the project's directory
+- Global private: use `dotenvx init --global` to create a global `$HOME/.env.keys` file to manage unified private keys
+  for different projects.
+- Team/Production global private keys: use `ABC_TEST`, `REGION1_PROD` as profile names to manage private keys for
+  different teams, products or regions.
 
 ### How to rotate/reset key pairs for env files?
 
