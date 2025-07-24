@@ -124,7 +124,7 @@ pub fn build_dotenvx_app() -> Command {
                 .action(ArgAction::SetTrue),
         );
     let keypair_command = Command::new("keypair")
-        .about("Validate and print public/private keys for .env file(s)")
+        .about("Validate and print public/private keys for .env file in current directory")
         .arg(
             Arg::new("env-file")
                 .short('f')
