@@ -188,6 +188,13 @@ pub fn build_dotenvx_app() -> Command {
                 .help("key names, seperated by comma, such as 'key1,key2'")
                 .index(1)
                 .required(true),
+        )
+        .arg(
+            Arg::new("format")
+                .long("format")
+                .help("format of the output (text, csv) (default: text)")
+                .num_args(1)
+                .required(false),
         );
     Command::new("dotenvx")
         .version(VERSION)
