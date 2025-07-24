@@ -27,7 +27,7 @@ and run `dotenvx set KEY1 VALUE1` to create `.env` file with dotenvx encrypted f
 dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
 with some differences:
 
-- Smaller and faster: less 2M binary size, faster because Rust rewrite.
+- Smaller and faster: less 6M binary size, faster because Rust rewrite.
 - No ext sub command
 - Add init sub command to create `.env` and `.env.keys` file
 
