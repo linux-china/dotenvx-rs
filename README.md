@@ -58,6 +58,12 @@ you can use the `dotenvx rotate` command to generate a new key pair, examples:
 - Rotate the private key for `.env` file: `dotenvx rotate`
 - Rotate the private key for `.env.prod` file: `dotenvx rotate -f .env.prod`
 
+### How to decrypt dotenv file and export variables as environment variables?
+
+You can use the `dotenvx decrypt --export` command to decrypt the dotenv file and output as shell script.
+
+`eval $(dotenvx decrypt --export)` command will decrypt dotenv file and export the variables to the current shell.
+
 # References
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
