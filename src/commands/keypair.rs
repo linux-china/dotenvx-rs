@@ -1,5 +1,6 @@
 use crate::commands::{
     get_env_file_arg, get_private_key, get_private_key_name, get_public_key, get_public_key_name,
+    KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
 use colored_json::to_colored_json_auto;
@@ -17,7 +18,7 @@ pub fn keypair_command(command_matches: &ArgMatches) {
     let profile_name = get_profile_name_from_file(&env_file);
     let env_private_key_name = get_private_key_name(&profile_name);
     let env_pub_key_name = get_public_key_name(&profile_name);
-    if env::var(&env_private_key_name).is_err() && !Path::new(".env.keys").exists() {
+    if env::var(&env_private_key_name).is_err() && !Path::new(KEYS_FILE_NAME).exists() {
         if format == "shell" {
             println!("{}=\n{}=", env_pub_key_name, env_private_key_name);
         } else {
