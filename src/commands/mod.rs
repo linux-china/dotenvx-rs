@@ -345,7 +345,7 @@ pub fn append_to_ignores(file_name: &str) {
     if Path::new(".git").exists() && !Path::new(".gitignore").exists() {
         fs::write(".gitignore", format!("{}\n", file_name)).unwrap();
     }
-    let ignore_files = [".gitignore", ".dockerignore"];
+    let ignore_files = [".gitignore", ".dockerignore",".aiignore"];
     for ignore_file in &ignore_files {
         let path = PathBuf::from(ignore_file);
         if path.exists() {
