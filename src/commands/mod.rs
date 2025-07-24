@@ -109,11 +109,13 @@ pub fn get_public_key_for_file(env_file: &str) -> Result<String, Box<dyn std::er
 
 pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_public_key_name(profile_name);
-    let dotenv_file_path = if let Some(name) = profile_name {
-        PathBuf::from(format!(".env.{}", name))
+    let env_file_name = if let Some(name) = profile_name {
+        format!(".env.{}", name)
     } else {
-        PathBuf::from(".env")
+        ".env".to_string()
     };
+    let dotenv_file_path = find_env_file_path(&env::current_dir()?, &env_file_name)
+        .unwrap_or_else(|| PathBuf::from(env_file_name));
     let entries = if dotenv_file_path.exists() {
         read_dotenv_file(&dotenv_file_path)?
     } else {
@@ -407,6 +409,15 @@ pub fn find_dotenv_keys_file_path(dir: &Path) -> Option<PathBuf> {
         return Some(dir.join(KEYS_FILE_NAME));
     } else if let Some(parent) = dir.parent() {
         return find_dotenv_keys_file_path(parent);
+    }
+    None
+}
+
+pub fn find_env_file_path(dir: &Path, env_file_name: &str) -> Option<PathBuf> {
+    if dir.join(env_file_name).exists() {
+        return Some(dir.join(env_file_name));
+    } else if let Some(parent) = dir.parent() {
+        return find_env_file_path(parent, env_file_name);
     }
     None
 }
