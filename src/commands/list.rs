@@ -22,7 +22,7 @@ pub fn ls_command(command_matches: &ArgMatches) {
         return;
     } else {
         println!(
-            "Found {} .env files in directory: {}",
+            "Found {} .env files in '{}' directory:",
             entries.len(),
             directory
         );
