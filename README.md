@@ -21,17 +21,23 @@ fn test_dotenv_load() {
 
 # dotenvx CLI
 
-Run `cargo binstall dotenvx-rs` or `cargo install dotenvx-rs` to install the dotenvx CLI Rust edition,
-and run `dotenvx init` to create `.env` and `.env.keys` files with dotenvx support.
+### Get Started
+
+- Install: Run `cargo binstall dotenvx-rs` or `cargo install dotenvx-rs` to install the dotenvx CLI Rust edition.
+- Initialize: Run `dotenvx init` to create `.env` and `.env.keys` files in the current directory.
+- Encrypt .env file: Run `dotenvx encrypt` to encrypt the `.env` file.
+- Decrypt .env file: Run `dotenvx decrypt` to decrypt the `.env` file.
 
 dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
 with some differences:
 
 - Smaller and faster: less 6M binary size, faster because Rust rewrite
 - profile introduced to make key management easier
+- Global private key management: Use `dotenvx init --global` to create a global `$HOME/.env.keys` file and manage
+  private keys for different environments by profile style.
+- Add `init` sub command to create `.env` and `.env.keys` file
 - Easy integration for Rust CLIs to load encrypted .env files
 - No ext sub command
-- Add init sub command to create `.env` and `.env.keys` file
 
 # FAQ
 
