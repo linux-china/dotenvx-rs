@@ -40,7 +40,8 @@ The CLI looks for the private key in the following order:
 
 For example the private key name is `DOTENVX_PRIVATE_KEY_PROD`:
 
-- Find from `.env.keys` file in the current directory
+- Find from `.env.keys` file in the current directory and parent directories recursively, and `$HOME/.env.keys` is
+  checked as well.
 - Find from `DOTENVX_PRIVATE_KEY_PROD` environment variable
 
 If you want to use unified private key for different environments, and you can use following environment variables:
@@ -69,3 +70,5 @@ You can use the `dotenvx decrypt --export` command to decrypt the dotenv file an
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
 * [ecies-rs](https://github.com/ecies/rs): Elliptic Curve Integrated Encryption Scheme for secp256k1/curve25519 in Rust
+
+EOF (Ctrl+D on Linux/macOS or Ctrl+Z on Windows).
