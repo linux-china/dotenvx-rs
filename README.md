@@ -42,7 +42,7 @@ with some differences:
 - Global private key management: Use `dotenvx init --global` to create a global `$HOME/.env.keys` file and manage
   private keys for different environments by profile style.
 - Add `init` sub command to create `.env` and `.env.keys` file
-- Add `diff` sub command to compare keys from different .env files
+- Add `diff` sub command to compare keys from all .env files
 - Easy integration for Rust CLIs to load encrypted .env files
 - No ext sub command
 
