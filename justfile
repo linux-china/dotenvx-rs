@@ -37,6 +37,9 @@ get-all:
 set-nick:
     cargo run --bin dotenvx -- set nick "Jackie Chan"
 
+set-from-stdin:
+    cargo run --bin dotenvx -- set nick -
+
 rotate-example:
     cargo run --bin dotenvx -- rotate -f .env.example
 
