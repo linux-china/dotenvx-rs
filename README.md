@@ -1,6 +1,9 @@
 Dotenvx Rust SDK/CLI
 ======================
 
+dotenvx-rs is a Rust command-line toolchain to encrypt your .env files - limiting their attack vector while retaining
+their benefits, and a library to load encrypted .env files in your Rust applications.
+
 # dotenvx library
 
 Run `cargo add dotenvx-rs` to add the dotenvx library to your Rust project.
