@@ -18,13 +18,15 @@ fn test_dotenv_load() {
 
 # dotenvx CLI
 
-Run `cargo install dotenvx-rs` to install the dotenvx CLI Rust edition.
+Run `cargo install dotenvx-rs` to install the dotenvx CLI Rust edition,
+and run `dotenvx set KEY1 VALUE1` to create `.env` file with dotenvx encrypted format.
 
 dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
 with some differences:
 
 - Smaller and faster: less 2M binary size, faster because Rust rewrite.
 - No ext sub command
+- Add init sub command to create `.env` and `.env.keys` file
 
 # FAQ
 
@@ -44,6 +46,14 @@ If you want to use unified private key for different environments, ad you can se
 - `DOTENVX_PRIVATE_KEY` for local development
 - `DOTENVX_PRIVATE_KEY_PROD` for production
 - `DOTENVX_PRIVATE_KEY_TEST` for testing
+
+### How to rotate/reset key pairs for env files?
+
+If you don't want to use private key from environment variables, or you want to rotate your private key,
+you can use the `dotenvx rotate` command to generate a new key pair, examples:
+
+- Rotate the private key for `.env` file: `dotenvx rotate`
+- Rotate the private key for `.env.prod` file: `dotenvx rotate -f .env.prod`
 
 # References
 
