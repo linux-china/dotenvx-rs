@@ -32,6 +32,12 @@ pub fn build_dotenvx_app() -> Command {
         )
         .arg(Arg::new("key").help("key's name").index(1).required(false))
         .arg(
+            Arg::new("value")
+                .help("the encrypted value")
+                .index(2)
+                .required(false),
+        )
+        .arg(
             Arg::new("format")
                 .long("format")
                 .help("format of the output (json, shell) (default: \"json\")")
