@@ -2,6 +2,7 @@ use crate::clap_app::build_dotenvx_app;
 use crate::commands::decrypt::decrypt_command;
 use crate::commands::encrypt::encrypt_command;
 use crate::commands::get_cmd::get_command;
+use crate::commands::init::init_command;
 use crate::commands::keypair::keypair_command;
 use crate::commands::list::ls_command;
 use crate::commands::rotate::rotate_command;
@@ -29,6 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = app.get_matches();
     if let Some((command, command_matches)) = matches.subcommand() {
         match command {
+            "init" => init_command(command_matches),
             "encrypt" => encrypt_command(command_matches),
             "decrypt" => decrypt_command(command_matches),
             "keypair" => keypair_command(command_matches),
