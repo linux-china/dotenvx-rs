@@ -89,14 +89,6 @@ pub fn get_private_key(
     if let Ok(private_key) = env::var(&env_key_name) {
         return Ok(private_key);
     }
-    // fallback to check default key from .env.keys
-    if let Some(val) = key_entries.get("DOTENV_PRIVATE_KEY") {
-        return Ok(val.trim_matches('"').to_owned());
-    }
-    // fallback to environment variable
-    if let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY") {
-        return Ok(private_key);
-    }
     // create a new private key if not found
     let key_pair = EcKeyPair::generate();
     let private_key_hex = key_pair.get_sk_hex();
@@ -128,14 +120,6 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
     // read from environment variables
     if let Ok(public_key) = env::var(&env_key_name) {
         return Ok(public_key);
-    }
-    // read from env file
-    if let Some(val) = entries.get("DOTENV_PUBLIC_KEY") {
-        return Ok(val.trim_matches('"').to_owned());
-    }
-    // read from environment variable
-    if let Some(val) = entries.get("DOTENV_PUBLIC_KEY") {
-        return Ok(val.trim_matches('"').to_owned());
     }
     // get public key from the default private key
     let private_key_hex = get_private_key(profile_name)?;
