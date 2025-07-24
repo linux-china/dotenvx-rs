@@ -19,6 +19,9 @@ encrypt:
 decrypt:
     cargo run --bin dotenvx -- decrypt --stdout
 
+decrypt-export:
+    cargo run --bin dotenvx -- decrypt --export
+
 keypair:
     cargo run --bin dotenvx -- keypair -f .env.example
 
