@@ -33,12 +33,12 @@ pub fn keypair_command(command_matches: &ArgMatches) {
         let public_key = get_public_key(&profile_name);
         if format == "shell" {
             println!(
-                "{}={}",
+                "export {}={}",
                 env_pub_key_name,
                 public_key.unwrap_or_else(|_| "".to_owned())
             );
             println!(
-                "{}={}",
+                "export {}={}",
                 env_private_key_name,
                 private_key.unwrap_or_else(|_| "".to_owned())
             );
