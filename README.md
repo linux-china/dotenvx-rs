@@ -27,7 +27,8 @@ and run `dotenvx init` to create `.env` and `.env.keys` files with dotenvx suppo
 dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
 with some differences:
 
-- Smaller and faster: less 6M binary size, faster because Rust rewrite.
+- Smaller and faster: less 6M binary size, faster because Rust rewrite
+- Easy integration for Rust CLIs to load encrypted .env files
 - No ext sub command
 - Add init sub command to create `.env` and `.env.keys` file
 
