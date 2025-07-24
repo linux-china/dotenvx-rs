@@ -42,6 +42,7 @@ with some differences:
 - Global private key management: Use `dotenvx init --global` to create a global `$HOME/.env.keys` file and manage
   private keys for different environments by profile style.
 - Add `init` sub command to create `.env` and `.env.keys` file
+- Add `diff` sub command to compare keys from different .env files
 - Easy integration for Rust CLIs to load encrypted .env files
 - No ext sub command
 
@@ -114,6 +115,11 @@ You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to 
 If you don't want to shell history to record the sensitive value,
 you can use `dotenvx set <key> -` to read the value from standard input (stdin),
 and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
+
+### How to see key's difference between .env files?
+
+You can use the `dotenvx diff key1,key2` command to display the difference values from .env files,
+and dotenvx will search all .env files in the current directory and compare the values of the specified keys.
 
 # References
 
