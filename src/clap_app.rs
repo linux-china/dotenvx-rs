@@ -140,6 +140,16 @@ pub fn build_dotenvx_app() -> Command {
                 .num_args(1)
                 .required(false),
         );
+    let init_command = Command::new("init")
+        .about("Create a .env file with a new public/private key pair")
+        .arg(
+            Arg::new("env-file")
+                .short('f')
+                .long("env-file")
+                .help("path to your env file (default: .env)")
+                .num_args(1)
+                .required(false),
+        );
     Command::new("dotenvx")
         .version(VERSION)
         .author("linux_china <libing.chen@gmail.com>")
@@ -152,6 +162,7 @@ pub fn build_dotenvx_app() -> Command {
                 .num_args(1..)
                 .required(false)
         )
+        .subcommand(init_command)
         .subcommand(run_command)
         .subcommand(get_command)
         .subcommand(set_command)
