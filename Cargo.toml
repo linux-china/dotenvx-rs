@@ -1,6 +1,6 @@
 [package]
 name = "dotenvx-rs"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["linux_china <libing.chen@gmail.com>"]
 description = "Dotenvx is a Rust command-line/library to encrypt your .env files - limiting their attack vector while retaining their benefits"
