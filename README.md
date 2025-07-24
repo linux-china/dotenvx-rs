@@ -28,6 +28,7 @@ dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](
 with some differences:
 
 - Smaller and faster: less 6M binary size, faster because Rust rewrite
+- profile introduced to make key management easier
 - Easy integration for Rust CLIs to load encrypted .env files
 - No ext sub command
 - Add init sub command to create `.env` and `.env.keys` file
@@ -66,9 +67,14 @@ You can use the `dotenvx decrypt --export` command to decrypt the dotenv file an
 
 `eval $(dotenvx decrypt --export)` command will decrypt dotenv file and export the variables to the current shell.
 
+### How to add encrypted key-value pair from CLI?
+
+You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to the `.env` file.
+If you don't want to shell history to record the sensitive value,
+you can use `dotenvx set <key> -` to read the value from standard input (stdin),
+and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
+
 # References
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
 * [ecies-rs](https://github.com/ecies/rs): Elliptic Curve Integrated Encryption Scheme for secp256k1/curve25519 in Rust
-
-EOF (Ctrl+D on Linux/macOS or Ctrl+Z on Windows).
