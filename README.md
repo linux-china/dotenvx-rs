@@ -21,8 +21,8 @@ fn test_dotenv_load() {
 
 # dotenvx CLI
 
-Run `cargo install dotenvx-rs` to install the dotenvx CLI Rust edition,
-and run `dotenvx set KEY1 VALUE1` to create `.env` file with dotenvx encrypted format.
+Run `cargo binstall dotenvx-rs` or `cargo install dotenvx-rs` to install the dotenvx CLI Rust edition,
+and run `dotenvx init` to create `.env` and `.env.keys` files with dotenvx support.
 
 dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
 with some differences:
