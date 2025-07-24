@@ -159,6 +159,7 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
     env_file: P,
     public_key: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let public_key_short = public_key.chars().take(8).collect::<String>();
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
     let profile_name = get_profile_name_from_file(file_name);
     let env_pub_key_name = get_public_key_name(&profile_name);
@@ -202,12 +203,20 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
             fs::write(&env_file, new_content.as_bytes())?;
             println!(
                 "{}",
-                format!("✔ public key updated in {}", file_name).green()
+                format!(
+                    "✔ public key({}...) updated in {}",
+                    public_key_short, file_name
+                )
+                .green()
             );
         } else {
             println!(
                 "{}",
-                format!("✔ public key already exists in {}", file_name).green()
+                format!(
+                    "✔ public key({}...) already exists in {}",
+                    public_key_short, file_name
+                )
+                .green()
             );
         }
     }
@@ -219,6 +228,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
     private_key_name: &str,
     private_key_value: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let private_key_short = private_key_name.chars().take(6).collect::<String>();
     let file_name = env_keys_file
         .as_ref()
         .file_name()
@@ -239,9 +249,14 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             private_key_name, private_key_value
         );
         fs::write(&env_keys_file, file_content.trim_start().as_bytes())?;
+
         println!(
             "{}",
-            format!("✔ {} file created with the private key", file_name).green()
+            format!(
+                "✔ {} file created with the private key({}...)",
+                file_name, private_key_short
+            )
+            .green()
         );
         append_to_ignores(KEYS_FILE_NAME);
     } else {
@@ -257,7 +272,11 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             fs::write(&env_keys_file, new_content.as_bytes())?;
             println!(
                 "{}",
-                format!("✔ private key added in {}", file_name).green()
+                format!(
+                    "✔ private key({}...) added in {}",
+                    file_name, private_key_short
+                )
+                .green()
             );
         } else if !env_keys_content.contains(private_key_value) {
             // update existing private key
@@ -274,12 +293,20 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             fs::write(&env_keys_file, new_content.as_bytes())?;
             println!(
                 "{}",
-                format!("✔ private key updated in {}", file_name).green()
+                format!(
+                    "✔ private key({}...) updated in {}",
+                    private_key_short, file_name
+                )
+                .green()
             );
         } else {
             println!(
                 "{}",
-                format!("✔ private key already exists in {}", file_name).green()
+                format!(
+                    "✔ private key({}...) already exists in {}",
+                    private_key_short, file_name
+                )
+                .green()
             );
         }
     }
