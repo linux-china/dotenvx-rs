@@ -286,12 +286,18 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
     Ok(())
 }
 
-pub fn get_profile_arg(command_matches: &ArgMatches) -> String {
+pub fn get_profile_arg(command_matches: &ArgMatches) -> Option<String> {
     if let Some(arg_value) = command_matches.get_one::<String>("profile") {
-        arg_value.clone()
-    } else {
-        ".env".to_string()
+        return Some(arg_value.clone());
+    } else if let Some(env_file_name) = command_matches.get_one::<String>("env-file") {
+        if env_file_name.starts_with(".env.") {
+            let profile_name = env_file_name.trim_start_matches(".env.").to_string();
+            if !profile_name.is_empty() {
+                return Some(profile_name);
+            }
+        }
     }
+    None
 }
 
 pub fn get_env_file_arg(command_matches: &ArgMatches) -> String {
