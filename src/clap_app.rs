@@ -176,6 +176,7 @@ pub fn build_dotenvx_app() -> Command {
         )
         .arg(
             Arg::new("global")
+                .short('g')
                 .long("global")
                 .help("Create $HOME/.env.keys with profiles(dev, test, perf, sand, stage, prod)")
                 .action(ArgAction::SetTrue),
