@@ -181,6 +181,9 @@ pub fn build_dotenvx_app() -> Command {
                 .help("Create $HOME/.env.keys with profiles(dev, test, perf, sand, stage, prod)")
                 .action(ArgAction::SetTrue),
         );
+    let diff_command = Command::new("diff")
+        .about("Check the difference between two .env files")
+        .arg(Arg::new("key").help("key's name").index(1).required(true));
     Command::new("dotenvx")
         .version(VERSION)
         .author("linux_china <libing.chen@gmail.com>")
@@ -210,4 +213,5 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(keypair_command)
         .subcommand(ls_command)
         .subcommand(rotate_command)
+        .subcommand(diff_command)
 }
