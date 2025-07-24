@@ -182,7 +182,7 @@ pub fn build_dotenvx_app() -> Command {
                 .action(ArgAction::SetTrue),
         );
     let diff_command = Command::new("diff")
-        .about("Check the difference between two .env files")
+        .about("Display keys' values between all .env files")
         .arg(
             Arg::new("keys")
                 .help("key names, seperated by comma, such as 'key1,key2'")
