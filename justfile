@@ -9,6 +9,10 @@ release:
 cli-help:
     cargo run --bin dotenvx -- --help
 
+# generate a new keypair and print it to stdout
+init-stdout:
+    cargo run --bin dotenvx -- init --stdout
+
 encrypt:
     cargo run --bin dotenvx -- encrypt
 
