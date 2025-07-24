@@ -102,7 +102,13 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("stdout")
                 .long("stdout")
-                .help("send to stdout")
+                .help("Send to stdout")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("export")
+                .long("export")
+                .help("Output the key-value pairs as shell export commands")
                 .action(ArgAction::SetTrue),
         );
     let keypair_command = Command::new("keypair")
