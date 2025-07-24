@@ -5,7 +5,6 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
 use colored::Colorize;
-use dotenvx_rs::common::get_profile_name_from_file;
 use std::collections::HashMap;
 use std::fs;
 
@@ -15,8 +14,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
         // create default env file if it does not exist
-        let profile_name = get_profile_name_from_file(&env_file);
-        let public_key = get_public_key(&profile_name).unwrap();
+        let public_key = get_public_key_for_file(&env_file).unwrap();
         println!(
             "'{}' does not exist, creating a new file with public key.",
             env_file
