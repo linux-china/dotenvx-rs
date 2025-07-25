@@ -15,10 +15,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
-        eprintln!(
-            "Error: The specified env file '{}' does not exist.",
-            env_file
-        );
+        eprintln!("Error: The specified env file '{env_file}' does not exist.");
         return;
     }
     let entries = decrypt_env_entries(&env_file).unwrap();
@@ -31,7 +28,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             }
         }
         println!("# Run this command to configure your shell:");
-        println!("# eval $(dotenvx decrypt -f {})", env_file);
+        println!("# eval $(dotenvx decrypt -f {env_file})");
         return;
     }
     let file_content = fs::read_to_string(&env_file_path).unwrap();
@@ -42,7 +39,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             let key = line.split('=').next().unwrap().trim();
             if let Some(value) = entries.get(key) {
                 let new_value = wrap_shell_value(value);
-                new_lines.push(format!("{}={}", key, new_value));
+                new_lines.push(format!("{key}={new_value}"));
                 is_changed = true;
             }
         } else {
@@ -51,16 +48,16 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
     if command_matches.get_flag("stdout") {
         for line in new_lines {
-            println!("{}", line);
+            println!("{line}");
         }
         return;
     }
     if !is_changed {
-        println!("{}", format!("✔ no changes ({})", env_file).green());
+        println!("{}", format!("✔ no changes ({env_file})").green());
     } else {
         let new_file_content = new_lines.join("\n");
         fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
-        println!("{}", format!("✔ decrypted ({})", env_file).green());
+        println!("{}", format!("✔ decrypted ({env_file})").green());
     }
 }
 
@@ -87,7 +84,7 @@ pub fn decrypt_env_item(
 ) -> Result<String, Box<dyn std::error::Error>> {
     let encrypted_bytes = if encrypted_text.starts_with("encrypted:") {
         general_purpose::STANDARD
-            .decode(&encrypted_text[10..])
+            .decode(encrypted_text.strip_prefix("encrypted:").unwrap())
             .unwrap()
     } else {
         general_purpose::STANDARD.decode(encrypted_text).unwrap()
@@ -100,7 +97,7 @@ pub fn decrypt_env_item(
 pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
     if let Ok(private_key) = get_private_key(profile) {
         if let Ok(plain_text) = decrypt_env_item(&private_key, encrypted_value) {
-            println!("{}", plain_text);
+            println!("{plain_text}");
         } else {
             eprintln!(
                 "{}",
@@ -118,6 +115,6 @@ mod tests {
     #[test]
     fn test_decrypt_dotenv() {
         let entries = super::decrypt_env_entries(".env").unwrap();
-        println!("{:?}", entries);
+        println!("{entries:?}");
     }
 }
