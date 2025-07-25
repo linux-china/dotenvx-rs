@@ -41,7 +41,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
             .read_to_string(&mut input)
             .expect("Failed to read from stdin");
         // Trim the input to remove any leading/trailing whitespace
-        value = input.trim().to_string();
+        value = input.trim_end().to_string();
     }
     let env_file_exists = Path::new(&env_file).exists();
     let mut encrypt_mode = true;
