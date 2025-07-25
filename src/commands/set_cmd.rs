@@ -3,9 +3,15 @@ use crate::commands::{
     create_env_file, get_env_file_arg, get_public_key_for_file, wrap_shell_value,
 };
 use clap::ArgMatches;
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::io::Read;
 use std::path::Path;
 use std::{fs, io};
+
+lazy_static! {
+    static ref REGEX_KEY_NAME: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z0-9_]*$").unwrap();
+}
 
 pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());
@@ -16,8 +22,15 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         eprintln!("Both key and value arguments are required.");
         return;
     }
+    let key = key_arg.unwrap().replace('-', "_").to_uppercase();
+    if !validate_key_name(&key) {
+        eprintln!(
+            "Invalid key name: '{}'. Key names must start with a letter or underscore and can only contain letters, numbers, and underscores.",
+            key
+        );
+        return;
+    }
     let env_file = get_env_file_arg(command_matches, profile);
-    let key = key_arg.unwrap().to_uppercase();
     let mut value = value_arg.unwrap().to_string();
     // read from stdin if value is "-"
     if value == "-" {
@@ -78,6 +91,24 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
             new_content.push_str(&pair);
             fs::write(&env_file, new_content).expect("Failed to write to the .env file");
             println!("Added {} to {}", key, env_file);
+        }
+    }
+}
+
+pub fn validate_key_name(key: &str) -> bool {
+    REGEX_KEY_NAME.is_match(key)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::commands::set_cmd::validate_key_name;
+
+    #[test]
+    fn test_validate_key_name() {
+        let valid_keys = vec!["KEY", "NO-WORK", "KEY_NAME", "KEY_NAME_123"];
+        for valid_key in valid_keys {
+            let result = validate_key_name(valid_key);
+            println!("{}: {}", valid_key, result);
         }
     }
 }
