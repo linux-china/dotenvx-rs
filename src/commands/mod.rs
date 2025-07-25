@@ -74,7 +74,7 @@ pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_private_key_name(profile_name);
-    let dotenv_keys_file_path = find_dotenv_keys_file_path(&env::current_dir()?);
+    let dotenv_keys_file_path = find_dotenv_keys_file();
     let key_entries = if let Some(file_path) = &dotenv_keys_file_path {
         read_dotenv_file(file_path)?
     } else {
@@ -380,11 +380,17 @@ pub fn append_to_ignores(file_name: &str) {
     }
 }
 
-pub fn find_dotenv_keys_file_path(dir: &Path) -> Option<PathBuf> {
+/// Finds the `.env.keys` file in the current directory or its parent directories.
+pub fn find_dotenv_keys_file() -> Option<PathBuf> {
+    let current_dir = env::current_dir().unwrap();
+    find_dotenv_keys_file_by_path(&current_dir)
+}
+
+pub fn find_dotenv_keys_file_by_path(dir: &Path) -> Option<PathBuf> {
     if dir.join(KEYS_FILE_NAME).exists() {
         return Some(dir.join(KEYS_FILE_NAME));
     } else if let Some(parent) = dir.parent() {
-        return find_dotenv_keys_file_path(parent);
+        return find_dotenv_keys_file_by_path(parent);
     }
     None
 }
