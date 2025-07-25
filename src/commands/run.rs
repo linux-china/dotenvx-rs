@@ -19,7 +19,12 @@ pub fn run_command(
     let mut command_args: Vec<String> = command_and_args[1..].to_vec();
     command_args.iter_mut().for_each(|arg| {
         if arg.starts_with('$') {
-            if let Ok(value) = env::var(&arg[1..]) {
+            let env_var_name = if arg.starts_with("${") {
+                &arg[2..arg.len() - 1]
+            } else {
+                &arg[1..]
+            };
+            if let Ok(value) = env::var(env_var_name) {
                 *arg = value.clone();
             }
         }
