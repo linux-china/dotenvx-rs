@@ -116,13 +116,33 @@ If you don't want to shell history to record the sensitive value,
 you can use `dotenvx set <key> -` to read the value from standard input (stdin),
 and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
 
-### How to see key's difference between .env files?
+### How to check key's difference between .env files?
 
 You can use the `dotenvx diff key1,key2` command to display the difference values from .env files,
 and dotenvx will search all .env files in the current directory and compare the values of the specified keys.
 
 **Tips**: you can use `dotenvx diff --format csv key1,key2` to output the difference in CSV format,
 and use other tools to process the CSV data for further analysis.
+
+### How to use dotenvx CLI in GitHub Actions?
+
+Please add `uses: linux-china/setup-dotenvx@main` to your workflow file to set up dotenvx CLI,
+and add `DOTENV_PRIVATE_KEY` secret to the `Repository secrets`.
+
+Example workflow file to use dotenvx cli:
+
+```yaml
+jobs:
+  dotenvx-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: linux-china/setup-dotenvx@main
+      - run: npm install
+      - run: $HOME/.cargo/bin/dotenvx run -- node index.js
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+```
 
 # Credits
 
