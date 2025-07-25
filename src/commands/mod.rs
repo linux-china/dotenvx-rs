@@ -138,22 +138,25 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
     let profile_name = get_profile_name_from_file(file_name);
     let env_pub_key_name = get_public_key_name(&profile_name);
-    let header_text = format!(
-        r#"
-#/-------------------[DOTENV_PUBLIC_KEY]--------------------/
-#/            public-key encryption for .env files          /
-#/       [how it works](https://dotenvx.com/encryption)     /
-#/----------------------------------------------------------/
-{}="{}"
-
-# env variables
-{}
-"#,
-        &env_pub_key_name,
-        public_key,
-        pairs.unwrap_or("")
-    );
-    fs::write(env_file, header_text.trim_start().as_bytes()).unwrap();
+    let header_text = construct_env_file_header(&env_pub_key_name, public_key);
+    if env_file.as_ref().exists() {
+        let file_content = fs::read_to_string(&env_file).unwrap();
+        if !file_content.contains(&env_pub_key_name) {
+            let file_content = format!("{}\n{}", header_text.trim(), file_content);
+            fs::write(&env_file, file_content.as_bytes()).unwrap();
+            println!(
+                "{}",
+                format!("✔ {file_name} file created with the public key").green()
+            );
+        }
+    } else {
+        let file_content = if let Some(pairs) = pairs {
+            format!("{}\n{}", header_text.trim(), pairs)
+        } else {
+            header_text
+        };
+        fs::write(env_file, file_content.trim_start().as_bytes()).unwrap();
+    }
 }
 
 pub fn construct_env_file_header(env_pub_key_name: &str, public_key: &str) -> String {
