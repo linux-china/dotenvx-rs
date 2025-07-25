@@ -119,6 +119,9 @@ If you don't want to shell history to record the sensitive value,
 you can use `dotenvx set <key> -` to read the value from standard input (stdin),
 and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
 
+**Tips**: you can use `cat xxx.pem | dotenvx set my_private_pem -` to encrypt any text file as a key-value pair in the
+`.env` file.
+
 ### How to check key's difference between .env files?
 
 You can use the `dotenvx diff key1,key2` command to display the difference values from .env files,
