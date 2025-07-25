@@ -1,6 +1,7 @@
 use crate::common::{get_profile_name_from_env, get_profile_name_from_file};
 use base64::engine::general_purpose;
 use base64::Engine;
+use env::set_var;
 use std::env;
 use std::env::{home_dir, VarError};
 use std::io::{Cursor, ErrorKind, Read};
@@ -10,7 +11,7 @@ pub fn dotenv() -> dotenvy::Result<()> {
     // load profile env
     let profile_name = get_profile_name_from_env();
     let env_file = if let Some(name) = &profile_name {
-        format!(".env.{}", name)
+        format!(".env.{name}")
     } else {
         ".env".to_owned()
     };
@@ -21,7 +22,7 @@ pub fn dotenv_override() -> dotenvy::Result<()> {
     // load profile env
     let profile_name = get_profile_name_from_env();
     let env_file = if let Some(name) = &profile_name {
-        format!(".env.{}", name)
+        format!(".env.{name}")
     } else {
         ".env".to_owned()
     };
@@ -134,12 +135,10 @@ fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dot
             } else {
                 return Err(dotenvy::Error::EnvVar(VarError::NotPresent));
             }
+        } else if is_override {
+            dotenvy::from_filename_override(&env_file)?;
         } else {
-            if is_override {
-                dotenvy::from_filename_override(&env_file)?;
-            } else {
-                dotenvy::from_filename(env_file)?;
-            }
+            dotenvy::from_filename(env_file)?;
         }
     }
     Ok(())
@@ -150,7 +149,7 @@ fn from_read_with_dotenvx<R: Read>(reader: R, is_override: bool) -> dotenvy::Res
     reader
         .take(10 * 1024 * 1024) // Limit to 10MB to avoid excessive memory usage
         .read_to_string(&mut dotenv_content)
-        .map_err(|e| dotenvy::Error::Io(e))?;
+        .map_err(dotenvy::Error::Io)?;
     if dotenv_content.contains("=encrypted:") {
         let profile_name = get_profile_name_from_env();
         if let Ok(private_key) = get_private_key(&profile_name) {
@@ -166,12 +165,10 @@ fn from_read_with_dotenvx<R: Read>(reader: R, is_override: bool) -> dotenvy::Res
         } else {
             return Err(dotenvy::Error::EnvVar(VarError::NotPresent));
         }
+    } else if is_override {
+        dotenvy::from_read_override(Cursor::new(dotenv_content.as_bytes()))?;
     } else {
-        if is_override {
-            dotenvy::from_read_override(Cursor::new(dotenv_content.as_bytes()))?;
-        } else {
-            dotenvy::from_read(Cursor::new(dotenv_content.as_bytes()))?;
-        }
+        dotenvy::from_read(Cursor::new(dotenv_content.as_bytes()))?;
     }
     Ok(())
 }
@@ -187,7 +184,7 @@ pub fn get_private_key(
     if let Ok(private_key) = env::var(&env_key_name) {
         return Ok(private_key);
     }
-    let env_key_prefix = format!("{}=", env_key_name);
+    let env_key_prefix = format!("{env_key_name}=");
     let mut dotenv_file_path = PathBuf::from(".env.keys");
     if !dotenv_file_path.exists() {
         dotenv_file_path = home_dir().unwrap().join(".env.keys");
@@ -211,9 +208,9 @@ fn check_and_decrypt(
     private_key: &Option<String>,
     encrypted_text: String,
 ) -> dotenvy::Result<String> {
-    if encrypted_text.starts_with("encrypted:") {
+    if let Some(tripped_value) = encrypted_text.strip_prefix("encrypted:") {
         if let Some(private_key) = private_key {
-            decrypt_dotenvx_item(private_key, &encrypted_text[10..])
+            decrypt_dotenvx_item(private_key, tripped_value)
         } else {
             Err(dotenvy::Error::EnvVar(VarError::NotPresent))
         }
@@ -223,10 +220,8 @@ fn check_and_decrypt(
 }
 
 fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Result<String> {
-    let encrypted_bytes = if encrypted_text.starts_with("encrypted:") {
-        general_purpose::STANDARD
-            .decode(&encrypted_text[10..])
-            .unwrap()
+    let encrypted_bytes = if let Some(stripped_value) = encrypted_text.strip_prefix("encrypted:") {
+        general_purpose::STANDARD.decode(stripped_value).unwrap()
     } else {
         general_purpose::STANDARD.decode(encrypted_text).unwrap()
     };
@@ -238,9 +233,9 @@ fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Res
 fn set_env_var(key: &str, env_value: String, is_override: bool) {
     unsafe {
         if is_override {
-            env::set_var(&key, env_value);
-        } else if env::var(&key).is_err() {
-            env::set_var(&key, env_value);
+            set_var(key, env_value);
+        } else if env::var(key).is_err() {
+            set_var(key, env_value);
         }
     }
 }
@@ -251,12 +246,21 @@ mod tests {
     use std::fs;
 
     #[test]
+    fn test_load() {
+        unsafe {
+            set_var("HELLO", "Jackie");
+        }
+        dotenv_override().unwrap();
+        assert_eq!(env::var("HELLO").unwrap(), "World");
+    }
+
+    #[test]
     fn test_ecies_decrypt() {
         let encrypted_text = "encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7";
         let private_key = get_private_key(&None).unwrap();
-        println!("private_key: {}", private_key);
+        println!("private_key: {private_key}");
         let text = decrypt_dotenvx_item(&private_key, encrypted_text).unwrap();
-        println!("{}", text);
+        println!("{text}");
     }
 
     #[test]
@@ -273,7 +277,7 @@ mod tests {
         let dotenv_content = fs::read_to_string(".env").unwrap();
         let reader = Cursor::new(dotenv_content.as_bytes());
         for (key, value) in from_read_iter(reader).unwrap() {
-            println!("{}: {}", key, value);
+            println!("{key}: {value}");
         }
         // Assuming the private key is set correctly in the environment
         // The decryption will depend on the actual private key used
