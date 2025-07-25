@@ -14,9 +14,29 @@ pub fn run_command(
         return 1;
     }
     let env_file = get_env_file_arg(command_matches, profile);
-    dotenvx::from_path(&env_file).unwrap();
     let command_name = &command_and_args[0];
     let mut command_args: Vec<String> = command_and_args[1..].to_vec();
+    run_command_with_dotenvx(command_name, &mut command_args, &env_file)
+}
+
+pub fn run_command_line(global_matches: &ArgMatches, profile: &Option<String>) -> i32 {
+    let command_line = global_matches.get_one::<String>("command").unwrap();
+    let command_and_args = shlex::split(command_line).unwrap();
+    let command_name = &command_and_args[0];
+    let mut command_args: Vec<String> = command_and_args[1..].to_vec();
+    let env_file = if let Some(profile_name) = profile {
+        format!(".env.{}", profile_name)
+    } else {
+        ".env".to_string()
+    };
+    run_command_with_dotenvx(command_name, &mut command_args, &env_file)
+}
+fn run_command_with_dotenvx(
+    command_name: &str,
+    command_args: &mut [String],
+    env_file: &str,
+) -> i32 {
+    dotenvx::from_path(&env_file).unwrap();
     command_args.iter_mut().for_each(|arg| {
         if arg.starts_with('$') {
             let env_var_name = if arg.starts_with("${") {
