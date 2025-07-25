@@ -124,7 +124,7 @@ and dotenvx will search all .env files in the current directory and compare the 
 **Tips**: you can use `dotenvx diff --format csv key1,key2` to output the difference in CSV format,
 and use other tools to process the CSV data for further analysis.
 
-# References
+# Credits
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
 * [ecies-rs](https://github.com/ecies/rs): Elliptic Curve Integrated Encryption Scheme for secp256k1/curve25519 in Rust
