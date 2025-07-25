@@ -1,13 +1,13 @@
 use crate::commands::{
-    get_env_file_arg, get_private_key, get_private_key_name, get_public_key, get_public_key_name,
-    write_private_key_to_file, write_public_key_to_file, EcKeyPair, KEYS_FILE_NAME,
+    find_dotenv_keys_file, get_env_file_arg, get_private_key, get_private_key_name, get_public_key,
+    get_public_key_name, write_private_key_to_file, write_public_key_to_file, EcKeyPair,
+    KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
 use dotenvx_rs::common::get_profile_name_from_file;
 use std::env;
-use std::path::Path;
 
 pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
@@ -19,7 +19,8 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let profile_name = get_profile_name_from_file(&env_file);
     let env_private_key_name = get_private_key_name(&profile_name);
     let env_pub_key_name = get_public_key_name(&profile_name);
-    if env::var(&env_private_key_name).is_err() && !Path::new(KEYS_FILE_NAME).exists() {
+    let keys_file_path = find_dotenv_keys_file();
+    if env::var(&env_private_key_name).is_err() && keys_file_path.is_none() {
         if format == "shell" {
             println!("{env_pub_key_name}=\n{env_private_key_name}=");
         } else {
