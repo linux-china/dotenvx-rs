@@ -109,6 +109,9 @@ You can use the `dotenvx decrypt --export` command to decrypt the dotenv file an
 - `eval $(dotenvx decrypt --export)` command will decrypt dotenv file and export the variables to the current shell.
 - `eval $(dotenvx get key --format shell)` command will export key's value from .env as environment variable.
 
+**Tips**: if you use [direnv](https://direnv.net/), and you can add `eval $(dotenvx decrypt --export)` to the `.envrc`
+file to automatically load .env as the environment variables when you enter the directory.
+
 ### How to add encrypted key-value pair from CLI?
 
 You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to the `.env` file.
@@ -144,7 +147,8 @@ jobs:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
 ```
 
-If you use [act](https://github.com/nektos/act) for local GitHub Actions test, please use `act -j dotenvx-demo --secret-file .env.keys`.
+If you use [act](https://github.com/nektos/act) for local GitHub Actions test, please use
+`act -j dotenvx-demo --secret-file .env.keys`.
 
 # Credits
 
