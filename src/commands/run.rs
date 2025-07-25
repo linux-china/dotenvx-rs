@@ -9,7 +9,7 @@ pub fn run_command(
     command_matches: &ArgMatches,
     profile: &Option<String>,
 ) -> i32 {
-    if command_and_args.len() == 0 {
+    if command_and_args.is_empty() {
         eprintln!("Please supply command to run");
         return 1;
     }
@@ -25,7 +25,7 @@ pub fn run_command_line(global_matches: &ArgMatches, profile: &Option<String>) -
     let command_name = &command_and_args[0];
     let mut command_args: Vec<String> = command_and_args[1..].to_vec();
     let env_file = if let Some(profile_name) = profile {
-        format!(".env.{}", profile_name)
+        format!(".env.{profile_name}")
     } else {
         ".env".to_string()
     };
@@ -36,7 +36,7 @@ fn run_command_with_dotenvx(
     command_args: &mut [String],
     env_file: &str,
 ) -> i32 {
-    dotenvx::from_path(&env_file).unwrap();
+    dotenvx::from_path(env_file).unwrap();
     command_args.iter_mut().for_each(|arg| {
         if arg.starts_with('$') {
             let env_var_name = if arg.starts_with("${") {
@@ -49,7 +49,7 @@ fn run_command_with_dotenvx(
             }
         }
     });
-    let mut command = construct_command(command_name, &command_args);
+    let mut command = construct_command(command_name, command_args);
     let mut child = command
         .spawn()
         .expect("DOTENV-CMD-500: failed to run command");
