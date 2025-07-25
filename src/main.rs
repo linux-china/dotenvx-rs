@@ -7,7 +7,7 @@ use crate::commands::init::init_command;
 use crate::commands::keypair::keypair_command;
 use crate::commands::list::ls_command;
 use crate::commands::rotate::rotate_command;
-use crate::commands::run::run_command;
+use crate::commands::run::{run_command, run_command_line};
 use crate::commands::set_cmd::set_command;
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
@@ -37,6 +37,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let matches = app.get_matches();
     let profile = get_profile(&matches);
+    // check -c and run the command
+    if matches.get_one::<String>("command").is_some() {
+        let exit_code = run_command_line(&matches, &profile);
+        std::process::exit(exit_code);
+    }
     if let Some((command, command_matches)) = matches.subcommand() {
         match command {
             "init" => init_command(command_matches, &profile),
