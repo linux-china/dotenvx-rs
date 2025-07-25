@@ -19,7 +19,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
     let env_file_exists = Path::new(&env_file).exists();
     if env_file_exists {
-        eprintln!("The .env file already exists: {}", env_file);
+        eprintln!("The .env file already exists: {env_file}");
         return;
     }
     let kp = EcKeyPair::generate();
@@ -28,7 +28,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     create_env_file(&env_file, &public_key, Some(&pair));
     println!(
         "{}",
-        format!("Initialized new .env file with name: {}", env_file).green()
+        format!("Initialized new .env file with name: {env_file}").green()
     );
     let private_key_name = get_private_key_name_for_file(&env_file);
     write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &kp.get_sk_hex()).unwrap();
@@ -38,8 +38,8 @@ fn generate_kp_and_export() {
     let kp = EcKeyPair::generate();
     let public_key = kp.get_pk_hex();
     let private_key = kp.get_sk_hex();
-    println!("export DOTENV_PUBLIC_KEY={}", public_key);
-    println!("export DOTENV_PRIVATE_KEY={}", private_key);
+    println!("export DOTENV_PUBLIC_KEY={public_key}");
+    println!("export DOTENV_PRIVATE_KEY={private_key}");
 }
 
 fn create_global_env_keys() {
@@ -56,7 +56,7 @@ fn create_global_env_keys() {
         {
             let kp = EcKeyPair::generate();
             let private_key = kp.get_sk_hex();
-            lines.push(format!("DOTENV_PRIVATE_KEY=\"{}\"", private_key));
+            lines.push(format!("DOTENV_PRIVATE_KEY=\"{private_key}\""));
         }
         // private keys for each profile
         for profile in profiles {
@@ -76,9 +76,8 @@ fn create_global_env_keys() {
 #/     [how it works](https://dotenvx.com/encryption)       /
 #/----------------------------------------------------------/
 
-{}
-"#,
-            private_keys
+{private_keys}
+"#
         );
         fs::write(&keys_file_path, file_content.trim_start().as_bytes()).unwrap();
         println!(
