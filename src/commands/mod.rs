@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 pub mod decrypt;
+pub mod diff;
 pub mod encrypt;
 pub mod get_cmd;
 pub mod init;
@@ -16,7 +17,6 @@ pub mod list;
 pub mod rotate;
 pub mod run;
 pub mod set_cmd;
-pub mod diff;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
@@ -59,10 +59,8 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
     path: P,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut entries: HashMap<String, String> = HashMap::new();
-    for item in dotenvy::from_filename_iter(path)? {
-        if let Ok((key, value)) = item {
-            entries.insert(key.clone(), value.clone());
-        }
+    for (key, value) in (dotenvy::from_filename_iter(path)?).flatten() {
+        entries.insert(key.clone(), value.clone());
     }
     Ok(entries)
 }
@@ -111,7 +109,7 @@ pub fn get_public_key_for_file(env_file: &str) -> Result<String, Box<dyn std::er
 pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_public_key_name(profile_name);
     let env_file_name = if let Some(name) = profile_name {
-        format!(".env.{}", name)
+        format!(".env.{name}")
     } else {
         ".env".to_string()
     };
@@ -183,7 +181,7 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
         fs::write(&env_file, header_text.trim_start().as_bytes())?;
         println!(
             "{}",
-            format!("✔ {} file created with the public key", file_name).green()
+            format!("✔ {file_name} file created with the public key").green()
         );
         return Ok(());
     } else {
@@ -191,13 +189,13 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
         if !env_file_content.contains(&env_pub_key_name) {
             let file_content = format!("{}\n{}", header_text.trim(), env_file_content);
             fs::write(&env_file, file_content.as_bytes())?;
-            println!("{}", format!("✔ public key added in {}", file_name).green());
+            println!("{}", format!("✔ public key added in {file_name}").green());
         } else if !env_file_content.contains(public_key) {
             // update existing public key
             let mut new_content = String::new();
             for line in env_file_content.lines() {
                 if line.starts_with(&env_pub_key_name) {
-                    new_content.push_str(&format!("{}=\"{}\"\n", env_pub_key_name, public_key));
+                    new_content.push_str(&format!("{env_pub_key_name}=\"{public_key}\"\n"));
                 } else {
                     new_content.push_str(line);
                     new_content.push('\n');
@@ -206,20 +204,13 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
             fs::write(&env_file, new_content.as_bytes())?;
             println!(
                 "{}",
-                format!(
-                    "✔ public key({}...) updated in {}",
-                    public_key_short, file_name
-                )
-                .green()
+                format!("✔ public key({public_key_short}...) updated in {file_name}").green()
             );
         } else {
             println!(
                 "{}",
-                format!(
-                    "✔ public key({}...) already exists in {}",
-                    public_key_short, file_name
-                )
-                .green()
+                format!("✔ public key({public_key_short}...) already exists in {file_name}")
+                    .green()
             );
         }
     }
@@ -247,19 +238,15 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
 #/     [how it works](https://dotenvx.com/encryption)       /
 #/----------------------------------------------------------/
 
-{}="{}"
-"#,
-            private_key_name, private_key_value
+{private_key_name}="{private_key_value}"
+"#
         );
         fs::write(&env_keys_file, file_content.trim_start().as_bytes())?;
 
         println!(
             "{}",
-            format!(
-                "✔ {} file created with the private key({}...)",
-                file_name, private_key_short
-            )
-            .green()
+            format!("✔ {file_name} file created with the private key({private_key_short}...)")
+                .green()
         );
         append_to_ignores(KEYS_FILE_NAME);
     } else {
@@ -275,19 +262,14 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             fs::write(&env_keys_file, new_content.as_bytes())?;
             println!(
                 "{}",
-                format!(
-                    "✔ private key({}...) added in {}",
-                    file_name, private_key_short
-                )
-                .green()
+                format!("✔ private key({private_key_short}...) added in {file_name}").green()
             );
         } else if !env_keys_content.contains(private_key_value) {
             // update existing private key
             let mut new_content = String::new();
             for line in env_keys_content.lines() {
-                if line.starts_with(&format!("{}=", private_key_name)) {
-                    new_content
-                        .push_str(&format!("{}=\"{}\"\n", private_key_name, private_key_value));
+                if line.starts_with(&format!("{private_key_name}=")) {
+                    new_content.push_str(&format!("{private_key_name}=\"{private_key_value}\"\n"));
                 } else {
                     new_content.push_str(line);
                     new_content.push('\n');
@@ -296,20 +278,13 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             fs::write(&env_keys_file, new_content.as_bytes())?;
             println!(
                 "{}",
-                format!(
-                    "✔ private key({}...) updated in {}",
-                    private_key_short, file_name
-                )
-                .green()
+                format!("✔ private key({private_key_short}...) updated in {file_name}").green()
             );
         } else {
             println!(
                 "{}",
-                format!(
-                    "✔ private key({}...) already exists in {}",
-                    private_key_short, file_name
-                )
-                .green()
+                format!("✔ private key({private_key_short}...) already exists in {file_name}")
+                    .green()
             );
         }
     }
@@ -320,7 +295,7 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
     if let Some(arg_value) = command_matches.get_one::<String>("env-file") {
         arg_value.clone()
     } else if let Some(profile_name) = profile {
-        format!(".env.{}", profile_name)
+        format!(".env.{profile_name}")
     } else {
         ".env".to_string()
     }
@@ -373,7 +348,7 @@ pub fn wrap_shell_value(value: &str) -> String {
         double_quote_required = true;
     }
     if double_quote_required {
-        wrapped_value = format!("\"{}\"", wrapped_value);
+        wrapped_value = format!("\"{wrapped_value}\"");
     }
     wrapped_value
 }
@@ -381,24 +356,24 @@ pub fn wrap_shell_value(value: &str) -> String {
 pub fn append_to_ignores(file_name: &str) {
     // git repository but no .gitignore file
     if Path::new(".git").exists() && !Path::new(".gitignore").exists() {
-        fs::write(".gitignore", format!("{}\n", file_name)).unwrap();
+        fs::write(".gitignore", format!("{file_name}\n")).unwrap();
     }
     let ignore_files = [".gitignore", ".dockerignore", ".aiignore"];
     for ignore_file in &ignore_files {
         let path = PathBuf::from(ignore_file);
         if path.exists() {
             let mut content = fs::read_to_string(&path).unwrap_or_default();
-            if !content.contains(format!("{}\n", file_name).as_str()) {
-                content.push_str(&format!("\n{}", file_name));
+            if !content.contains(format!("{file_name}\n").as_str()) {
+                content.push_str(&format!("\n{file_name}"));
                 fs::write(&path, content).expect("Failed to write to ignore file");
                 println!(
                     "{}",
-                    format!("✔ {} added to {}", file_name, ignore_file).green()
+                    format!("✔ {file_name} added to {ignore_file}").green()
                 );
             } else {
                 println!(
                     "{}",
-                    format!("✔ {} already exists in {}", file_name, ignore_file).green()
+                    format!("✔ {file_name} already exists in {ignore_file}").green()
                 );
             }
         }
