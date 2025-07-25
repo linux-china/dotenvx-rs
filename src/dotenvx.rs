@@ -232,9 +232,7 @@ fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Res
 
 fn set_env_var(key: &str, env_value: String, is_override: bool) {
     unsafe {
-        if is_override {
-            set_var(key, env_value);
-        } else if env::var(key).is_err() {
+        if is_override || env::var(key).is_err() {
             set_var(key, env_value);
         }
     }
