@@ -144,6 +144,8 @@ jobs:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
 ```
 
+If you use act for local GitHub Actions test, please use `act -j dotenvx-demo --secret-file .env.keys`.
+
 # Credits
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
