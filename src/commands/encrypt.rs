@@ -1,4 +1,7 @@
-use crate::commands::{get_env_file_arg, get_public_key_for_file, write_public_key_to_file};
+use crate::commands::{
+    construct_env_file_header, get_env_file_arg, get_public_key_for_file, get_public_key_name,
+    write_public_key_to_file,
+};
 use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
@@ -52,7 +55,14 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if !is_changed {
         println!("{}", format!("✔ no changes ({env_file})").green());
     } else {
-        let new_file_content = new_lines.join("\n");
+        let new_file_content = if file_content.contains("DOTENV_PUBLIC_KEY") {
+            new_lines.join("\n")
+        } else {
+            // append public key to .env file if it does not exist
+            let public_key_name = get_public_key_name(profile);
+            let public_key = get_public_key_for_file(&env_file).unwrap();
+            construct_env_file_header(&public_key_name, &public_key) + &new_lines.join("\n")
+        };
         fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
         println!("{}", format!("✔ encrypted ({env_file})").green());
     }
