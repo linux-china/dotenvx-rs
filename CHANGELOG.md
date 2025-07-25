@@ -2,6 +2,14 @@
 
 # Task Keeper Changelog
 
+## [0.2.2] - 2025-07-25
+
+### Added
+
+- Add `dotenvx decrypt <value>` to decrypt the encrypted value and output it to stdout
+- Add `dotenvx -c 'command'` to run command with injected environment variables, compatible with shell style.
+- Docs: add direnv integration
+
 ## [0.2.1] - 2025-07-24
 
 ### Added
