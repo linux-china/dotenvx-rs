@@ -21,7 +21,7 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_pub_key_name = get_public_key_name(&profile_name);
     if env::var(&env_private_key_name).is_err() && !Path::new(KEYS_FILE_NAME).exists() {
         if format == "shell" {
-            println!("{}=\n{}=", env_pub_key_name, env_private_key_name);
+            println!("{env_pub_key_name}=\n{env_private_key_name}=");
         } else {
             let body = serde_json::json!({
                 env_pub_key_name: "".to_string(),
@@ -40,8 +40,8 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
             let reversed_pk_hex = kp.get_pk_hex();
             if &reversed_pk_hex != public_key_hex {
                 eprintln!("{}", "The public key does not match the private key:".red());
-                eprintln!("{}={}", env_pub_key_name, public_key_hex);
-                eprintln!("{}={}", env_private_key_name, private_key_hex);
+                eprintln!("{env_pub_key_name}={public_key_hex}");
+                eprintln!("{env_private_key_name}={private_key_hex}");
                 std::process::exit(1);
             }
         }
