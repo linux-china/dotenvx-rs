@@ -9,8 +9,8 @@ fn test_generate_key_pair() {
     let pk_hex = hex::encode(pk_bytes);
     let sk_bytes = &sk.serialize();
     let sk_hex = hex::encode(sk_bytes);
-    println!("private: {}", sk_hex);
-    println!("public: {}", pk_hex);
+    println!("private: {sk_hex}");
+    println!("public: {pk_hex}");
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn test_encrypt() {
     let decrypted_byte = decrypt(sk_bytes, &encrypted_bytes).unwrap();
     // convert decrypted bytes to string
     let decrypted_msg = String::from_utf8(decrypted_byte).unwrap();
-    println!("{}", decrypted_msg);
+    println!("{decrypted_msg}");
 }
 
 #[test]
@@ -34,5 +34,5 @@ fn test_parse_private_key() {
     let pk = PublicKey::from_secret_key(&sk);
     let pk_bytes = &pk.serialize_compressed();
     let pk_hex = hex::encode(pk_bytes);
-    println!("public key: {}", pk_hex);
+    println!("public key: {pk_hex}");
 }
