@@ -122,6 +122,12 @@ pub fn build_dotenvx_app() -> Command {
                 .long("export")
                 .help("Output the key-value pairs as shell export commands")
                 .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("value")
+                .help("Decrypt the encrypted value. If different environment, please use `dotnenvx -p <profile> decrypt`")
+                .index(1)
+                .required(false),
         );
     let keypair_command = Command::new("keypair")
         .about("Validate and print public/private keys for .env file in current directory")
