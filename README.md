@@ -128,3 +128,5 @@ and use other tools to process the CSV data for further analysis.
 
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
 * [ecies-rs](https://github.com/ecies/rs): Elliptic Curve Integrated Encryption Scheme for secp256k1/curve25519 in Rust
+* [dotenvy](https://github.com/allan2/dotenvy): a well-maintained fork of the dotenv crate
+
