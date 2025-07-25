@@ -3,10 +3,15 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
 use colored::Colorize;
+use dotenvx_rs::dotenvx::get_private_key;
 use std::collections::HashMap;
 use std::fs;
 
 pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
+    if let Some(arg_value) = command_matches.get_one::<String>("value") {
+        decrypt_value(profile, arg_value);
+        return;
+    }
     let env_file = get_env_file_arg(command_matches, profile);
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
@@ -90,6 +95,23 @@ pub fn decrypt_env_item(
     let sk = hex::decode(private_key).unwrap();
     let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();
     Ok(String::from_utf8(decrypted_bytes)?)
+}
+
+pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
+    if let Ok(private_key) = get_private_key(profile) {
+        if let Ok(plain_text) = decrypt_env_item(&private_key, encrypted_value) {
+            println!("{}", plain_text);
+        } else {
+            eprintln!(
+                "{}",
+                "Failed to decrypt the value, please check the private key and profile.".red()
+            );
+        }
+    } else {
+        eprintln!("{}",
+        "Private key not found, please check the DOTENV_PRIVATE_KEY environment variable or '.env.key' file.".red()
+        );
+    }
 }
 #[cfg(test)]
 mod tests {
