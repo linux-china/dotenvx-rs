@@ -43,6 +43,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         value = input.trim_end().to_string();
     }
     let env_file_exists = Path::new(&env_file).exists();
+    // encrypt the value or not based on the existing .env file content
     let mut encrypt_mode = true;
     let mut env_file_content = String::new();
     if env_file_exists {
@@ -50,6 +51,13 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
             env_file_content = file_content;
         }
         encrypt_mode = env_file_content.contains("=encrypted:");
+    }
+    // if encrypt or plain arg is provided, we override the encrypt_mode
+    if command_matches.get_flag("plain") {
+        encrypt_mode = false;
+    }
+    if command_matches.get_flag("encrypt") {
+        encrypt_mode = true;
     }
     let public_key = get_public_key_for_file(&env_file).unwrap();
     let pair = if encrypt_mode {
