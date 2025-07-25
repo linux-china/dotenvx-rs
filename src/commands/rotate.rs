@@ -20,7 +20,7 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 let key = line.split('=').next().unwrap().trim();
                 if let Some(value) = entries.get(key) {
                     let new_value = wrap_shell_value(value);
-                    plain_lines.push(format!("{}={}", key, new_value));
+                    plain_lines.push(format!("{key}={new_value}"));
                 }
             } else {
                 plain_lines.push(line.to_string());
@@ -59,7 +59,7 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
                     // key-value pairs
                     let key = line.split('=').next().unwrap().trim();
                     if let Some(value) = entries.get(key) {
-                        new_lines.push(format!("{}={}", key, value));
+                        new_lines.push(format!("{key}={value}"));
                     }
                 }
             }
@@ -67,7 +67,6 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
             fs::write(&env_file, new_file_content.as_bytes()).unwrap();
         }
     } else {
-        eprintln!("The specified .env file does not exist: {}", env_file);
-        return;
+        eprintln!("The specified .env file does not exist: {env_file}");
     }
 }
