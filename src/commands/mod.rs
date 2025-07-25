@@ -156,15 +156,8 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
     fs::write(env_file, header_text.trim_start().as_bytes()).unwrap();
 }
 
-pub fn write_public_key_to_file<P: AsRef<Path>>(
-    env_file: P,
-    public_key: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let public_key_short = public_key.chars().take(8).collect::<String>();
-    let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
-    let profile_name = get_profile_name_from_file(file_name);
-    let env_pub_key_name = get_public_key_name(&profile_name);
-    let header_text = format!(
+pub fn construct_env_file_header(env_pub_key_name: &str, public_key: &str) -> String {
+    format!(
         r#"
 #/-------------------[DOTENV_PUBLIC_KEY]--------------------/
 #/            public-key encryption for .env files          /
@@ -175,7 +168,18 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
 # env variables
 "#,
         &env_pub_key_name, public_key
-    );
+    )
+}
+
+pub fn write_public_key_to_file<P: AsRef<Path>>(
+    env_file: P,
+    public_key: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let public_key_short = public_key.chars().take(8).collect::<String>();
+    let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
+    let profile_name = get_profile_name_from_file(file_name);
+    let env_pub_key_name = get_public_key_name(&profile_name);
+    let header_text = construct_env_file_header(&env_pub_key_name, public_key);
     // file does not exist, and we create it
     if !env_file.as_ref().exists() {
         fs::write(&env_file, header_text.trim_start().as_bytes())?;
