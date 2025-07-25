@@ -25,8 +25,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let key = key_arg.unwrap().replace('-', "_").to_uppercase();
     if !validate_key_name(&key) {
         eprintln!(
-            "Invalid key name: '{}'. Key names must start with a letter or underscore and can only contain letters, numbers, and underscores.",
-            key
+            "Invalid key name: '{key}'. Key names must start with a letter or underscore and can only contain letters, numbers, and underscores."
         );
         return;
     }
@@ -55,43 +54,41 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let public_key = get_public_key_for_file(&env_file).unwrap();
     let pair = if encrypt_mode {
         let encrypted_value = encrypt_env_item(&public_key, &value).unwrap();
-        format!("{}={}", key, encrypted_value)
+        format!("{key}={encrypted_value}")
     } else {
         format!("{}={}", key, wrap_shell_value(&value))
     };
     if command_matches.get_flag("stdout") {
-        println!("export {}", pair);
+        println!("export {pair}");
         return;
     }
     if !env_file_exists {
         create_env_file(&env_file, &public_key, Some(&pair));
-        println!("Added {} to {}", key, env_file);
+        println!("Added {key} to {env_file}");
+    } else if env_file_content.contains(&format!("{key}=")) {
+        // Update existing key
+        let new_content = env_file_content
+            .lines()
+            .map(|line| {
+                if line.starts_with(&key) {
+                    pair.clone()
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        fs::write(&env_file, new_content).expect("Failed to write to the .env file");
+        println!("Updated {key} in {env_file}");
     } else {
-        if env_file_content.contains(&format!("{}=", key)) {
-            // Update existing key
-            let new_content = env_file_content
-                .lines()
-                .map(|line| {
-                    if line.starts_with(&key) {
-                        pair.clone()
-                    } else {
-                        line.to_string()
-                    }
-                })
-                .collect::<Vec<String>>()
-                .join("\n");
-            fs::write(&env_file, new_content).expect("Failed to write to the .env file");
-            println!("Updated {} in {}", key, env_file);
-        } else {
-            // Add new key
-            let mut new_content = env_file_content;
-            if !new_content.is_empty() && !new_content.ends_with('\n') {
-                new_content.push('\n');
-            }
-            new_content.push_str(&pair);
-            fs::write(&env_file, new_content).expect("Failed to write to the .env file");
-            println!("Added {} to {}", key, env_file);
+        // Add new key
+        let mut new_content = env_file_content;
+        if !new_content.is_empty() && !new_content.ends_with('\n') {
+            new_content.push('\n');
         }
+        new_content.push_str(&pair);
+        fs::write(&env_file, new_content).expect("Failed to write to the .env file");
+        println!("Added {key} to {env_file}");
     }
 }
 
@@ -108,7 +105,7 @@ mod tests {
         let valid_keys = vec!["KEY", "NO-WORK", "KEY_NAME", "KEY_NAME_123"];
         for valid_key in valid_keys {
             let result = validate_key_name(valid_key);
-            println!("{}: {}", valid_key, result);
+            println!("{valid_key}: {result}");
         }
     }
 }
