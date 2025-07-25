@@ -17,10 +17,14 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if let Some(key_name) = key_arg {
         let key_name = &key_name.to_uppercase();
         let private_key = get_private_key_for_file(&env_file).unwrap();
-        // get the value from the command line arguments if provided
+        // get the decrypted value from the command line arguments if provided
         if let Some(value) = command_matches.get_one::<String>("value") {
             let plain_value = decrypt_env_item(&private_key, value).unwrap_or(value.clone());
-            println!("export {}:{}", key_name, wrap_shell_value(&plain_value));
+            if format == "shell" {
+                println!("export {}={}", key_name, wrap_shell_value(&plain_value));
+            } else {
+                println!("{}", plain_value);
+            }
             return;
         }
         if let Ok(entries) = read_dotenv_file(&env_file) {
@@ -32,9 +36,11 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 };
                 if format == "shell" {
                     println!("export {}={}", key_name, wrap_shell_value(&plain_value));
-                } else {
+                } else if format == "json" {
                     let body = serde_json::json!({key_name: plain_value});
                     println!("{}", to_colored_json_auto(&body).unwrap());
+                } else {
+                    println!("{}", plain_value);
                 }
             } else {
                 eprintln!("Key '{}' not found in {}", key_name, env_file);
