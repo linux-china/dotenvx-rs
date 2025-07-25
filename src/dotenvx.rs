@@ -28,12 +28,37 @@ pub fn dotenv_override() -> dotenvy::Result<()> {
     from_path_with_dotenvx(&env_file, true)
 }
 
+pub fn dotenv_iter<P: AsRef<Path>>() -> dotenvy::Result<Vec<(String, String)>> {
+    let profile_name: Option<String> = None;
+    let private_key = get_private_key(&profile_name).ok();
+    let mut items: Vec<(String, String)> = vec![];
+    for x in dotenvy::dotenv_iter()? {
+        let (key, value) = x?;
+        let plain_value = check_and_decrypt(&private_key, value)?;
+        items.push((key, plain_value));
+    }
+    Ok(items)
+}
+
 pub fn from_path<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<()> {
     from_path_with_dotenvx(&env_file, false)
 }
 
 pub fn from_path_override<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<()> {
     from_path_with_dotenvx(&env_file, true)
+}
+
+pub fn from_path_iter<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<Vec<(String, String)>> {
+    let env_file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
+    let profile_name = get_profile_name_from_file(env_file_name);
+    let private_key = get_private_key(&profile_name).ok();
+    let mut items: Vec<(String, String)> = vec![];
+    for x in dotenvy::from_path_iter(env_file)? {
+        let (key, value) = x?;
+        let plain_value = check_and_decrypt(&private_key, value)?;
+        items.push((key, plain_value));
+    }
+    Ok(items)
 }
 
 pub fn from_filename<P: AsRef<Path>>(filename: P) -> dotenvy::Result<PathBuf> {
@@ -58,12 +83,36 @@ pub fn from_filename_override<P: AsRef<Path>>(filename: P) -> dotenvy::Result<Pa
     Ok(path)
 }
 
+pub fn from_filename_iter<P: AsRef<Path>>(filename: P) -> dotenvy::Result<Vec<(String, String)>> {
+    let mut items: Vec<(String, String)> = vec![];
+    let env_file_name = filename.as_ref().file_name().unwrap().to_str().unwrap();
+    let profile_name = get_profile_name_from_file(env_file_name);
+    let private_key = get_private_key(&profile_name).ok();
+    for x in dotenvy::from_filename_iter(filename)? {
+        let (key, value) = x?;
+        let plain_value = check_and_decrypt(&private_key, value)?;
+        items.push((key, plain_value));
+    }
+    Ok(items)
+}
+
 pub fn from_read<R: Read>(reader: R) -> dotenvy::Result<()> {
     from_read_with_dotenvx(reader, false)
 }
 
 pub fn from_read_override<R: Read>(reader: R) -> dotenvy::Result<()> {
     from_read_with_dotenvx(reader, true)
+}
+
+pub fn from_read_iter<R: Read>(reader: R) -> dotenvy::Result<Vec<(String, String)>> {
+    let mut items: Vec<(String, String)> = vec![];
+    let private_key = get_private_key(&get_profile_name_from_env()).ok();
+    for x in dotenvy::from_read_iter(reader) {
+        let (key, value) = x?;
+        let plain_value = check_and_decrypt(&private_key, value)?;
+        items.push((key, plain_value));
+    }
+    Ok(items)
 }
 
 fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dotenvy::Result<()> {
@@ -76,17 +125,11 @@ fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dot
                 for item in dotenvy::from_filename_iter(&env_file)? {
                     let (key, value) = item?;
                     let env_value = if value.starts_with("encrypted:") {
-                        decrypt_env_item(&private_key, &value).unwrap()
+                        decrypt_dotenvx_item(&private_key, &value)?
                     } else {
                         value
                     };
-                    unsafe {
-                        if is_override {
-                            env::set_var(&key, env_value);
-                        } else if env::var(&key).is_err() {
-                            env::set_var(&key, env_value);
-                        }
-                    }
+                    set_env_var(&key, env_value, is_override);
                 }
             } else {
                 return Err(dotenvy::Error::EnvVar(VarError::NotPresent));
@@ -114,17 +157,11 @@ fn from_read_with_dotenvx<R: Read>(reader: R, is_override: bool) -> dotenvy::Res
             for item in dotenvy::from_read_iter(Cursor::new(dotenv_content.as_bytes())) {
                 let (key, value) = item?;
                 let env_value = if value.starts_with("encrypted:") {
-                    decrypt_env_item(&private_key, &value).unwrap()
+                    decrypt_dotenvx_item(&private_key, &value)?
                 } else {
                     value
                 };
-                unsafe {
-                    if is_override {
-                        env::set_var(&key, env_value);
-                    } else if env::var(&key).is_err() {
-                        env::set_var(&key, env_value);
-                    }
-                }
+                set_env_var(&key, env_value, is_override);
             }
         } else {
             return Err(dotenvy::Error::EnvVar(VarError::NotPresent));
@@ -169,10 +206,23 @@ pub fn get_private_key(
     Err("Private key not found".into())
 }
 
-fn decrypt_env_item(
-    private_key: &str,
-    encrypted_text: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+// if the encrypted text starts with "encrypted:", it will decrypt it
+fn check_and_decrypt(
+    private_key: &Option<String>,
+    encrypted_text: String,
+) -> dotenvy::Result<String> {
+    if encrypted_text.starts_with("encrypted:") {
+        if let Some(private_key) = private_key {
+            decrypt_dotenvx_item(private_key, &encrypted_text[10..])
+        } else {
+            Err(dotenvy::Error::EnvVar(VarError::NotPresent))
+        }
+    } else {
+        Ok(encrypted_text)
+    }
+}
+
+fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Result<String> {
     let encrypted_bytes = if encrypted_text.starts_with("encrypted:") {
         general_purpose::STANDARD
             .decode(&encrypted_text[10..])
@@ -182,7 +232,17 @@ fn decrypt_env_item(
     };
     let sk = hex::decode(private_key).unwrap();
     let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();
-    Ok(String::from_utf8(decrypted_bytes)?)
+    Ok(String::from_utf8(decrypted_bytes).unwrap())
+}
+
+fn set_env_var(key: &str, env_value: String, is_override: bool) {
+    unsafe {
+        if is_override {
+            env::set_var(&key, env_value);
+        } else if env::var(&key).is_err() {
+            env::set_var(&key, env_value);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -195,7 +255,7 @@ mod tests {
         let encrypted_text = "encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7";
         let private_key = get_private_key(&None).unwrap();
         println!("private_key: {}", private_key);
-        let text = decrypt_env_item(&private_key, encrypted_text).unwrap();
+        let text = decrypt_dotenvx_item(&private_key, encrypted_text).unwrap();
         println!("{}", text);
     }
 
@@ -203,8 +263,18 @@ mod tests {
     fn test_load_from_reader() {
         let dotenv_content = fs::read_to_string(".env").unwrap();
         let reader = Cursor::new(dotenv_content.as_bytes());
-        from_read_with_dotenvx(reader, false).unwrap();
+        from_read(reader).unwrap();
         assert_eq!(env::var("HELLO").unwrap(), "World");
+        // Assuming the private key is set correctly in the environment
+        // The decryption will depend on the actual private key used
+    }
+    #[test]
+    fn test_load_from_reader_iterator() {
+        let dotenv_content = fs::read_to_string(".env").unwrap();
+        let reader = Cursor::new(dotenv_content.as_bytes());
+        for (key, value) in from_read_iter(reader).unwrap() {
+            println!("{}: {}", key, value);
+        }
         // Assuming the private key is set correctly in the environment
         // The decryption will depend on the actual private key used
     }
