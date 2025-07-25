@@ -8,6 +8,7 @@
 
 - Add `dotenvx decrypt <value>` to decrypt the encrypted value and output it to stdout
 - Add `dotenvx -c 'command'` to run command with injected environment variables, compatible with shell style.
+- Add compatible APIs from `dotenvy` crate
 - Docs: add direnv integration
 
 ## [0.2.1] - 2025-07-24
