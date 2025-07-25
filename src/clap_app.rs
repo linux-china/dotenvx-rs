@@ -145,6 +145,12 @@ pub fn build_dotenvx_app() -> Command {
                 .help("format of the output (json, shell) (default: \"json\")")
                 .num_args(1)
                 .required(false),
+        )
+        .arg(
+            Arg::new("dump")
+                .long("dump")
+                .help("Dump public key to .env file and private key to .env.keys in current directory")
+                .action(ArgAction::SetTrue),
         );
     let ls_command = Command::new("ls")
         .about("print all .env files in a tree structure")
