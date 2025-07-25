@@ -4,7 +4,7 @@ pub const VERSION: &str = "0.2.1";
 
 pub fn build_dotenvx_app() -> Command {
     let run_command = Command::new("run")
-        .about("inject env at runtime [dotenvx run -- your-command]")
+        .about("Inject env at runtime [dotenvx run -- your-command]")
         .arg(
             Arg::new("env-file")
                 .short('f')
@@ -213,6 +213,14 @@ pub fn build_dotenvx_app() -> Command {
                 .help("Profile to use (such as 'dev', 'test', 'stage', 'prod', etc.)")
                 .num_args(1)
                 .required(false),
+        )
+        .arg(
+            Arg::new("command")
+                .short('c')
+                .long("command")
+                .help("Run the command with injected environment variables from .env file")
+                .num_args(1..)
+                .required(false)
         )
         .arg(
             Arg::new("log-level")
