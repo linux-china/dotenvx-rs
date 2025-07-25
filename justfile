@@ -1,6 +1,9 @@
 build:
     cargo build
 
+dist-build:
+    dist build --target x86_64-apple-darwin
+
 release:
     cargo build --release
     ls -ls target/release/dotenvx
