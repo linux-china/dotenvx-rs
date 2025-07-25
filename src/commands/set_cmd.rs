@@ -60,7 +60,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         format!("{}={}", key, wrap_shell_value(&value))
     };
     if command_matches.get_flag("stdout") {
-        print!("export {}", pair);
+        println!("export {}", pair);
         return;
     }
     if !env_file_exists {
