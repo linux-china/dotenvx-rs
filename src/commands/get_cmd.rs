@@ -23,7 +23,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
             if format == "shell" {
                 println!("export {}={}", key_name, wrap_shell_value(&plain_value));
             } else {
-                println!("{}", plain_value);
+                println!("{plain_value}");
             }
             return;
         }
@@ -40,13 +40,13 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
                     let body = serde_json::json!({key_name: plain_value});
                     println!("{}", to_colored_json_auto(&body).unwrap());
                 } else {
-                    println!("{}", plain_value);
+                    println!("{plain_value}");
                 }
             } else {
-                eprintln!("Key '{}' not found in {}", key_name, env_file);
+                eprintln!("Key '{key_name}' not found in {env_file}");
             }
         } else {
-            eprintln!("Failed to read the .env file: {}", env_file);
+            eprintln!("Failed to read the .env file: {env_file}");
         }
     } else {
         // print all entries with json format
@@ -65,7 +65,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 );
             }
         } else {
-            eprintln!("Failed to decrypt the .env file: {}", env_file);
+            eprintln!("Failed to decrypt the .env file: {env_file}");
         }
     }
 }
