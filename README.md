@@ -28,7 +28,7 @@ fn test_dotenv_load() {
 
 ### Get Started
 
-- Install: Run `cargo binstall dotenvx-rs` or download it
+- Install: Run `cargo binstall dotenvx-rs` or `brew install linux-china/tap/dotenvx-rs` or download it
   from [releases](https://github.com/linux-china/dotenvx-rs/releases)
 - Initialize: Run `dotenvx init` to create `.env` and `.env.keys` files in the current directory.
 - Encrypt .env file: Run `dotenvx encrypt` to encrypt the `.env` file.
