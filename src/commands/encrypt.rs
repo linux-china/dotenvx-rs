@@ -1,6 +1,4 @@
-use crate::commands::{
-    get_env_file_arg, get_public_key_for_file, write_public_key_to_file,
-};
+use crate::commands::{get_env_file_arg, get_public_key_for_file, write_public_key_to_file};
 use base64::engine::general_purpose;
 use base64::Engine;
 use clap::ArgMatches;
@@ -15,10 +13,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if !env_file_path.exists() {
         // create default env file if it does not exist
         let public_key = get_public_key_for_file(&env_file).unwrap();
-        println!(
-            "'{}' does not exist, creating a new file with public key.",
-            env_file
-        );
+        println!("'{env_file}' does not exist, creating a new file with public key.");
         write_public_key_to_file(&env_file_path, &public_key).unwrap();
         return;
     }
@@ -43,23 +38,23 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             // key-value pairs
             let key = line.split('=').next().unwrap().trim();
             if let Some(value) = entries.get(key) {
-                new_lines.push(format!("{}={}", key, value));
+                new_lines.push(format!("{key}={value}"));
                 is_changed = true;
             }
         }
     }
     if is_stdout {
         for line in new_lines {
-            println!("{}", line);
+            println!("{line}");
         }
         return;
     }
     if !is_changed {
-        println!("{}", format!("✔ no changes ({})", env_file).green());
+        println!("{}", format!("✔ no changes ({env_file})").green());
     } else {
         let new_file_content = new_lines.join("\n");
         fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
-        println!("{}", format!("✔ encrypted ({})", env_file).green());
+        println!("{}", format!("✔ encrypted ({env_file})").green());
     }
 }
 
@@ -87,5 +82,5 @@ pub fn encrypt_env_item(
     let pk_bytes = hex::decode(public_key).unwrap();
     let encrypted_bytes = ecies::encrypt(&pk_bytes, value_plain.as_bytes()).unwrap();
     let base64_text = general_purpose::STANDARD.encode(encrypted_bytes);
-    Ok(format!("encrypted:{}", base64_text))
+    Ok(format!("encrypted:{base64_text}"))
 }
