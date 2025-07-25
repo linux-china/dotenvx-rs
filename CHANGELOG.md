@@ -7,8 +7,21 @@
 ### Added
 
 - Add `shell` and `homebrew` installer for Cargo dist
-- Add homebrew formula for `dotenvx` CLI
+- Add homebrew formula for `dotenvx` CLI: `brew install linux-china/tap/dotenvx-rs`
 - Add GitHub Actions workflow for `dotenvx` CLI installation
+
+```yaml
+jobs:
+  dotenvx-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: linux-china/setup-dotenvx@main
+      - run: npm install
+      - run: $HOME/.cargo/bin/dotenvx run -- node index.js
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
+```
 
 ## [0.2.0] - 2025-07-24
 
