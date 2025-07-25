@@ -14,7 +14,7 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
             if e.file_type().is_file() {
                 let file_name = e.file_name().to_str().unwrap();
                 if let Some(profile_name) = profile {
-                    file_name.starts_with(&format!(".env.{}", profile_name))
+                    file_name.starts_with(&format!(".env.{profile_name}" ))
                 } else if file_name == ".env.keys" {
                     false
                 } else {
@@ -26,8 +26,7 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
         })
         .collect::<Vec<_>>();
     if entries.is_empty() {
-        println!("No .env files found in directory: {}", directory);
-        return;
+        println!("No .env files found in directory: {directory}");
     } else {
         println!(
             "Found {} .env files in '{}' directory:",
