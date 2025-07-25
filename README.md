@@ -144,7 +144,7 @@ jobs:
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
 ```
 
-If you use act for local GitHub Actions test, please use `act -j dotenvx-demo --secret-file .env.keys`.
+If you use [act](https://github.com/nektos/act) for local GitHub Actions test, please use `act -j dotenvx-demo --secret-file .env.keys`.
 
 # Credits
 
