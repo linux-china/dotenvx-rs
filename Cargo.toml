@@ -31,6 +31,8 @@ colored_json = "5"
 walkdir = "2.5.0"
 prettytable-rs = "^0.10"
 openssl = { version = "0.10", features = ["vendored"] }
+regex = "1.11.1"
+lazy_static = "1.5.0"
 
 [profile.dev]
 opt-level = 0
