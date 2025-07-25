@@ -2,6 +2,14 @@
 
 # Task Keeper Changelog
 
+## [0.2.1] - 2025-07-24
+
+### Added
+
+- Add `shell` and `homebrew` installer for Cargo dist
+- Add homebrew formula for `dotenvx` CLI
+- Add GitHub Actions workflow for `dotenvx` CLI installation
+
 ## [0.2.0] - 2025-07-24
 
 ### Added
