@@ -18,6 +18,7 @@ mod model;
 pub mod rotate;
 pub mod run;
 pub mod set_cmd;
+pub mod verify;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
