@@ -1,5 +1,9 @@
+use base64::engine::general_purpose;
+use base64::Engine;
 use ecies::utils::generate_keypair;
 use ecies::{decrypt, encrypt, PublicKey, SecretKey};
+use libsecp256k1::{sign, verify, Message};
+use sha2::{Digest, Sha256};
 
 #[test]
 fn test_generate_key_pair() {
@@ -24,6 +28,23 @@ fn test_encrypt() {
     // convert decrypted bytes to string
     let decrypted_msg = String::from_utf8(decrypted_byte).unwrap();
     println!("{decrypted_msg}");
+}
+
+#[test]
+fn test_signature() {
+    let (sk, pk) = generate_keypair();
+    // The message to sign
+    let message = "Hello, secp256k1!";
+    // Step 1: Hash the message using SHA-256
+    let mut hasher = Sha256::new();
+    hasher.update(message);
+    let message_hash = hasher.finalize();
+    let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
+    let signature = sign(&msg, &sk).0;
+    let signature_hex = general_purpose::STANDARD.encode(signature.serialize());
+    println!("signature: {signature_hex}");
+    let result = verify(&msg, &signature, &pk);
+    println!("verify result: {result}");
 }
 
 #[test]
