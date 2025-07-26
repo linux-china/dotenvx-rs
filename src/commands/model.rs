@@ -91,6 +91,16 @@ fn extract_front_matter(content: &str) -> HashMap<String, String> {
     metadata
 }
 
+pub fn get_signature(env_file_content: &str) -> Option<String> {
+    // Find the signature line
+    for line in env_file_content.lines() {
+        if line.starts_with("# signature:") || line.starts_with("#signature:") {
+            return Some(line.trim_start_matches("# signature:").trim().to_string());
+        }
+    }
+    None
+}
+
 pub fn remove_signature(env_file_content: &str) -> String {
     // Remove lines starting with "#  --"
     env_file_content
@@ -161,10 +171,31 @@ impl EnvFile {
 
 #[cfg(test)]
 mod tests {
+    use crate::commands::crypt_util::{sign_message, verify_signature};
+
     #[test]
     fn test_from_file() {
         let env_file = super::EnvFile::from(".env.example").unwrap();
         println!("{env_file:?}");
+    }
+
+    #[test]
+    fn test_get_signature() {
+        let public_key = "039dd52f537a84a560fd18600ff40856f3bfcc103e70f329acc21327622042b195";
+        let private_key = "a3d15e4b69c4a942c3813ba6085542ff6db1189378596d2f8a8652c550b7dea6";
+        let content = std::fs::read_to_string(".env.example").unwrap().to_string();
+        let signature = if let Some(signature) = super::get_signature(&content) {
+            signature
+        } else {
+            sign_message(private_key, &content).unwrap()
+        };
+        // update the content with the signature
+        let updated_content = super::update_signature(&content, &signature);
+        let signature_2 = super::get_signature(&updated_content).unwrap();
+        assert_eq!(signature, signature_2, "Signature mismatch");
+        let content_2 = super::remove_signature(&updated_content);
+        let result = verify_signature(public_key, &content_2, &signature_2).unwrap();
+        assert!(result, "Signature verification failed");
     }
 
     #[test]
