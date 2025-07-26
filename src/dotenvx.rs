@@ -144,10 +144,9 @@ fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dot
     Ok(())
 }
 
-fn from_read_with_dotenvx<R: Read>(reader: R, is_override: bool) -> dotenvy::Result<()> {
+fn from_read_with_dotenvx<R: Read>(mut reader: R, is_override: bool) -> dotenvy::Result<()> {
     let mut dotenv_content = String::new();
     reader
-        .take(10 * 1024 * 1024) // Limit to 10MB to avoid excessive memory usage
         .read_to_string(&mut dotenv_content)
         .map_err(dotenvy::Error::Io)?;
     if dotenv_content.contains("=encrypted:") {
