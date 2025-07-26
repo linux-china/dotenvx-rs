@@ -86,40 +86,43 @@ pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
 }
 
 /// trim the message and sign it using the private key
-pub fn sign_message(
-    private_key: &str,
-    message: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> {
     // Step 1: Hash the message using SHA-256
     let mut hasher = Sha256::new();
     hasher.update(message.trim());
     let message_hash = hasher.finalize();
     let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Sign the message hash with the private key
-    let sk_bytes = hex::decode(private_key).unwrap();
-    let sk = SecretKey::parse_slice(&sk_bytes).unwrap();
-    let signature = sign(&msg, &sk).0;
-    let signature_text = general_purpose::STANDARD.encode(signature.serialize());
-    Ok(signature_text)
+    let sk_bytes = hex::decode(private_key)?;
+    if let Ok(sk) = SecretKey::parse_slice(&sk_bytes) {
+        let signature = sign(&msg, &sk).0;
+        Ok(general_purpose::STANDARD.encode(signature.serialize()))
+    } else {
+        Err(anyhow::anyhow!("Invalid private key format"))
+    }
 }
 
 /// trim the message and verify the signature using the public key
-pub fn verify_signature(
-    public_key: &str,
-    message: &str,
-    signature: &str,
-) -> Result<bool, Box<dyn std::error::Error>> {
+pub fn verify_signature(public_key: &str, message: &str, signature: &str) -> anyhow::Result<bool> {
     // Step 1: Hash the message using SHA-256
     let mut hasher = Sha256::new();
     hasher.update(message.trim());
     let message_hash = hasher.finalize();
     let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Verify the signature with the public key
-    let pk_bytes = hex::decode(public_key).unwrap();
-    let pk = PublicKey::parse_slice(&pk_bytes, None).unwrap();
-    let signature_bytes = general_purpose::STANDARD.decode(signature).unwrap();
-    let signature = libsecp256k1::Signature::parse_standard_slice(&signature_bytes).unwrap();
-    Ok(libsecp256k1::verify(&msg, &signature, &pk))
+    let pk_bytes = hex::decode(public_key)?;
+    if let Ok(pk) = PublicKey::parse_slice(&pk_bytes, None) {
+        let signature_bytes = general_purpose::STANDARD.decode(signature)?;
+        let signature = libsecp256k1::Signature::parse_standard_slice(&signature_bytes).unwrap();
+        let result = libsecp256k1::verify(&msg, &signature, &pk);
+        if result {
+            Ok(true)
+        } else {
+            Err(anyhow::anyhow!("Signature verification failed"))
+        }
+    } else {
+        Err(anyhow::anyhow!("Invalid public key format"))
+    }
 }
 
 #[cfg(test)]
