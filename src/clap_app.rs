@@ -96,6 +96,12 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         )
         .arg(
+            Arg::new("sign")
+                .long("sign")
+                .help("Add a signature to the encrypted file")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("stdout")
                 .long("stdout")
                 .help("Send to stdout")
@@ -110,6 +116,12 @@ pub fn build_dotenvx_app() -> Command {
                 .help("path to your env file(s) (default: .env)")
                 .num_args(1)
                 .required(false),
+        )
+        .arg(
+            Arg::new("verify")
+                .long("verify")
+                .help("Verify the signature of the encrypted file if a signature exists")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("stdout")
