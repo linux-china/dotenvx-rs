@@ -130,13 +130,29 @@ pub fn remove_signature(env_file_content: &str) -> String {
         .join("\n")
 }
 
+pub fn construct_front_matter(sign: Option<String>) -> String {
+    if let Some(signature) = sign {
+        format!("# ---\n{signature}\n# ---\n\n")
+    } else {
+        "# ---\n# ---\n\n".to_owned()
+    }
+}
+
 pub fn sign_and_update_env_file_content(
     private_key: &str,
     env_file_content: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let message = remove_signature(env_file_content);
+    let new_content =
+        if !(env_file_content.starts_with("# ---") || env_file_content.starts_with("#---")) {
+            // append front matter for signature
+            let front_matter = construct_front_matter(None);
+            format!("{front_matter}{env_file_content}")
+        } else {
+            env_file_content.to_string()
+        };
+    let message = remove_signature(&new_content);
     let signature = sign_message(private_key, &message)?;
-    Ok(update_signature(env_file_content, &signature))
+    Ok(update_signature(&new_content, &signature))
 }
 
 pub fn update_signature(env_file_content: &str, signature: &str) -> String {
@@ -159,7 +175,8 @@ pub fn update_signature(env_file_content: &str, signature: &str) -> String {
         }
         lines.join("\n")
     } else {
-        format!("# ---\n{new_signature}\n# ---\n\n{new_content}")
+        let front_matter = construct_front_matter(Some(new_signature.clone()));
+        format!("{front_matter}{new_content}")
     }
 }
 
