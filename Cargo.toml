@@ -21,7 +21,7 @@ path = "src/main.rs"
 base64 = "0.22.1"
 clap = "4.5.41"
 dotenvy = "0.15.7"
-ecies = { version = "0.2", features = ["std"] }
+ecies = { version = "0.2", default-features = false, features = ["std", "aes-rust"] }
 hex = "0.4.3"
 dirs = "6"
 colored = "3.0"
@@ -30,7 +30,6 @@ serde_json = "1.0"
 colored_json = "5"
 walkdir = "2.5.0"
 prettytable-rs = "^0.10"
-openssl = { version = "0.10", features = ["vendored"] }
 regex = "1.11.1"
 lazy_static = "1.5.0"
 shlex = "1.3"
