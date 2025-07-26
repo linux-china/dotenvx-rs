@@ -4,6 +4,8 @@ use colored::Colorize;
 use dotenvx_rs::dotenvx::get_private_key;
 use ecies::utils::generate_keypair;
 use ecies::{PublicKey, SecretKey};
+use libsecp256k1::{sign, Message};
+use sha2::{Digest, Sha256};
 
 pub struct EcKeyPair {
     pub public_key: PublicKey,
@@ -80,5 +82,57 @@ pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
         eprintln!("{}",
                   "Private key not found, please check the DOTENV_PRIVATE_KEY environment variable or '.env.key' file.".red()
         );
+    }
+}
+
+pub fn sign_message(
+    private_key: &str,
+    message: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    // Step 1: Hash the message using SHA-256
+    let mut hasher = Sha256::new();
+    hasher.update(message);
+    let message_hash = hasher.finalize();
+    let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
+    // Step 2: Sign the message hash with the private key
+    let sk_bytes = hex::decode(private_key).unwrap();
+    let sk = SecretKey::parse_slice(&sk_bytes).unwrap();
+    let signature = sign(&msg, &sk).0;
+    let signature_text = general_purpose::STANDARD.encode(signature.serialize());
+    Ok(signature_text)
+}
+
+pub fn verify_signature(
+    public_key: &str,
+    message: &str,
+    signature: &str,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    // Step 1: Hash the message using SHA-256
+    let mut hasher = Sha256::new();
+    hasher.update(message);
+    let message_hash = hasher.finalize();
+    let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
+    // Step 2: Verify the signature with the public key
+    let pk_bytes = hex::decode(public_key).unwrap();
+    let pk = PublicKey::parse_slice(&pk_bytes, None).unwrap();
+    let signature_bytes = general_purpose::STANDARD.decode(signature).unwrap();
+    let signature = libsecp256k1::Signature::parse_standard_slice(&signature_bytes).unwrap();
+    Ok(libsecp256k1::verify(&msg, &signature, &pk))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_signature_and_verify() {
+        let public_key = "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0";
+        let private_key = "9e70188d351c25d0714929205df9b8f4564b6b859966bdae7aef7f752a749d8b";
+        let message = "Hello, secp256k1!";
+        // Sign the message
+        let signature = sign_message(private_key, message).unwrap();
+        println!("Signature: {signature}");
+        let verify_result = verify_signature(public_key, message, &signature).unwrap();
+        assert!(verify_result, "Signature verification failed");
     }
 }
