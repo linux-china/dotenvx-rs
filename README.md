@@ -14,10 +14,12 @@ Please read [dotenvx cheat sheet](https://cheatography.com/linux-china/cheat-she
 Run `cargo add dotenvx-rs` to add the dotenvx library to your Rust project.
 
 ```rust
+use dotenvx_rs::dotenvx;
+
 #[test]
 fn test_dotenv_load() {
     // Load the .env file
-    dotenvx_rs::dotenv().ok();
+    dotenvx::dotenv().ok();
     // Check if the environment variable is set
     let value = env::var("HELLO").unwrap();
     println!("HELLO={}", value);
