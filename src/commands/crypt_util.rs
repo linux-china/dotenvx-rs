@@ -85,13 +85,14 @@ pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
     }
 }
 
+/// trim the message and sign it using the private key
 pub fn sign_message(
     private_key: &str,
     message: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     // Step 1: Hash the message using SHA-256
     let mut hasher = Sha256::new();
-    hasher.update(message);
+    hasher.update(message.trim());
     let message_hash = hasher.finalize();
     let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Sign the message hash with the private key
@@ -102,6 +103,7 @@ pub fn sign_message(
     Ok(signature_text)
 }
 
+/// trim the message and verify the signature using the public key
 pub fn verify_signature(
     public_key: &str,
     message: &str,
@@ -109,7 +111,7 @@ pub fn verify_signature(
 ) -> Result<bool, Box<dyn std::error::Error>> {
     // Step 1: Hash the message using SHA-256
     let mut hasher = Sha256::new();
-    hasher.update(message);
+    hasher.update(message.trim());
     let message_hash = hasher.finalize();
     let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Verify the signature with the public key
