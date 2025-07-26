@@ -11,6 +11,7 @@
 - Add `dotenvx keypair --dump` to add public key to .env file and `DOTENV_PRIVATE_KEY` to `.env.keys` file
 - Add compatible APIs from `dotenvy` crate
 - Docs: add direnv integration
+- Some minor improvements and bug fixes
 
 ## [0.2.1] - 2025-07-24
 
