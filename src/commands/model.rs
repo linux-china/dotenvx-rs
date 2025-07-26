@@ -94,8 +94,8 @@ fn extract_front_matter(content: &str) -> HashMap<String, String> {
 pub fn get_signature(env_file_content: &str) -> Option<String> {
     // Find the signature line
     for line in env_file_content.lines() {
-        if line.starts_with("# signature:") || line.starts_with("#signature:") {
-            return Some(line.trim_start_matches("# signature:").trim().to_string());
+        if line.starts_with("# sign:") || line.starts_with("#sign:") {
+            return Some(line.trim_start_matches("# sign:").trim().to_string());
         }
     }
     None
@@ -105,8 +105,8 @@ pub fn remove_signature(env_file_content: &str) -> String {
     // Remove lines starting with "#  --"
     env_file_content
         .lines() // Split into lines
-        .filter(|line| !line.starts_with("# signature:"))
-        .filter(|line| !line.starts_with("#signature:"))
+        .filter(|line| !line.starts_with("# sign:"))
+        .filter(|line| !line.starts_with("#sign:"))
         .collect::<Vec<_>>() // Collect remaining lines into a Vec
         .join("\n")
 }
@@ -114,7 +114,7 @@ pub fn remove_signature(env_file_content: &str) -> String {
 pub fn update_signature(env_file_content: &str, signature: &str) -> String {
     // remove existing signature line
     let new_content = remove_signature(env_file_content);
-    let new_signature = format!("# signature: {signature}");
+    let new_signature = format!("# sign: {signature}");
     // check front matter or not
     if new_content.starts_with("# ---") || new_content.starts_with("#---") {
         let mut lines = new_content.lines().collect::<Vec<_>>();
@@ -177,6 +177,25 @@ mod tests {
     fn test_from_file() {
         let env_file = super::EnvFile::from(".env.example").unwrap();
         println!("{env_file:?}");
+    }
+
+    #[test]
+    fn test_generate_signature() {
+        let private_key = "9e70188d351c25d0714929205df9b8f4564b6b859966bdae7aef7f752a749d8b";
+        let env_file_content = std::fs::read_to_string(".env").unwrap();
+        let message = super::remove_signature(&env_file_content);
+        let signature = sign_message(private_key, &message).unwrap();
+        println!("{signature}");
+    }
+
+    #[test]
+    fn test_verify_file_signature() {
+        let public_key = "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0";
+        let env_file_content = std::fs::read_to_string(".env").unwrap();
+        let signature = super::get_signature(&env_file_content).unwrap();
+        let message = super::remove_signature(&env_file_content);
+        let result = verify_signature(public_key, &message, &signature).unwrap();
+        assert!(result, "Signature verification failed");
     }
 
     #[test]
