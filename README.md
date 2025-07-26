@@ -46,6 +46,11 @@ with some differences:
 - Easy integration for Rust CLIs to load encrypted .env files
 - No ext sub command
 
+### Migrated to dotenvx CLI
+
+If you have .env files already, you just run `dotenvx init`, and dotenvx CLI will create `.env.keys` file
+and update .env file with new public key.
+
 # FAQ
 
 ### What is profile?
