@@ -205,6 +205,16 @@ pub fn build_dotenvx_app() -> Command {
                 .help("Create $HOME/.env.keys with profiles(dev, test, perf, sand, stage, prod)")
                 .action(ArgAction::SetTrue),
         );
+    let verify_command = Command::new("verify")
+        .about("Verify the signature of the encrypted .env file")
+        .arg(
+            Arg::new("env-file")
+                .short('f')
+                .long("env-file")
+                .help("path to your env file(s) (default: .env)")
+                .num_args(1)
+                .required(false),
+        );
     let diff_command = Command::new("diff")
         .about("Display keys' values between all .env files")
         .arg(
@@ -254,6 +264,7 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(set_command)
         .subcommand(encrypt_command)
         .subcommand(decrypt_command)
+        .subcommand(verify_command)
         .subcommand(keypair_command)
         .subcommand(ls_command)
         .subcommand(rotate_command)
