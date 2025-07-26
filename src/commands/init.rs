@@ -19,17 +19,28 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
     let env_file_exists = Path::new(&env_file).exists();
     if env_file_exists {
-        eprintln!("The .env file already exists: {env_file}");
-        return;
+        if let Ok(file_content) = fs::read_to_string(&env_file) {
+            if file_content.contains("DOTENV_PUBLIC_KEY") {
+                eprintln!("The .env file already exists and contains a public key: {env_file}");
+                return;
+            }
+        }
     }
     let kp = EcKeyPair::generate();
     let public_key = kp.get_pk_hex();
     let pair = format!("{}={}", "KEY1", "value1");
     create_env_file(&env_file, &public_key, Some(&pair));
-    println!(
-        "{}",
-        format!("Initialized new .env file with name: {env_file}").green()
-    );
+    if env_file_exists {
+        println!(
+            "{}",
+            format!("✔ Succeeded to add public key in  {env_file}").green()
+        );
+    } else {
+        println!(
+            "{}",
+            format!("✔ Initialized new .env file with name: {env_file}").green()
+        );
+    }
     let private_key_name = get_private_key_name_for_file(&env_file);
     write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &kp.get_sk_hex()).unwrap();
 }
