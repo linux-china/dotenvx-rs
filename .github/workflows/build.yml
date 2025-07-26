@@ -18,10 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install OpenSSL dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config
       - name: Build
         run: cargo build --verbose
 
@@ -29,10 +25,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install OpenSSL (Windows)
-        shell: powershell
-        run: |
-          vcpkg install openssl:x64-windows-static-md
       - name: Build
         run: cargo build --verbose
 
