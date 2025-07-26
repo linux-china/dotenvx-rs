@@ -130,12 +130,9 @@ pub fn remove_signature(env_file_content: &str) -> String {
         .join("\n")
 }
 
-pub fn construct_front_matter(sign: Option<String>) -> String {
-    if let Some(signature) = sign {
-        format!("# ---\n{signature}\n# ---\n\n")
-    } else {
-        "# ---\n# ---\n\n".to_owned()
-    }
+pub fn construct_front_matter() -> String {
+    let env_file_uuid = uuid::Uuid::now_v7().to_string();
+    format!("# ---\n# uuid: {env_file_uuid}\n# ---\n\n")
 }
 
 pub fn sign_and_update_env_file_content(
@@ -145,7 +142,7 @@ pub fn sign_and_update_env_file_content(
     let new_content =
         if !(env_file_content.starts_with("# ---") || env_file_content.starts_with("#---")) {
             // append front matter for signature
-            let front_matter = construct_front_matter(None);
+            let front_matter = construct_front_matter();
             format!("{front_matter}{env_file_content}")
         } else {
             env_file_content.to_string()
@@ -175,8 +172,7 @@ pub fn update_signature(env_file_content: &str, signature: &str) -> String {
         }
         lines.join("\n")
     } else {
-        let front_matter = construct_front_matter(Some(new_signature.clone()));
-        format!("{front_matter}{new_content}")
+        env_file_content.to_string()
     }
 }
 
