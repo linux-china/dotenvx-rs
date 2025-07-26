@@ -1,4 +1,6 @@
-use crate::commands::crypt_util::{decrypt_env_item, encrypt_env_item, sign_message};
+use crate::commands::crypt_util::{
+    decrypt_env_item, encrypt_env_item, sign_message, verify_signature,
+};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Cursor, Read};
@@ -105,6 +107,17 @@ pub fn get_signature(env_file_content: &str) -> Option<String> {
         }
     }
     None
+}
+
+pub fn is_sign_legal(env_file_content: &str, public_key: &str) -> anyhow::Result<bool> {
+    if let Some(signature) = get_signature(env_file_content) {
+        let message = remove_signature(env_file_content);
+        verify_signature(public_key, &message, &signature)
+    } else {
+        Err(anyhow::anyhow!(
+            "The .env file does not contain a valid signature."
+        ))
+    }
 }
 
 pub fn remove_signature(env_file_content: &str) -> String {
