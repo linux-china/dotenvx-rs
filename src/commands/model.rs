@@ -91,6 +91,40 @@ fn extract_front_matter(content: &str) -> HashMap<String, String> {
     metadata
 }
 
+pub fn remove_signature(env_file_content: &str) -> String {
+    // Remove lines starting with "#  --"
+    env_file_content
+        .lines() // Split into lines
+        .filter(|line| !line.starts_with("# signature:"))
+        .filter(|line| !line.starts_with("#signature:"))
+        .collect::<Vec<_>>() // Collect remaining lines into a Vec
+        .join("\n")
+}
+
+pub fn update_signature(env_file_content: &str, signature: &str) -> String {
+    // remove existing signature line
+    let new_content = remove_signature(env_file_content);
+    let new_signature = format!("# signature: {signature}");
+    // check front matter or not
+    if new_content.starts_with("# ---") || new_content.starts_with("#---") {
+        let mut lines = new_content.lines().collect::<Vec<_>>();
+        // Find index of "# ---" or "#---" from lines
+        let index = lines[1..]
+            .iter()
+            .position(|&line| line.starts_with("# ---") || line.starts_with("#---"));
+        if let Some(idx) = index {
+            // Insert the signature line before the end marker
+            lines.insert(idx + 1, &new_signature);
+        } else {
+            // If no end marker found, append the signature as second line
+            lines.insert(1, &new_signature);
+        }
+        lines.join("\n")
+    } else {
+        format!("# ---\n{new_signature}\n# ---\n\n{new_content}")
+    }
+}
+
 impl EnvFile {
     pub fn encrypt(
         &self,
@@ -131,5 +165,12 @@ mod tests {
     fn test_from_file() {
         let env_file = super::EnvFile::from(".env.example").unwrap();
         println!("{env_file:?}");
+    }
+
+    #[test]
+    fn test_update_signature() {
+        let content = std::fs::read_to_string(".env.example").unwrap();
+        let updated_content = super::update_signature(&content, "your_signature_here");
+        println!("{updated_content}");
     }
 }
