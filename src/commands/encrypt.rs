@@ -1,16 +1,18 @@
 use crate::commands::crypt_util::encrypt_env_item;
+use crate::commands::model::{sign_and_update_env_file_content, sign_available};
 use crate::commands::{
-    construct_env_file_header, get_env_file_arg, get_public_key_for_file, get_public_key_name,
-    write_public_key_to_file,
+    construct_env_file_header, get_env_file_arg, get_private_key, get_public_key_for_file,
+    get_public_key_name, write_public_key_to_file,
 };
 use clap::ArgMatches;
-use colored::Colorize;
+use colored_json::Paint;
 use std::collections::HashMap;
 use std::fs;
 
 pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
     let is_stdout = command_matches.get_flag("stdout");
+    let is_sign_required = command_matches.get_flag("sign");
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
         // create default env file if it does not exist
@@ -46,15 +48,27 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
     }
     if is_stdout {
-        for line in new_lines {
-            println!("{line}");
+        let new_content = new_lines.join("\n");
+        if is_sign_required {
+            println!(
+                "{}",
+                add_or_replace_signature(profile, &new_content).unwrap()
+            );
+        } else {
+            println!("{new_content}");
         }
         return;
     }
     if !is_changed {
-        println!("{}", format!("✔ no changes ({env_file})").green());
+        if sign_available(&file_content) {
+            println!("{}", format!("✔ no changes ({env_file})").green());
+        } else {
+            let new_content = add_or_replace_signature(profile, &file_content).unwrap();
+            fs::write(&env_file_path, new_content.as_bytes()).unwrap();
+            println!("{}", format!("✔ sign added for ({env_file})").green());
+        }
     } else {
-        let new_file_content = if file_content.contains("DOTENV_PUBLIC_KEY") {
+        let mut new_file_content = if file_content.contains("DOTENV_PUBLIC_KEY") {
             new_lines.join("\n")
         } else {
             // append public key to .env file if it does not exist
@@ -62,9 +76,24 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             let public_key = get_public_key_for_file(&env_file).unwrap();
             construct_env_file_header(&public_key_name, &public_key) + &new_lines.join("\n")
         };
+        if is_sign_required {
+            new_file_content = add_or_replace_signature(profile, &new_file_content).unwrap();
+        }
         fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
-        println!("{}", format!("✔ encrypted ({env_file})").green());
+        if is_sign_required {
+            println!("{}", format!("✔ encrypted and signed ({env_file})").green());
+        } else {
+            println!("{}", format!("✔ encrypted ({env_file})").green());
+        }
     }
+}
+
+pub fn add_or_replace_signature(
+    profile: &Option<String>,
+    env_file_content: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let private_key = get_private_key(profile).unwrap();
+    sign_and_update_env_file_content(&private_key, env_file_content)
 }
 
 pub fn encrypt_env_entries(
