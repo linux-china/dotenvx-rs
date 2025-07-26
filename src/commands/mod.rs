@@ -229,7 +229,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
     private_key_name: &str,
     private_key_value: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let private_key_short = private_key_name.chars().take(6).collect::<String>();
+    let private_key_short = private_key_value.chars().take(6).collect::<String>();
     let file_name = env_keys_file
         .as_ref()
         .file_name()
