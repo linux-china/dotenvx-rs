@@ -33,7 +33,8 @@ prettytable-rs = "^0.10"
 openssl = { version = "0.10", features = ["vendored"] }
 regex = "1.11.1"
 lazy_static = "1.5.0"
-shlex="1.3"
+shlex = "1.3"
+uuid = { version = "1.4", features = ["v4", "v7"] }
 
 [profile.dev]
 opt-level = 0
