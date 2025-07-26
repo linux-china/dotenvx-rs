@@ -146,7 +146,7 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
             fs::write(&env_file, file_content.as_bytes()).unwrap();
             println!(
                 "{}",
-                format!("✔ {file_name} file created with the public key").green()
+                format!("✔ A new public key added in {file_name} file").green()
             );
         }
     } else {
@@ -155,7 +155,7 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
         } else {
             header_text
         };
-        fs::write(env_file, file_content.trim_start().as_bytes()).unwrap();
+        fs::write(&env_file, file_content.trim_start().as_bytes()).unwrap();
     }
 }
 
