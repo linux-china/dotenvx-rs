@@ -2,6 +2,30 @@
 
 # Task Keeper Changelog
 
+
+## [0.3.0] - 2025-07-27
+
+### Added
+
+- Add `dotenvx ls` table output to display more information about keys
+- Add `dotenvx encrypt --sign` to add signature to the .env file
+- Add `dotenvx verify` to verify the signature of the .env file
+- Add .env file spec to add front matter for metadata
+
+```
+# ---
+# uuid: f7580ac5-0b24-4385-b3ff-819225b687f3
+# name: input your name here
+# group: demo
+# sign: +1+y3Eio5OHPcp9xiP125qfXl/CX4Zuxhft91aW59WtTjZJoSDmFs4KPZ2nDop07VdYkE8vF2BWuUpneCU1xlA==
+# ---
+DOTENV_PUBLIC_KEY="02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0"
+
+# Environment variables. MAKE SURE to ENCRYPT them before committing to source control
+HELLO=encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7
+
+```
+
 ## [0.2.2] - 2025-07-25
 
 ### Added
