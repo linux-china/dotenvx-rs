@@ -1,4 +1,4 @@
-use crate::commands::crypt_util::{decrypt_env_item, encrypt_env_item};
+use crate::commands::crypt_util::{decrypt_env_item, encrypt_env_item, sign_message};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Cursor, Read};
@@ -91,6 +91,12 @@ fn extract_front_matter(content: &str) -> HashMap<String, String> {
     metadata
 }
 
+pub fn sign_available(env_file_content: &str) -> bool {
+    env_file_content
+        .lines()
+        .any(|line| line.starts_with("# sign:") || line.starts_with("#sign:"))
+}
+
 pub fn get_signature(env_file_content: &str) -> Option<String> {
     // Find the signature line
     for line in env_file_content.lines() {
@@ -109,6 +115,15 @@ pub fn remove_signature(env_file_content: &str) -> String {
         .filter(|line| !line.starts_with("#sign:"))
         .collect::<Vec<_>>() // Collect remaining lines into a Vec
         .join("\n")
+}
+
+pub fn sign_and_update_env_file_content(
+    private_key: &str,
+    env_file_content: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let message = remove_signature(env_file_content);
+    let signature = sign_message(private_key, &message)?;
+    Ok(update_signature(env_file_content, &signature))
 }
 
 pub fn update_signature(env_file_content: &str, signature: &str) -> String {
