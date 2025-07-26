@@ -30,19 +30,12 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let public_key = kp.get_pk_hex();
     let pair = format!("{}={}", "KEY1", "value1");
     create_env_file(&env_file, &public_key, Some(&pair));
-    if env_file_exists {
-        println!(
-            "{}",
-            format!("✔ Succeeded to add public key in  {env_file}").green()
-        );
-    } else {
-        println!(
-            "{}",
-            format!("✔ Initialized new .env file with name: {env_file}").green()
-        );
-    }
     let private_key_name = get_private_key_name_for_file(&env_file);
     write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &kp.get_sk_hex()).unwrap();
+    println!(
+        "{}",
+        format!("✔ Succeed, please check .env file({env_file}) and .env.keys files.").green()
+    );
 }
 
 fn generate_kp_and_export() {
