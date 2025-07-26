@@ -1,9 +1,10 @@
-use crate::commands::decrypt::{decrypt_env_entries, decrypt_env_item};
+use crate::commands::decrypt::{decrypt_env_entries};
 use crate::commands::{
     get_env_file_arg, get_private_key_for_file, read_dotenv_file, wrap_shell_value,
 };
 use clap::ArgMatches;
 use colored_json::{to_colored_json_auto, ToColoredJson};
+use crate::commands::crypt_util::decrypt_env_item;
 
 pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());

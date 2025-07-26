@@ -1,4 +1,4 @@
-use crate::commands::decrypt::decrypt_env_item;
+use crate::commands::crypt_util::decrypt_env_item;
 use crate::commands::{get_private_key_for_file, read_dotenv_file};
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_file;

@@ -1,9 +1,8 @@
+use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::{
     construct_env_file_header, get_env_file_arg, get_public_key_for_file, get_public_key_name,
     write_public_key_to_file,
 };
-use base64::engine::general_purpose;
-use base64::Engine;
 use clap::ArgMatches;
 use colored::Colorize;
 use std::collections::HashMap;
@@ -83,14 +82,4 @@ pub fn encrypt_env_entries(
         }
     }
     Ok(entries)
-}
-
-pub fn encrypt_env_item(
-    public_key: &str,
-    value_plain: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let pk_bytes = hex::decode(public_key).unwrap();
-    let encrypted_bytes = ecies::encrypt(&pk_bytes, value_plain.as_bytes()).unwrap();
-    let base64_text = general_purpose::STANDARD.encode(encrypted_bytes);
-    Ok(format!("encrypted:{base64_text}"))
 }

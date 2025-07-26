@@ -1,12 +1,12 @@
+use crate::commands::crypt_util::EcKeyPair;
 use clap::ArgMatches;
 use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_file;
-use ecies::utils::generate_keypair;
-use ecies::{PublicKey, SecretKey};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
+mod crypt_util;
 pub mod decrypt;
 pub mod diff;
 pub mod encrypt;
@@ -14,52 +14,18 @@ pub mod get_cmd;
 pub mod init;
 pub mod keypair;
 pub mod list;
+mod model;
 pub mod rotate;
 pub mod run;
 pub mod set_cmd;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
-pub struct EcKeyPair {
-    pub public_key: PublicKey,
-    pub secret_key: SecretKey,
-}
-
-impl EcKeyPair {
-    pub fn generate() -> Self {
-        let (sk, pk) = generate_keypair();
-        EcKeyPair {
-            public_key: pk,
-            secret_key: sk,
-        }
-    }
-
-    pub fn from_secret_key(sk_hex: &str) -> Self {
-        let sk_bytes = hex::decode(sk_hex).unwrap();
-        let sk = SecretKey::parse_slice(&sk_bytes).unwrap();
-        let pk = PublicKey::from_secret_key(&sk);
-        EcKeyPair {
-            public_key: pk,
-            secret_key: sk,
-        }
-    }
-
-    pub fn get_pk_hex(&self) -> String {
-        let pk_compressed_bytes = self.public_key.serialize_compressed();
-        hex::encode(pk_compressed_bytes)
-    }
-
-    pub fn get_sk_hex(&self) -> String {
-        let sk_bytes = self.secret_key.serialize();
-        hex::encode(sk_bytes)
-    }
-}
-
 pub fn read_dotenv_file<P: AsRef<Path>>(
     path: P,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut entries: HashMap<String, String> = HashMap::new();
-    for (key, value) in (dotenvy::from_filename_iter(path)?).flatten() {
+    for (key, value) in dotenvy::from_filename_iter(path)?.flatten() {
         entries.insert(key.clone(), value.clone());
     }
     Ok(entries)
@@ -160,17 +126,19 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
 }
 
 pub fn construct_env_file_header(env_pub_key_name: &str, public_key: &str) -> String {
+    let env_file_uuid = uuid::Uuid::now_v7().to_string();
     format!(
         r#"
-#/-------------------[DOTENV_PUBLIC_KEY]--------------------/
-#/            public-key encryption for .env files          /
-#/       [how it works](https://dotenvx.com/encryption)     /
-#/----------------------------------------------------------/
+# ---
+# id: {}
+# name: your project name
+# group: com.example.project_group
+# ---
 {}="{}"
 
-# env variables
+# Environment variables. MAKE SURE to ENCRYPT them before committing to source control
 "#,
-        &env_pub_key_name, public_key
+        &env_file_uuid, &env_pub_key_name, public_key
     )
 }
 
@@ -229,6 +197,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
     private_key_name: &str,
     private_key_value: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let keys_file_uuid = uuid::Uuid::now_v7().to_string();
     let private_key_short = private_key_value.chars().take(6).collect::<String>();
     let file_name = env_keys_file
         .as_ref()
@@ -240,11 +209,13 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
     if !env_keys_file.as_ref().exists() {
         let file_content = format!(
             r#"
-#/------------------!DOTENV_PRIVATE_KEYS!-------------------/
-#/ private decryption keys. DO NOT commit to source control /
-#/     [how it works](https://dotenvx.com/encryption)       /
-#/----------------------------------------------------------/
+# ---
+# id: {keys_file_uuid}
+# name: input your name here
+# group: demo
+# ---
 
+#  Private decryption keys. DO NOT commit to source control
 {private_key_name}="{private_key_value}"
 "#
         );

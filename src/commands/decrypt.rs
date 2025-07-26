@@ -1,9 +1,7 @@
+use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::{get_env_file_arg, get_private_key_for_file, wrap_shell_value};
-use base64::engine::general_purpose;
-use base64::Engine;
 use clap::ArgMatches;
 use colored::Colorize;
-use dotenvx_rs::dotenvx::get_private_key;
 use std::collections::HashMap;
 use std::fs;
 
@@ -78,38 +76,6 @@ pub fn decrypt_env_entries(
     Ok(entries)
 }
 
-pub fn decrypt_env_item(
-    private_key: &str,
-    encrypted_text: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let encrypted_bytes = if encrypted_text.starts_with("encrypted:") {
-        general_purpose::STANDARD
-            .decode(encrypted_text.strip_prefix("encrypted:").unwrap())
-            .unwrap()
-    } else {
-        general_purpose::STANDARD.decode(encrypted_text).unwrap()
-    };
-    let sk = hex::decode(private_key).unwrap();
-    let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();
-    Ok(String::from_utf8(decrypted_bytes)?)
-}
-
-pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
-    if let Ok(private_key) = get_private_key(profile) {
-        if let Ok(plain_text) = decrypt_env_item(&private_key, encrypted_value) {
-            println!("{plain_text}");
-        } else {
-            eprintln!(
-                "{}",
-                "Failed to decrypt the value, please check the private key and profile.".red()
-            );
-        }
-    } else {
-        eprintln!("{}",
-        "Private key not found, please check the DOTENV_PRIVATE_KEY environment variable or '.env.key' file.".red()
-        );
-    }
-}
 #[cfg(test)]
 mod tests {
     #[test]

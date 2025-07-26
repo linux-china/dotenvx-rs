@@ -1,4 +1,4 @@
-use crate::commands::encrypt::encrypt_env_item;
+use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::{
     create_env_file, get_env_file_arg, get_public_key_for_file, wrap_shell_value,
 };
