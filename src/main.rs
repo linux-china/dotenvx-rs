@@ -12,6 +12,7 @@ use crate::commands::set_cmd::set_command;
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::env;
+use crate::commands::verify::verify_command;
 
 mod clap_app;
 pub mod commands;
@@ -53,6 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "set" => set_command(command_matches, &profile),
             "diff" => diff_command(command_matches),
             "rotate" => rotate_command(command_matches, &profile),
+            "verify" => verify_command(command_matches, &profile),
             &_ => println!("Unknown command"),
         }
     }
