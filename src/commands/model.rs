@@ -63,6 +63,39 @@ impl EnvFile {
     }
 }
 
+impl EnvFile {
+    pub fn is_signed(&self) -> bool {
+        self.content.contains("# sign:") || self.content.contains("#sign:")
+    }
+
+    pub fn get_uuid(&self) -> Option<&String> {
+        self.metadata.get("uuid")
+    }
+
+    pub fn get_public_key(&self) -> Option<String> {
+        for (key, value) in &self.entries {
+            if key.starts_with("DOTENV_PUBLIC_KEY") {
+                return Some(value.clone());
+            }
+        }
+        None
+    }
+
+    pub fn is_verified(&self) -> bool {
+        if let Some(signature) = get_signature(&self.content) {
+            let message = remove_signature(&self.content);
+            let public_key = self.get_public_key();
+            if let Some(public_key) = public_key {
+                verify_signature(&public_key, &message, &signature).unwrap_or(false)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+}
+
 pub fn read_dotenv_content(
     content: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
