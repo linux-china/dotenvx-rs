@@ -1,3 +1,8 @@
+use aes_gcm::aead::OsRng;
+use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{Aes256Gcm, Key, Nonce};
+use argon2::password_hash::SaltString;
+use argon2::{self, Argon2, PasswordHasher};
 use base64::engine::general_purpose;
 use base64::Engine;
 use colored::Colorize;
@@ -6,6 +11,9 @@ use ecies::utils::generate_keypair;
 use ecies::{PublicKey, SecretKey};
 use libsecp256k1::{sign, Message};
 use sha2::{Digest, Sha256};
+use std::fs;
+use std::fs::File;
+use std::io::Write;
 
 pub struct EcKeyPair {
     pub public_key: PublicKey,
@@ -125,9 +133,69 @@ pub fn verify_signature(public_key: &str, message: &str, signature: &str) -> any
     }
 }
 
+//============= aes_gcm =======
+pub fn encrypt_file(input_file: &str, output_file: &str, password: &str) -> anyhow::Result<()> {
+    let plain_bytes = std::fs::read(input_file)?;
+    // password hashing with Argon2
+    let argon2 = Argon2::default();
+    let salt = SaltString::generate(&mut OsRng);
+    let password_hash = argon2.hash_password(password.as_bytes(), &salt).unwrap();
+    let hash = password_hash.hash.unwrap();
+
+    // Initialize AES-GCM with the derived key
+    let aes_key = Key::<Aes256Gcm>::from_slice(hash.as_bytes()); // Use the first 32 bytes of the hash
+    let cipher = Aes256Gcm::new(aes_key);
+
+    // Generate a random nonce
+    let random_nonce = rand::random::<[u8; 12]>();
+    // Encrypt the plaintext
+    let ciphertext = cipher
+        .encrypt(Nonce::from_slice(&random_nonce), plain_bytes.as_ref())
+        .expect("encryption failure!");
+
+    // // Write the salt, nonce, and ciphertext to the output file
+    let mut output = File::create(output_file)?;
+    let mut salt_bytes: [u8; 16] = [0; 16];
+    salt.decode_b64(&mut salt_bytes).unwrap();
+    output.write_all(&salt_bytes)?; // First 16 bytes: salt
+    output.write_all(&random_nonce)?; // Next 12 bytes: nonce
+    output.write_all(&ciphertext)?; // Remaining bytes: ciphertext
+    Ok(())
+}
+
+pub fn decrypt_file(encrypted_file: &str, output_file: &str, password: &str) -> anyhow::Result<()> {
+    // Read the encrypted file
+    let encrypted_file_content = fs::read(encrypted_file)?;
+
+    // Extract the salt, nonce, and ciphertext
+    let salt_bytes = &encrypted_file_content[0..16]; // First 16 bytes: salt
+    let salt = SaltString::encode_b64(salt_bytes).unwrap();
+    let nonce_bytes = &encrypted_file_content[16..28]; // Next 12 bytes: nonce
+    let ciphertext = &encrypted_file_content[28..]; // Remaining bytes: ciphertext
+
+    // password hashing with Argon2
+    let argon2 = Argon2::default();
+    let password_hash = argon2.hash_password(password.as_bytes(), &salt).unwrap();
+    let hash = password_hash.hash.unwrap();
+
+    // Initialize AES-GCM with the derived key
+    let aes_key = Key::<Aes256Gcm>::from_slice(hash.as_bytes());
+    let cipher = Aes256Gcm::new(aes_key);
+
+    // Decrypt the ciphertext
+    let plain_bytes = cipher
+        .decrypt(Nonce::from_slice(nonce_bytes), ciphertext)
+        .expect("decryption failure!");
+
+    // Write the decrypted bytes to the output file
+    fs::write(output_file, plain_bytes)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use testresult::TestResult;
 
     #[test]
     fn test_signature_and_verify() {
@@ -139,5 +207,27 @@ mod tests {
         println!("Signature: {signature}");
         let verify_result = verify_signature(public_key, message, &signature).unwrap();
         assert!(verify_result, "Signature verification failed");
+    }
+
+    #[test]
+    fn test_encrypt_file() -> TestResult {
+        // Input file and password
+        let input_file = "example.txt";
+        let output_file = "example.enc";
+        let password = "your_secure_password";
+        // Encrypt the file
+        encrypt_file(input_file, output_file, password).unwrap();
+        Ok(())
+    }
+
+    #[test]
+    fn test_decrypt_file() -> TestResult {
+        // Input file and password
+        let encrypted_file = "example.enc";
+        let output_file = "example.txt";
+        let password = "your_secure_password";
+        // Encrypt the file
+        decrypt_file(encrypted_file, output_file, password).unwrap();
+        Ok(())
     }
 }
