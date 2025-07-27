@@ -18,7 +18,6 @@ name = "dotenvx"
 path = "src/main.rs"
 
 [dependencies]
-base64 = "0.22.1"
 clap = "4.5.41"
 dotenvy = "0.15.7"
 ecies = { version = "0.2", default-features = false, features = ["std", "aes-rust"] }
@@ -27,6 +26,7 @@ sha2 = "0.10"
 aes-gcm = "0.10.3"
 argon2 = { version = "0.5" }
 rand = "0.9"
+base64 = "0.22.1"
 #openssl = { version = "0.10", features = ["vendored"] }
 hex = "0.4.3"
 dirs = "6"
