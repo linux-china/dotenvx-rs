@@ -2,7 +2,6 @@
 
 # Task Keeper Changelog
 
-
 ## [0.3.0] - 2025-07-27
 
 ### Added
@@ -10,6 +9,7 @@
 - Add `dotenvx ls` table output to display more information about keys
 - Add `dotenvx encrypt --sign` to add signature to the .env file
 - Add `dotenvx verify` to verify the signature of the .env file
+- Add `dotenvx --seal` and `dotenvx --unseal` to encrypt and decrypt `$HOME/.env.keys` file
 - Add .env file spec to add front matter for metadata
 
 ```
