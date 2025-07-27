@@ -1,4 +1,5 @@
 use crate::clap_app::build_dotenvx_app;
+use crate::commands::crypt_util::{decrypt_file, encrypt_file};
 use crate::commands::decrypt::decrypt_command;
 use crate::commands::diff::diff_command;
 use crate::commands::encrypt::encrypt_command;
@@ -9,10 +10,10 @@ use crate::commands::list::ls_command;
 use crate::commands::rotate::rotate_command;
 use crate::commands::run::{run_command, run_command_line};
 use crate::commands::set_cmd::set_command;
+use crate::commands::verify::verify_command;
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::env;
-use crate::commands::verify::verify_command;
 
 mod clap_app;
 pub mod commands;
@@ -37,6 +38,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(exit_code);
     }
     let matches = app.get_matches();
+    if matches.get_flag("seal") {
+        encrypt_env_keys_file();
+        return Ok(());
+    } else if matches.get_flag("unseal") {
+        decrypt_env_keys_file();
+        return Ok(());
+    }
     let profile = get_profile(&matches);
     // check -c and run the command
     if matches.get_one::<String>("command").is_some() {
@@ -59,6 +67,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+fn encrypt_env_keys_file() {
+    let password = rpassword::prompt_password("Your password: ").unwrap();
+    let home_dir = dirs::home_dir().unwrap();
+    if home_dir.join(".env.keys").exists() {
+        let keys_file_path = home_dir.join(".env.keys");
+        let encrypted_file_path = home_dir.join(".env.keys.aes");
+        if encrypt_file(&keys_file_path, &encrypted_file_path, &password).is_ok() {
+            std::fs::remove_file(&keys_file_path).unwrap();
+            println!("✔ Successfully encrypted the $HOME/.env.keys file to .env.keys.aes",);
+        } else {
+            eprintln!(
+                "Failed to encrypt the .env.keys file. Please check your password and try again."
+            );
+        }
+    } else {
+        eprintln!("$HOME/.env.keys file does not exist.");
+    }
+}
+
+fn decrypt_env_keys_file() {
+    let password = rpassword::prompt_password("Your password: ").unwrap();
+    let home_dir = dirs::home_dir().unwrap();
+    if home_dir.join(".env.keys.aes").exists() {
+        let keys_file_path = home_dir.join(".env.keys");
+        let encrypted_file_path = home_dir.join(".env.keys.aes");
+        if decrypt_file(&encrypted_file_path, &keys_file_path, &password).is_ok() {
+            println!("✔ Successfully decrypted the .env.keys.aes file to $HOME/.env.keys",);
+        } else {
+            eprintln!(
+                "Failed to decrypt the $HOME/.env.keys.aes file. Please check your password and try again."
+            );
+        }
+    } else {
+        eprintln!("$HOME/.env.keys.aes file does not exist.");
+    }
 }
 
 fn get_profile(global_matches: &ArgMatches) -> Option<String> {
