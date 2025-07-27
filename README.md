@@ -39,7 +39,7 @@ fn test_dotenv_load() {
 dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
 with some differences:
 
-- Smaller and faster: less 3M with binary size, faster because Rust rewrite
+- Smaller and faster and written in Rust: the `dotenvx` executable is only 3MB.
 - Global `--profile` as first citizen to make it easy to manage different environments
 - Global private key management: Use `dotenvx init --global` to create a global `$HOME/.env.keys` file and manage
   private keys for different environments by profile style.
