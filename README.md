@@ -59,7 +59,7 @@ Every .env file has three sections: metadata(front matter), public key and envir
 
 Example as following:
 
-```
+```shell
 # ---
 # uuid: f7580ac5-0b24-4385-b3ff-819225b687f3
 # name: identify-your-dotenv-file
@@ -70,7 +70,6 @@ DOTENV_PUBLIC_KEY="02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393
 
 # Environment variables. MAKE SURE to ENCRYPT them before committing to source control
 HELLO=encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7
-
 ```
 
 Explanation:
@@ -82,6 +81,20 @@ Explanation:
 - Environment variables: the encrypted environment variables, starts with `encrypted:` prefix
 
 In metadata section, you can add any key-value pairs to describe the .env file, such as `name`, `group`, etc.
+
+For `.env.keys` files, and spec is similar, and metadata section and keys section are as following:
+
+```shell
+# ---
+# uuid: 8499c5c3-cee3-4c94-99a4-9c86b2ed5dd9
+# name: input your name here
+# group: demo
+# ---
+
+#  Private decryption keys. DO NOT commit to source control
+DOTENV_PRIVATE_KEY="9e70188d351c25d0714929205df9bxxx"
+DOTENV_PRIVATE_KEY_EXAMPLE="a3d15e4b69c4a942c381xxx"
+```
 
 # FAQ
 
