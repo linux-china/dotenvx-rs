@@ -16,7 +16,7 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
         .filter(|e| e.file_type().is_file())
         .filter(|e| {
             let file_name = e.file_name().to_str().unwrap();
-            if file_name == ".env.keys" {
+            if file_name == ".env.keys" || file_name == ".env.vault" {
                 false
             } else {
                 file_name.starts_with(".env.") || file_name == ".env"
