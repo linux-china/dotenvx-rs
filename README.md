@@ -53,6 +53,36 @@ with some differences:
 If you have .env files already, you just run `dotenvx init`, and dotenvx CLI will create `.env.keys` file
 and update .env file with new public key.
 
+# .env file specification
+
+Every .env file has three sections: metadata(front matter), public key and environment variables.
+
+Example as following:
+
+```
+# ---
+# uuid: f7580ac5-0b24-4385-b3ff-819225b687f3
+# name: identify-your-dotenv-file
+# group: com.example.dotenvx
+# sign: +1+y3Eio5OHPcp9xiP125qfXl/CX4Zuxhft91aW59WtTjZJoSDmFs4KPZ2nDop07VdYkE8vF2BWuUpneCU1xlA==
+# ---
+DOTENV_PUBLIC_KEY="02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0"
+
+# Environment variables. MAKE SURE to ENCRYPT them before committing to source control
+HELLO=encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7
+
+```
+
+Explanation:
+
+- Metadata section(front matter): starts with `# ---` and ends with `# ---`
+- .env file UUID: a unique identifier for the .env file, used to track changes and versions
+- sign: a signature for the .env file, used to verify the integrity of the file, and make sure the file is not tampered
+- DOTENV_PUBLIC_KEY: the public key used to encrypt data and verify the signature
+- Environment variables: the encrypted environment variables, starts with `encrypted:` prefix
+
+In metadata section, you can add any key-value pairs to describe the .env file, such as `name`, `group`, etc.
+
 # FAQ
 
 ### What is profile?
@@ -128,6 +158,30 @@ and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
 
 **Tips**: you can use `cat xxx.pem | dotenvx set my_private_pem -` to encrypt any text file as a key-value pair in the
 `.env` file.
+
+### Why sign .env file?
+
+The `.env` file still text file, and other people or tools can modify it, and let the application load the modified
+`.env` file, which may cause security issues.
+
+For example, you have an email which is a PayPal account to receive payments. Of course, you don't want others to
+change the email address to their own PayPal account, and then you will lose your money.
+
+To prevent this, the `.env` file is signed with a signature(secp256k1) and put in the metadata section of the file.
+When you load the `.env` file, the CLI will verify the signature with the public key in the `.env` file.
+
+How the signature works:
+
+- The author run `dotenvx encrypt --sign` to sign the `.env` file with the private key,
+  and the signature will be added to the metadata section of the file.
+- Signature: SHA256 hash of the `.env` trimmed .env file content(without sign line), and then sign the hash with the
+  private key to get the signature, and signature is a base64 encoded string and added to the metadata section of the
+  file.
+- Verification: Load the `.env` file, extract the public key and signature from the metadata section, SHA256 hash
+  the .env file trimmed content(without sign line), and then verify the signature with the public key and the hash.
+
+With this signature, you can ensure that the `.env` file is not tampered, and other people/tools can trust the
+`.env` file content and use it safely.
 
 ### How to check key's difference between .env files?
 
