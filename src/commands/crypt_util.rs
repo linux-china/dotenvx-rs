@@ -212,8 +212,8 @@ mod tests {
     #[test]
     fn test_encrypt_file() -> TestResult {
         // Input file and password
-        let input_file = "example.txt";
-        let output_file = "example.enc";
+        let input_file = "tests/example.txt";
+        let output_file = "tests/example.txt.aes";
         let password = "your_secure_password";
         // Encrypt the file
         encrypt_file(input_file, output_file, password).unwrap();
@@ -223,8 +223,8 @@ mod tests {
     #[test]
     fn test_decrypt_file() -> TestResult {
         // Input file and password
-        let encrypted_file = "example.enc";
-        let output_file = "example.txt";
+        let encrypted_file = "tests/example.txt.aes";
+        let output_file = "tests/example.txt";
         let password = "your_secure_password";
         // Encrypt the file
         decrypt_file(encrypted_file, output_file, password).unwrap();
