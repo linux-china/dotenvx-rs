@@ -14,6 +14,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 
 pub struct EcKeyPair {
     pub public_key: PublicKey,
@@ -134,7 +135,11 @@ pub fn verify_signature(public_key: &str, message: &str, signature: &str) -> any
 }
 
 //============= aes_gcm =======
-pub fn encrypt_file(input_file: &str, output_file: &str, password: &str) -> anyhow::Result<()> {
+pub fn encrypt_file<P: AsRef<Path>>(
+    input_file: P,
+    output_file: P,
+    password: &str,
+) -> anyhow::Result<()> {
     let plain_bytes = std::fs::read(input_file)?;
     // password hashing with Argon2
     let argon2 = Argon2::default();
@@ -163,7 +168,11 @@ pub fn encrypt_file(input_file: &str, output_file: &str, password: &str) -> anyh
     Ok(())
 }
 
-pub fn decrypt_file(encrypted_file: &str, output_file: &str, password: &str) -> anyhow::Result<()> {
+pub fn decrypt_file<P: AsRef<Path>>(
+    encrypted_file: P,
+    output_file: P,
+    password: &str,
+) -> anyhow::Result<()> {
     // Read the encrypted file
     let encrypted_file_content = fs::read(encrypted_file)?;
 
