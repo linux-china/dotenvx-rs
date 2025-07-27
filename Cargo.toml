@@ -24,6 +24,9 @@ dotenvy = "0.15.7"
 ecies = { version = "0.2", default-features = false, features = ["std", "aes-rust"] }
 libsecp256k1 = { version = "0.7.2", default-features = false, features = ["static-context", "hmac", "sha2"] }
 sha2 = "0.10"
+aes-gcm = "0.10.3"
+argon2 = { version = "0.5" }
+rand = "0.9"
 #openssl = { version = "0.10", features = ["vendored"] }
 hex = "0.4.3"
 dirs = "6"
@@ -38,6 +41,7 @@ lazy_static = "1.5.0"
 shlex = "1.3"
 uuid = { version = "1.4", features = ["v4", "v7"] }
 anyhow = "1.0.2"
+
 
 [profile.dev]
 opt-level = 0
@@ -57,3 +61,6 @@ panic = "abort"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[dev-dependencies]
+testresult = "0.4.1"
