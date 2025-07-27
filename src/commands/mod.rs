@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-mod crypt_util;
+pub mod crypt_util;
 pub mod decrypt;
 pub mod diff;
 pub mod encrypt;
