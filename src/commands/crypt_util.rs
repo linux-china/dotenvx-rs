@@ -4,12 +4,14 @@ use aes_gcm::{Aes256Gcm, Key, Nonce};
 use argon2::password_hash::SaltString;
 use argon2::{self, Argon2, PasswordHasher};
 use base64::engine::general_purpose;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use colored::Colorize;
 use dotenvx_rs::dotenvx::get_private_key;
 use ecies::utils::generate_keypair;
 use ecies::{PublicKey, SecretKey};
 use libsecp256k1::{sign, Message};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::fs::File;
@@ -94,7 +96,7 @@ pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
     }
 }
 
-/// trim the message and sign it using the private key
+/// trim the message and sign it using the private key and return the signature in base64 format
 pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> {
     // Step 1: Hash the message using SHA-256
     let mut hasher = Sha256::new();
@@ -106,6 +108,23 @@ pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> 
     if let Ok(sk) = SecretKey::parse_slice(&sk_bytes) {
         let signature = sign(&msg, &sk).0;
         Ok(general_purpose::STANDARD.encode(signature.serialize()))
+    } else {
+        Err(anyhow::anyhow!("Invalid private key format"))
+    }
+}
+
+/// trim the message and sign it using the private key and return the signature in bytes format
+pub fn sign_message_bytes(private_key: &str, message: &str) -> anyhow::Result<Vec<u8>> {
+    // Step 1: Hash the message using SHA-256
+    let mut hasher = Sha256::new();
+    hasher.update(message.trim());
+    let message_hash = hasher.finalize();
+    let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
+    // Step 2: Sign the message hash with the private key
+    let sk_bytes = hex::decode(private_key)?;
+    if let Ok(sk) = SecretKey::parse_slice(&sk_bytes) {
+        let signature = sign(&msg, &sk).0;
+        Ok(signature.serialize().to_vec())
     } else {
         Err(anyhow::anyhow!("Invalid private key format"))
     }
@@ -132,6 +151,20 @@ pub fn verify_signature(public_key: &str, message: &str, signature: &str) -> any
     } else {
         Err(anyhow::anyhow!("Invalid public key format"))
     }
+}
+
+/// generate a JWT token using the private key and claims, and algorithm ES256K(secp256k1)
+pub fn generate_jwt_token(
+    private_key_hext: &str,
+    claims: serde_json::Value,
+) -> anyhow::Result<String> {
+    let header_obj = json!({"typ": "JWT","alg": "ES256K"});
+    let header = URL_SAFE_NO_PAD.encode(serde_json::to_string(&header_obj)?);
+    let payload = URL_SAFE_NO_PAD.encode(serde_json::to_string(&claims)?);
+    let message = format!("{header}.{payload}");
+    let signature_bytes = sign_message_bytes(private_key_hext, &message)?;
+    let signature = URL_SAFE_NO_PAD.encode(signature_bytes.as_slice());
+    Ok(format!("{header}.{payload}.{signature}"))
 }
 
 //============= aes_gcm =======
@@ -216,6 +249,19 @@ mod tests {
         println!("Signature: {signature}");
         let verify_result = verify_signature(public_key, message, &signature).unwrap();
         assert!(verify_result, "Signature verification failed");
+    }
+
+    #[test]
+    fn test_jwt_generate() {
+        let private_key = "9e70188d351c25d0714929205df9b8f4564b6b859966bdae7aef7f752a749d8b";
+        let claims = json!({
+            "sub": "example-user",
+            "exp": 1735689600, // Expiration time (e.g., 2025-01-01T00:00:00Z)
+            "iat": 1622505600, // Issued at time (e.g., 2021-06-01T00:00:00Z)
+            "iss": "example-issuer"
+        });
+        let jwt_token = generate_jwt_token(private_key, claims).unwrap();
+        println!("JWT: {jwt_token}");
     }
 
     #[test]
