@@ -18,10 +18,19 @@ pub fn verify_command(command_matches: &ArgMatches, profile: &Option<String>) {
             if let Some(public_key) = entries.get(&public_key_name) {
                 let message = remove_signature(&file_content);
                 if let Ok(is_valid) = verify_signature(public_key, &message, &signature) {
-                    println!(
-                        "{}",
-                        format!("✔ The .env file ({env_file}) is valid and signed.").green()
-                    );
+                    if is_valid {
+                        println!(
+                            "{}",
+                            format!("✔ The .env file ({env_file}) is valid.").green()
+                        );
+                    } else {
+                        eprintln!(
+                            "{}",
+                            format!("The .env file ({env_file}) signature is invalid. BE CAREFUL to use it.")
+                                .red(),
+                        );
+                        std::process::exit(1);
+                    }
                 } else {
                     eprintln!(
                         "{}",
