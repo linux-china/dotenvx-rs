@@ -2,7 +2,10 @@ use crate::commands::crypt_util::EcKeyPair;
 use clap::ArgMatches;
 use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_file;
+use java_properties::PropertiesIter;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
@@ -28,8 +31,19 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
     path: P,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut entries: HashMap<String, String> = HashMap::new();
-    for (key, value) in dotenvy::from_filename_iter(path)?.flatten() {
-        entries.insert(key.clone(), value.clone());
+    let file_name = path.as_ref().file_name().and_then(|s| s.to_str()).unwrap();
+    if file_name.ends_with(".properties") {
+        let f = File::open(path)?;
+        let reader = BufReader::new(f);
+        PropertiesIter::new(reader)
+            .read_into(|k, v| {
+                entries.insert(k, v);
+            })
+            .unwrap();
+    } else {
+        for (key, value) in dotenvy::from_filename_iter(path)?.flatten() {
+            entries.insert(key.clone(), value.clone());
+        }
     }
     Ok(entries)
 }
@@ -273,13 +287,25 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
 }
 
 pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) -> String {
-    if let Some(arg_value) = command_matches.get_one::<String>("env-file") {
+    let env_file_arg = command_matches.get_one::<String>("env-file");
+    let dotenv_file = if let Some(arg_value) = env_file_arg {
         arg_value.clone()
     } else if let Some(profile_name) = profile {
         format!(".env.{profile_name}")
     } else {
         ".env".to_string()
+    };
+    if !Path::new(&dotenv_file).exists() {
+        let properties_file = if let Some(profile_name) = profile {
+            format!("application_{profile_name}.properties")
+        } else {
+            "application.properties".to_string()
+        };
+        if Path::new(&properties_file).exists() {
+            return properties_file;
+        }
     }
+    dotenv_file
 }
 
 pub fn get_public_key_name(profile_name: &Option<String>) -> String {
