@@ -60,25 +60,27 @@ fn create_global_env_keys() {
         {
             let kp = EcKeyPair::generate();
             let private_key = kp.get_sk_hex();
-            lines.push(format!("DOTENV_PRIVATE_KEY=\"{private_key}\""));
+            lines.push(format!("DOTENV_PRIVATE_KEY={private_key}"));
         }
         // private keys for each profile
         for profile in profiles {
             let kp = EcKeyPair::generate();
             let private_key = kp.get_sk_hex();
             lines.push(format!(
-                "DOTENV_PRIVATE_KEY_{}=\"{}\"",
+                "DOTENV_PRIVATE_KEY_{}={}",
                 profile.to_uppercase(),
                 private_key
             ));
         }
         let private_keys = lines.join("\n");
+        let keys_file_id = uuid::Uuid::now_v7().to_string();
         let file_content = format!(
             r#"
-#/------------------!DOTENV_PRIVATE_KEYS!-------------------/
-#/ private decryption keys. DO NOT commit to source control /
-#/     [how it works](https://dotenvx.com/encryption)       /
-#/----------------------------------------------------------/
+# ---
+# uuid: {keys_file_id}
+# name: input your name here
+# group: demo
+# ---
 
 {private_keys}
 "#
