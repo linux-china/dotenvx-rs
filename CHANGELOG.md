@@ -2,6 +2,12 @@
 
 # Task Keeper Changelog
 
+## [0.3.1] - 2025-08-01
+
+### Added
+
+- Add password confirm for `dotenvx --seal`
+
 ## [0.3.0] - 2025-07-27
 
 ### Added
