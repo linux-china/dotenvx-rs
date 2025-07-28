@@ -20,6 +20,8 @@ pub mod run;
 pub mod set_cmd;
 pub mod verify;
 
+pub mod cloud;
+
 const KEYS_FILE_NAME: &str = ".env.keys";
 
 pub fn read_dotenv_file<P: AsRef<Path>>(
