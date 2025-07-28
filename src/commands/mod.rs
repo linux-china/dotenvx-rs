@@ -219,7 +219,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
 # ---
 
 #  Private decryption keys. DO NOT commit to source control
-{private_key_name}="{private_key_value}"
+{private_key_name}={private_key_value}
 "#
         );
         fs::write(&env_keys_file, file_content.trim_start().as_bytes())?;
