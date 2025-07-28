@@ -71,6 +71,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn encrypt_env_keys_file() {
     let password = rpassword::prompt_password("Your password: ").unwrap();
+    let password_confirm = rpassword::prompt_password("Password again: ").unwrap();
+    if password != password_confirm {
+        eprintln!("Passwords do not match. Please try again.");
+        return;
+    }
     let home_dir = dirs::home_dir().unwrap();
     if home_dir.join(".env.keys").exists() {
         let keys_file_path = home_dir.join(".env.keys");
