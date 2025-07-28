@@ -58,17 +58,15 @@ pub fn build_dotenvx_app() -> Command {
             Arg::new("encrypt")
                 .short('c')
                 .long("encrypt")
-                .help("encrypt value (default: true)")
-                .num_args(1)
-                .required(false),
+                .help("Encrypt value (default: true)")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("plain")
                 .short('p')
                 .long("plain")
-                .help("store value as plain text (default: false)")
-                .num_args(1)
-                .required(false),
+                .help("Store value as plain text (default: false)")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("stdout")
