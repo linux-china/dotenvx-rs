@@ -96,6 +96,13 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         )
         .arg(
+            Arg::new("keys")
+                .long("keys")
+                .help("Encrypt only the specified keys(glob support), such as `--keys key1 *token*, *password*`")
+                .num_args(0..)
+                .required(false),
+        )
+        .arg(
             Arg::new("sign")
                 .long("sign")
                 .help("Add a signature to the encrypted file")
@@ -115,6 +122,13 @@ pub fn build_dotenvx_app() -> Command {
                 .long("env-file")
                 .help("path to your env file(s) (default: .env)")
                 .num_args(1)
+                .required(false),
+        )
+        .arg(
+            Arg::new("keys")
+                .long("keys")
+                .help("Decrypt only the specified keys(glob support), such as `--keys key1 *token*, *password*`")
+                .num_args(0..)
                 .required(false),
         )
         .arg(

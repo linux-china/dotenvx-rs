@@ -1,10 +1,10 @@
-use crate::commands::decrypt::{decrypt_env_entries};
+use crate::commands::crypt_util::decrypt_env_item;
+use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::{
-    get_env_file_arg, get_private_key_for_file, read_dotenv_file, wrap_shell_value,
+    adjust_env_key, get_env_file_arg, get_private_key_for_file, read_dotenv_file, wrap_shell_value,
 };
 use clap::ArgMatches;
 use colored_json::{to_colored_json_auto, ToColoredJson};
-use crate::commands::crypt_util::decrypt_env_item;
 
 pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());
@@ -16,7 +16,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     };
     // if a key is provided, we read the .env file and print the value of the key
     if let Some(key_name) = key_arg {
-        let key_name = &key_name.to_uppercase();
+        let key_name = adjust_env_key(key_name, &env_file);
         let private_key = get_private_key_for_file(&env_file).unwrap();
         // get the decrypted value from the command line arguments if provided
         if let Some(value) = command_matches.get_one::<String>("value") {
@@ -29,7 +29,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
             return;
         }
         if let Ok(entries) = read_dotenv_file(&env_file) {
-            if let Some(value) = entries.get(key_name) {
+            if let Some(value) = entries.get(&key_name) {
                 let plain_value = if value.starts_with("encrypted:") {
                     decrypt_env_item(&private_key, value).unwrap_or(value.clone())
                 } else {

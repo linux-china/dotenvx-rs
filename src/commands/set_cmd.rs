@@ -1,6 +1,6 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::{
-    create_env_file, get_env_file_arg, get_public_key_for_file, wrap_shell_value,
+    adjust_env_key, create_env_file, get_env_file_arg, get_public_key_for_file, wrap_shell_value,
 };
 use clap::ArgMatches;
 use lazy_static::lazy_static;
@@ -15,6 +15,7 @@ lazy_static! {
 
 pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());
+    let env_file = get_env_file_arg(command_matches, profile);
     let value_arg = command_matches
         .get_one::<String>("value")
         .map(|s| s.as_str());
@@ -22,14 +23,13 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         eprintln!("Both key and value arguments are required.");
         return;
     }
-    let key = key_arg.unwrap().replace('-', "_").to_uppercase();
+    let key = adjust_env_key(key_arg.unwrap(), &env_file);
     if !validate_key_name(&key) {
         eprintln!(
             "Invalid key name: '{key}'. Key names must start with a letter or underscore and can only contain letters, numbers, and underscores."
         );
         return;
     }
-    let env_file = get_env_file_arg(command_matches, profile);
     let mut value = value_arg.unwrap().to_string();
     // read from stdin if value is "-"
     if value == "-" {
