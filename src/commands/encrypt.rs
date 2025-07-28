@@ -26,7 +26,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let mut is_changed = false;
     let file_content = fs::read_to_string(&env_file_path).unwrap();
     let mut entries = encrypt_env_entries(&env_file).unwrap();
-    let mut hint = format!(".env file: {env_file}");
+    let mut hint = format!(".env file({env_file})");
     if let Some(keys) = env_keys {
         let patterns: Vec<Pattern> = keys
             .map(|x| adjust_env_key(x, &env_file))

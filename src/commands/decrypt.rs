@@ -21,7 +21,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
     let env_keys = command_matches.get_many::<String>("keys");
     let mut entries = decrypt_env_entries(&env_file).unwrap();
-    let mut hint = format!(".env file: {env_file}");
+    let mut hint = format!(".env file({env_file})");
     if let Some(keys) = env_keys {
         let patterns: Vec<Pattern> = keys
             .map(|x| adjust_env_key(x, &env_file))
