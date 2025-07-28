@@ -230,6 +230,8 @@ pub fn build_dotenvx_app() -> Command {
                 .num_args(1)
                 .required(false),
         );
+    let cloud_command = Command::new("cloud")
+        .about("Dotenv cloud operations, such as registration, sync, audit etc.");
     Command::new("dotenvx")
         .version(VERSION)
         .author("linux_china <libing.chen@gmail.com>")
@@ -273,4 +275,5 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(ls_command)
         .subcommand(rotate_command)
         .subcommand(diff_command)
+        .subcommand(cloud_command)
 }
