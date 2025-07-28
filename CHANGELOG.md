@@ -10,6 +10,10 @@
 - Add `dotenvx encrypt --keys <keys>` to encrypt the specified keys in the .env file
 - Add `dotenvx decrypt --keys <keys>` to decrypt the specified keys in the .env file
 
+### Fixed
+
+- Change `--encrypt`, `--plain` to flag for `dotenvx set` command
+
 ## [0.3.0] - 2025-07-27
 
 ### Added
