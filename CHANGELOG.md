@@ -13,6 +13,7 @@
 ### Fixed
 
 - Change `--encrypt`, `--plain` to flag for `dotenvx set` command
+- Remove double quotes for public/private key's value(hex encoded) in the files
 
 ## [0.3.0] - 2025-07-27
 
