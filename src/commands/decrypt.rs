@@ -1,7 +1,10 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
-use crate::commands::{get_env_file_arg, get_private_key_for_file, wrap_shell_value};
+use crate::commands::{
+    adjust_env_key, get_env_file_arg, get_private_key_for_file, wrap_shell_value,
+};
 use clap::ArgMatches;
 use colored::Colorize;
+use glob::Pattern;
 use std::collections::HashMap;
 use std::fs;
 
@@ -16,7 +19,17 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         eprintln!("Error: The specified env file '{env_file}' does not exist.");
         return;
     }
-    let entries = decrypt_env_entries(&env_file).unwrap();
+    let env_keys = command_matches.get_many::<String>("keys");
+    let mut entries = decrypt_env_entries(&env_file).unwrap();
+    let mut hint = format!(".env file: {env_file}");
+    if let Some(keys) = env_keys {
+        let patterns: Vec<Pattern> = keys
+            .map(|x| adjust_env_key(x, &env_file))
+            .map(|x| Pattern::new(&x).unwrap())
+            .collect();
+        entries.retain(|key, _| patterns.iter().any(|pattern| pattern.matches(key)));
+        hint = format!("keys in .env file: {env_file}");
+    }
     // If the export flag is set, we print the entries in shell format
     if command_matches.get_flag("export") {
         // If the export flag is set, we print the entries in shell format
@@ -39,6 +52,9 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 let new_value = wrap_shell_value(value);
                 new_lines.push(format!("{key}={new_value}"));
                 is_changed = true;
+            } else {
+                // If the key is not in the entries, we keep the original line
+                new_lines.push(line.to_string());
             }
         } else {
             new_lines.push(line.to_string());
@@ -55,7 +71,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     } else {
         let new_file_content = new_lines.join("\n");
         fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
-        println!("{}", format!("✔ decrypted ({env_file})").green());
+        println!("{}", format!("✔ {hint} decrypted ({env_file})").green());
     }
 }
 

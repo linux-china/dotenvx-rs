@@ -1,16 +1,18 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::{sign_and_update_env_file_content, sign_available};
 use crate::commands::{
-    construct_env_file_header, get_env_file_arg, get_private_key, get_public_key_for_file,
-    get_public_key_name, write_public_key_to_file,
+    adjust_env_key, construct_env_file_header, get_env_file_arg, get_private_key,
+    get_public_key_for_file, get_public_key_name, write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
+use glob::Pattern;
 use std::collections::HashMap;
 use std::fs;
 
 pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
+    let env_keys = command_matches.get_many::<String>("keys");
     let is_stdout = command_matches.get_flag("stdout");
     let is_sign_required = command_matches.get_flag("sign");
     let env_file_path = std::path::PathBuf::from(&env_file);
@@ -23,7 +25,16 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
     let mut is_changed = false;
     let file_content = fs::read_to_string(&env_file_path).unwrap();
-    let entries = encrypt_env_entries(&env_file).unwrap();
+    let mut entries = encrypt_env_entries(&env_file).unwrap();
+    let mut hint = format!(".env file: {env_file}");
+    if let Some(keys) = env_keys {
+        let patterns: Vec<Pattern> = keys
+            .map(|x| adjust_env_key(x, &env_file))
+            .map(|x| Pattern::new(&x).unwrap())
+            .collect();
+        entries.retain(|key, _| patterns.iter().any(|pattern| pattern.matches(key)));
+        hint = format!("keys in .env file: {env_file}");
+    }
     let mut new_lines: Vec<String> = Vec::new();
     for line in file_content.lines() {
         if line.starts_with("#") {
@@ -44,6 +55,9 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             if let Some(value) = entries.get(key) {
                 new_lines.push(format!("{key}={value}"));
                 is_changed = true;
+            } else {
+                // if the key is not in the entries, we keep the original line
+                new_lines.push(line.to_string());
             }
         }
     }
@@ -81,9 +95,12 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
         fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
         if is_sign_required {
-            println!("{}", format!("✔ encrypted and signed ({env_file})").green());
+            println!(
+                "{}",
+                format!("✔ {hint} encrypted and signed ({env_file})").green()
+            );
         } else {
-            println!("{}", format!("✔ encrypted ({env_file})").green());
+            println!("{}", format!("✔ {hint} encrypted ({env_file})").green());
         }
     }
 }
