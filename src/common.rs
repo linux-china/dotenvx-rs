@@ -16,6 +16,12 @@ pub fn get_profile_name_from_file(env_file_name: &str) -> Option<String> {
     if env_file_name.starts_with(".env.") {
         let profile_name = env_file_name.replace(".env.", "");
         return Some(profile_name);
+    } else if env_file_name.ends_with(".properties") && env_file_name.contains('_') {
+        return env_file_name
+            .replace(".properties", "")
+            .rsplit('_')
+            .next()
+            .map(|x| x.to_string());
     }
     None
 }
