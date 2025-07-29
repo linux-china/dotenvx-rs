@@ -60,13 +60,8 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
                     println!("export {}={}", key, wrap_shell_value(value));
                 }
             } else {
-                println!(
-                    "{}",
-                    serde_json::to_string(&entries)
-                        .unwrap()
-                        .to_colored_json_auto()
-                        .unwrap()
-                );
+                let body = serde_json::json!(entries);
+                println!("{}", to_colored_json_auto(&body).unwrap());
             }
         } else {
             eprintln!("Failed to decrypt the .env file: {env_file}");
