@@ -1,5 +1,8 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
-use crate::commands::{adjust_env_key, get_env_file_arg, get_private_key_for_file, is_public_key_name, wrap_shell_value};
+use crate::commands::{
+    adjust_env_key, get_env_file_arg, get_private_key_for_file, is_public_key_name,
+    wrap_shell_value,
+};
 use clap::ArgMatches;
 use colored::Colorize;
 use glob::Pattern;
@@ -41,6 +44,13 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
         println!("# Run this command to configure your shell:");
         println!("# eval $(dotenvx decrypt -f {env_file})");
+        return;
+    }
+    // dump entries to stdout as json
+    if command_matches.get_flag("dump") {
+        // output the entries as json object
+        let body = serde_json::json!(entries);
+        println!("{}", serde_json::to_string_pretty(&body).unwrap());
         return;
     }
     let file_content = fs::read_to_string(&env_file_path).unwrap();
