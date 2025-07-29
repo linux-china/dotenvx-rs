@@ -86,6 +86,18 @@ pub fn get_private_key(
 
 pub fn get_public_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     let profile_name = get_profile_name_from_file(env_file);
+    if env_file.ends_with(".properties") {
+        let file_content = fs::read_to_string(env_file).unwrap();
+        for line in file_content.lines() {
+            if line.starts_with("dotenv.public.key") {
+                return line
+                    .split('=')
+                    .nth(1)
+                    .map(|s| s.trim().to_string())
+                    .ok_or_else(|| "Public key not found in properties file".into());
+            }
+        }
+    }
     get_public_key(&profile_name)
 }
 
