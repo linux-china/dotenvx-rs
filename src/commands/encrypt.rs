@@ -7,8 +7,11 @@ use crate::commands::{
 use clap::ArgMatches;
 use colored_json::Paint;
 use glob::Pattern;
+use java_properties::PropertiesIter;
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
+use std::io::BufReader;
 
 pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
@@ -118,13 +121,30 @@ pub fn encrypt_env_entries(
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let public_key = get_public_key_for_file(env_file)?;
     let mut entries: HashMap<String, String> = HashMap::new();
-    for item in dotenvy::from_filename_iter(env_file)? {
-        let (key, value) = &item.unwrap();
-        if !value.starts_with("encrypted:") {
-            let encrypted_text = encrypt_env_item(&public_key, value)?;
-            entries.insert(key.clone(), encrypted_text);
-        } else {
-            entries.insert(key.clone(), value.clone());
+    if env_file.ends_with(".properties") {
+        let f = File::open(env_file)?;
+        let reader = BufReader::new(f);
+        PropertiesIter::new(reader)
+            .read_into(|k, v| {
+                let key = k.to_string();
+                let value = v.to_string();
+                if !value.starts_with("encrypted:") {
+                    let encrypted_text = encrypt_env_item(&public_key, &value).unwrap();
+                    entries.insert(key, encrypted_text);
+                } else {
+                    entries.insert(key, value);
+                }
+            })
+            .unwrap();
+    } else {
+        for item in dotenvy::from_filename_iter(env_file)? {
+            let (key, value) = &item.unwrap();
+            if !value.starts_with("encrypted:") {
+                let encrypted_text = encrypt_env_item(&public_key, value)?;
+                entries.insert(key.clone(), encrypted_text);
+            } else {
+                entries.insert(key.clone(), value.clone());
+            }
         }
     }
     Ok(entries)
