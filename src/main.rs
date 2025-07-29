@@ -39,21 +39,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(exit_code);
     }
     // check "-pp" for decryption to be compatible with python-dotenvx
-    if raw_args.contains(&"-pp".to_string()) {
-        // remove "-pp" from the arguments
-        raw_args.retain(|arg| arg != "-pp");
-        raw_args.push("--pretty-print".to_owned());
-        let matches = app.try_get_matches_from(raw_args).unwrap();
-        let command_matches = matches.subcommand_matches("get").unwrap();
-        let profile = get_profile(&matches);
-        get_command(command_matches, &profile);
-        return Ok(());
+    if let Some(value) = raw_args.iter_mut().find(|x| *x == "-pp") {
+        *value = "--pretty-print".to_owned();
     }
-    let matches = app.get_matches();
+    let matches = app.try_get_matches_from(raw_args).unwrap();
     // check no-color flag
     if matches.get_flag("no-color") {
         unsafe {
-            std::env::set_var("NO_COLOR", "1");
+            env::set_var("NO_COLOR", "1");
         }
     }
     // seal/unseal $HOME/.env.keys file
