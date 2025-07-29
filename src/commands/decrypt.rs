@@ -5,8 +5,11 @@ use crate::commands::{
 use clap::ArgMatches;
 use colored::Colorize;
 use glob::Pattern;
+use java_properties::PropertiesIter;
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
+use std::io::BufReader;
 
 pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if let Some(arg_value) = command_matches.get_one::<String>("value") {
@@ -80,13 +83,30 @@ pub fn decrypt_env_entries(
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let private_key = get_private_key_for_file(env_file)?;
     let mut entries: HashMap<String, String> = HashMap::new();
-    for item in dotenvy::from_filename_iter(env_file)? {
-        let (key, value) = &item.unwrap();
-        if value.starts_with("encrypted:") {
-            let decrypted_text = decrypt_env_item(&private_key, value)?;
-            entries.insert(key.clone(), decrypted_text);
-        } else {
-            entries.insert(key.clone(), value.clone());
+    if env_file.ends_with(".properties") {
+        let f = File::open(env_file)?;
+        let reader = BufReader::new(f);
+        PropertiesIter::new(reader)
+            .read_into(|k, v| {
+                let key = k.to_string();
+                let value = v.to_string();
+                if value.starts_with("encrypted:") {
+                    let decrypted_text = decrypt_env_item(&private_key, &value).unwrap();
+                    entries.insert(key.clone(), decrypted_text);
+                } else {
+                    entries.insert(key.clone(), value.clone());
+                }
+            })
+            .unwrap();
+    } else {
+        for item in dotenvy::from_filename_iter(env_file)? {
+            let (key, value) = &item.unwrap();
+            if value.starts_with("encrypted:") {
+                let decrypted_text = decrypt_env_item(&private_key, value)?;
+                entries.insert(key.clone(), decrypted_text);
+            } else {
+                entries.insert(key.clone(), value.clone());
+            }
         }
     }
     Ok(entries)
