@@ -30,6 +30,12 @@ pub fn build_dotenvx_app() -> Command {
                 .num_args(1)
                 .required(false),
         )
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .help("include all machine envs as well")
+                .action(ArgAction::SetTrue),
+        )
         .arg(Arg::new("key").help("key's name").index(1).required(false))
         .arg(
             Arg::new("value")
@@ -43,6 +49,18 @@ pub fn build_dotenvx_app() -> Command {
                 .help("format of the output (json, shell) (default: \"json\")")
                 .num_args(1)
                 .required(false),
+        )
+        .arg(
+            Arg::new("override")
+                .long("override")
+                .help("override existing env variables (by default, existing env vars take precedence over .env files)")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("pretty-print")
+                .long("pretty-print")
+                .help("pretty print output")
+                .action(ArgAction::SetTrue),
         );
     let set_command = Command::new("set")
         .about("set a single environment variable")
@@ -145,6 +163,12 @@ pub fn build_dotenvx_app() -> Command {
             Arg::new("export")
                 .long("export")
                 .help("Output the key-value pairs as shell export commands")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("dump")
+                .long("dump")
+                .help("Decrypt all values to json format and print to stdout")
                 .action(ArgAction::SetTrue),
         )
         .arg(
