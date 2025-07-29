@@ -22,6 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = build_dotenvx_app();
     let raw_args: Vec<String> = env::args().collect();
     let sub_command_index = raw_args.iter().position(|arg| arg == "--").unwrap_or(0);
+    // check if the run sub-command is present
     if sub_command_index > 0 && raw_args[1] == "run" {
         let dotenvx_args = raw_args[0..sub_command_index]
             .iter()
@@ -38,6 +39,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(exit_code);
     }
     let matches = app.get_matches();
+    // check no-color flag
+    if matches.get_flag("no-color") {
+        unsafe {
+            std::env::set_var("NO_COLOR", "1");
+        }
+    }
+    // seal/unseal $HOME/.env.keys file
     if matches.get_flag("seal") {
         encrypt_env_keys_file();
         return Ok(());
@@ -45,12 +53,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         decrypt_env_keys_file();
         return Ok(());
     }
+    // check if the --profile flag is set
     let profile = get_profile(&matches);
     // check -c and run the command
     if matches.get_one::<String>("command").is_some() {
         let exit_code = run_command_line(&matches, &profile);
         std::process::exit(exit_code);
     }
+    // run the sub-commands
     if let Some((command, command_matches)) = matches.subcommand() {
         match command {
             "init" => init_command(command_matches, &profile),
