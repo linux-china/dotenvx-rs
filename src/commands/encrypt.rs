@@ -2,7 +2,7 @@ use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::{sign_and_update_env_file_content, sign_available};
 use crate::commands::{
     adjust_env_key, construct_env_file_header, get_env_file_arg, get_private_key,
-    get_public_key_for_file, get_public_key_name, write_public_key_to_file,
+    get_public_key_for_file, get_public_key_name, update_env_file, write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
@@ -46,7 +46,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         } else if line.is_empty() {
             // empty lines
             new_lines.push(line.to_string());
-        } else if line.starts_with("DOTENV_PUBLIC_KEY") {
+        } else if line.starts_with("DOTENV_PUBLIC_KEY") || line.starts_with("dotenv.public.key") {
             // public key line
             new_lines.push(line.to_string());
         } else if line.contains("=encrypted:") {
@@ -85,18 +85,20 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             println!("{}", format!("✔ sign added for ({env_file})").green());
         }
     } else {
-        let mut new_file_content = if file_content.contains("DOTENV_PUBLIC_KEY") {
+        let public_key = get_public_key_for_file(&env_file).unwrap();
+        let mut new_file_content = if file_content.contains("DOTENV_PUBLIC_KEY=")
+            || file_content.contains("dotenv.public.key=")
+        {
             new_lines.join("\n")
         } else {
             // append public key to .env file if it does not exist
             let public_key_name = get_public_key_name(profile);
-            let public_key = get_public_key_for_file(&env_file).unwrap();
             construct_env_file_header(&public_key_name, &public_key) + &new_lines.join("\n")
         };
         if is_sign_required {
             new_file_content = add_or_replace_signature(profile, &new_file_content).unwrap();
         }
-        fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
+        update_env_file(&env_file, &public_key, &new_file_content);
         if is_sign_required {
             println!(
                 "{}",
@@ -125,9 +127,7 @@ pub fn encrypt_env_entries(
         let f = File::open(env_file)?;
         let reader = BufReader::new(f);
         PropertiesIter::new(reader)
-            .read_into(|k, v| {
-                let key = k.to_string();
-                let value = v.to_string();
+            .read_into(|key, value| {
                 if !value.starts_with("encrypted:") {
                     let encrypted_text = encrypt_env_item(&public_key, &value).unwrap();
                     entries.insert(key, encrypted_text);
