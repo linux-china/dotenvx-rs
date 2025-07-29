@@ -1,6 +1,7 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::{
-    adjust_env_key, create_env_file, get_env_file_arg, get_public_key_for_file, wrap_shell_value,
+    adjust_env_key, create_env_file, get_env_file_arg, get_public_key_for_file, update_env_file,
+    wrap_shell_value,
 };
 use clap::ArgMatches;
 use lazy_static::lazy_static;
@@ -86,7 +87,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
             })
             .collect::<Vec<String>>()
             .join("\n");
-        fs::write(&env_file, new_content).expect("Failed to write to the .env file");
+        update_env_file(&env_file, &public_key, &new_content);
         println!("Updated {key} in {env_file}");
     } else {
         // Add new key
@@ -95,7 +96,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
             new_content.push('\n');
         }
         new_content.push_str(&pair);
-        fs::write(&env_file, new_content).expect("Failed to write to the .env file");
+        update_env_file(&env_file, &public_key, &new_content);
         println!("Added {key} to {env_file}");
     }
 }
