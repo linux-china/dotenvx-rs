@@ -87,9 +87,7 @@ pub fn decrypt_env_entries(
         let f = File::open(env_file)?;
         let reader = BufReader::new(f);
         PropertiesIter::new(reader)
-            .read_into(|k, v| {
-                let key = k.to_string();
-                let value = v.to_string();
+            .read_into(|key, value| {
                 if value.starts_with("encrypted:") {
                     let decrypted_text = decrypt_env_item(&private_key, &value).unwrap();
                     entries.insert(key.clone(), decrypted_text);
