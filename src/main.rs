@@ -20,7 +20,7 @@ pub mod commands;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = build_dotenvx_app();
-    let raw_args: Vec<String> = env::args().collect();
+    let mut raw_args: Vec<String> = env::args().collect();
     let sub_command_index = raw_args.iter().position(|arg| arg == "--").unwrap_or(0);
     // check if the run sub-command is present
     if sub_command_index > 0 && raw_args[1] == "run" {
@@ -37,6 +37,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &profile,
         );
         std::process::exit(exit_code);
+    }
+    // check "-pp" for decryption to be compatible with python-dotenvx
+    if raw_args.contains(&"-pp".to_string()) {
+        // remove "-pp" from the arguments
+        raw_args.retain(|arg| arg != "-pp");
+        raw_args.push("--pretty-print".to_owned());
+        let matches = app.try_get_matches_from(raw_args).unwrap();
+        let command_matches = matches.subcommand_matches("get").unwrap();
+        let profile = get_profile(&matches);
+        get_command(command_matches, &profile);
+        return Ok(());
     }
     let matches = app.get_matches();
     // check no-color flag
