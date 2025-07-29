@@ -9,6 +9,12 @@
 - Add password confirm for `dotenvx --seal`
 - Add `dotenvx encrypt --keys <keys>` to encrypt the specified keys in the .env file
 - Add `dotenvx decrypt --keys <keys>` to decrypt the specified keys in the .env file
+- Add  `application.properties` support for Spring Boot applications
+
+```shell
+$ dotenvx encrypt -f application.properties --keys spring.datasource.password
+$ dotenvx decrypt -f application.properties --keys spring.datasource.password
+```
 
 ### Fixed
 
