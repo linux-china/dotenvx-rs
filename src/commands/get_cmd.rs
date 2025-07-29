@@ -1,7 +1,8 @@
 use crate::commands::crypt_util::decrypt_env_item;
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::{
-    adjust_env_key, get_env_file_arg, get_private_key_for_file, read_dotenv_file, wrap_shell_value,
+    adjust_env_key, get_env_file_arg, get_private_key_for_file, merge_with_environment_variables,
+    read_dotenv_file, wrap_shell_value,
 };
 use clap::ArgMatches;
 use colored_json::{to_colored_json_auto, ToColoredJson};
@@ -14,6 +15,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     } else {
         "json".to_owned()
     };
+    let is_env_override = command_matches.get_flag("override");
     // if a key is provided, we read the .env file and print the value of the key
     if let Some(key_name) = key_arg {
         let key_name = adjust_env_key(key_name, &env_file);
@@ -51,7 +53,8 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
     } else {
         // print all entries with json format
-        if let Ok(entries) = decrypt_env_entries(&env_file) {
+        if let Ok(mut entries) = decrypt_env_entries(&env_file) {
+            merge_with_environment_variables(&mut entries, is_env_override);
             if format == "shell" {
                 for (key, value) in &entries {
                     println!("export {}={}", key, wrap_shell_value(value));
