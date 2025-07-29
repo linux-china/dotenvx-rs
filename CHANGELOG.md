@@ -8,7 +8,7 @@
 
 - Add `dotenvx --no-color` to disable colored output, or use `NO_COLOR=1` environment variable
 - Add `--all`, `--override` and `pretty-print` flags for `dotenvx get` sub command
-- Add `-pp` flags for `dotenvx get` sub command
+- Add `-pp` flags for `dotenvx get` sub command to be compatible with `python-dotenv` library
 - Add `dotenvx decrypt --dump` to decrypt the items from the .env file and output them to stdout as json format
 
 `dotenvx decrypt --dump` is useful for the languages that have no dotenvx library,
