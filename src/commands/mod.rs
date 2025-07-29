@@ -36,8 +36,8 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
         let f = File::open(path)?;
         let reader = BufReader::new(f);
         PropertiesIter::new(reader)
-            .read_into(|k, v| {
-                entries.insert(k, v);
+            .read_into(|key, value| {
+                entries.insert(key, value);
             })
             .unwrap();
     } else {
