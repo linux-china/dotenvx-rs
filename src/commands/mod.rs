@@ -142,6 +142,16 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
     }
 }
 
+pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &str) {
+    let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
+    if file_name.ends_with(".properties") && !content.contains("dotenv.public.key=") {
+        let new_content = format!("dotenv.public.key={}\n\n{}", public_key, content.trim());
+        fs::write(&env_file, new_content).unwrap();
+    } else {
+        fs::write(&env_file, content).unwrap();
+    }
+}
+
 pub fn construct_env_file_header(env_pub_key_name: &str, public_key: &str) -> String {
     let env_file_uuid = uuid::Uuid::now_v7().to_string();
     format!(
