@@ -271,7 +271,7 @@ pub fn build_dotenvx_app() -> Command {
     Command::new("dotenvx")
         .version(VERSION)
         .author("linux_china <libing.chen@gmail.com>")
-        .about("dotenvx - encrypts your .env files–limiting their attack vector while retaining their benefits.")
+        .about("dotenvx - encrypts your .env files, limiting their attack vector while retaining their benefits.")
         .arg(
             Arg::new("profile")
                 .short('p')
