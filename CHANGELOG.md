@@ -2,6 +2,17 @@
 
 # Task Keeper Changelog
 
+## [0.3.2] - 2025-08-01
+
+### Added
+
+- Add `dotenvx --no-color` to disable colored output, or use `NO_COLOR=1` environment variable
+- Add `--all`, `--override` and `pretty-print` flags for `dotenvx get` sub command
+- Add `dotenvx decrypt --dump` to decrypt the items from the .env file and output them to stdout as json format
+
+`dotenvx decrypt --dump` is useful for the languages that have no dotenvx library,
+and you can construct the command and execute it, and resolve the json output.
+
 ## [0.3.1] - 2025-07-28
 
 ### Added
