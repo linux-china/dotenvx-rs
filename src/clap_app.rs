@@ -300,6 +300,12 @@ pub fn build_dotenvx_app() -> Command {
                 .help("Unseal the $HOME/.env.keys.aes file with AES256 decryption and your password")
                 .action(ArgAction::SetTrue)
         )
+        .arg(
+            Arg::new("no-color")
+                .long("no-color")
+                .help("Disable colored output, and you can use NO_COLOR env variable too.")
+                .action(ArgAction::SetTrue)
+        )
         .subcommand(init_command)
         .subcommand(run_command)
         .subcommand(get_command)
