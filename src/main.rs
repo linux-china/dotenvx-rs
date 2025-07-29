@@ -14,35 +14,36 @@ use crate::commands::verify::verify_command;
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::env;
+use std::ffi::OsString;
 
 mod clap_app;
 pub mod commands;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = build_dotenvx_app();
-    let mut raw_args: Vec<String> = env::args().collect();
+    let mut raw_args: Vec<OsString> = env::args_os().collect();
     let sub_command_index = raw_args.iter().position(|arg| arg == "--").unwrap_or(0);
     // check if the run sub-command is present
     if sub_command_index > 0 && raw_args[1] == "run" {
         let dotenvx_args = raw_args[0..sub_command_index]
             .iter()
-            .map(|s| s.as_str())
+            .map(|s| s.to_str().unwrap())
             .collect::<Vec<&str>>();
         let matches = app.try_get_matches_from(dotenvx_args).unwrap();
         let command_matches = matches.subcommand_matches("run").unwrap();
         let profile = get_profile(&matches);
-        let exit_code = run_command(
-            &raw_args[sub_command_index + 1..],
-            command_matches,
-            &profile,
-        );
+        let command_args = raw_args[sub_command_index + 1..]
+            .iter()
+            .map(|s| s.to_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+        let exit_code = run_command(&command_args, command_matches, &profile);
         std::process::exit(exit_code);
     }
     // check "-pp" for decryption to be compatible with python-dotenvx
     if let Some(value) = raw_args.iter_mut().find(|x| *x == "-pp") {
-        *value = "--pretty-print".to_owned();
+        *value = "--pretty-print".into();
     }
-    let matches = app.try_get_matches_from(raw_args).unwrap();
+    let matches = app.get_matches_from(raw_args);
     // check no-color flag
     if matches.get_flag("no-color") {
         unsafe {
