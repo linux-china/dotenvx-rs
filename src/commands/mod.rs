@@ -448,6 +448,16 @@ pub fn find_env_file_path(dir: &Path, env_file_name: &str) -> Option<PathBuf> {
     None
 }
 
+pub fn merge_with_environment_variables(entries: &mut HashMap<String, String>, is_overload: bool) {
+    if !is_overload {
+        for (key, value) in env::vars() {
+            if entries.contains_key(&key) {
+                entries.insert(key, value);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
