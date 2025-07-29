@@ -5,6 +5,7 @@ use crate::commands::{
 };
 use clap::ArgMatches;
 use colored::Colorize;
+use colored_json::to_colored_json_auto;
 use glob::Pattern;
 use java_properties::PropertiesIter;
 use std::collections::HashMap;
@@ -50,7 +51,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if command_matches.get_flag("dump") {
         // output the entries as json object
         let body = serde_json::json!(entries);
-        println!("{}", serde_json::to_string_pretty(&body).unwrap());
+        println!("{}", to_colored_json_auto(&body).unwrap());
         return;
     }
     let file_content = fs::read_to_string(&env_file_path).unwrap();
