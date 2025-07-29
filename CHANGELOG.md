@@ -2,7 +2,7 @@
 
 # Task Keeper Changelog
 
-## [0.3.1] - 2025-08-01
+## [0.3.1] - 2025-07-28
 
 ### Added
 
@@ -14,6 +14,19 @@
 ```shell
 $ dotenvx encrypt -f application.properties --keys spring.datasource.password
 $ dotenvx decrypt -f application.properties --keys spring.datasource.password
+```
+
+`application.properties` example:
+
+```properties
+# ---
+# uuid: 019853c1-92a5-7902-8a0c-13d9d55a0566
+# ---
+
+dotenv.public.key=02e8d78f0da7fc3b529d503edd933ed8cdc79dbe5fd5d9bd480f1e63a09905f3b3
+
+# properties
+nick=encrypted:BPodujYSdjsczRV7O2nkPPqbS9Q==
 ```
 
 ### Fixed
