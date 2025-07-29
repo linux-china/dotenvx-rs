@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
+use crate::commands::is_public_key_name;
 
 #[derive(Debug, Clone)]
 pub struct EnvFile {
@@ -74,7 +75,7 @@ impl EnvFile {
 
     pub fn get_public_key(&self) -> Option<String> {
         for (key, value) in &self.entries {
-            if key.starts_with("DOTENV_PUBLIC_KEY") {
+            if is_public_key_name(key) {
                 return Some(value.clone());
             }
         }

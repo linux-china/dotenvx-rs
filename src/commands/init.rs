@@ -1,7 +1,4 @@
-use crate::commands::{
-    create_env_file, get_env_file_arg, get_private_key_name_for_file, write_private_key_to_file, EcKeyPair,
-    KEYS_FILE_NAME,
-};
+use crate::commands::{create_env_file, get_env_file_arg, get_private_key_name_for_file, is_public_key_included, write_private_key_to_file, EcKeyPair, KEYS_FILE_NAME};
 use clap::ArgMatches;
 use colored::Colorize;
 use std::fs;
@@ -20,7 +17,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file_exists = Path::new(&env_file).exists();
     if env_file_exists {
         if let Ok(file_content) = fs::read_to_string(&env_file) {
-            if file_content.contains("DOTENV_PUBLIC_KEY") {
+            if is_public_key_included(&file_content) {
                 eprintln!("The .env file already exists and contains a public key: {env_file}");
                 return;
             }

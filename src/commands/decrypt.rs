@@ -1,7 +1,5 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
-use crate::commands::{
-    adjust_env_key, get_env_file_arg, get_private_key_for_file, wrap_shell_value,
-};
+use crate::commands::{adjust_env_key, get_env_file_arg, get_private_key_for_file, is_public_key_name, wrap_shell_value};
 use clap::ArgMatches;
 use colored::Colorize;
 use glob::Pattern;
@@ -37,7 +35,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if command_matches.get_flag("export") {
         // If the export flag is set, we print the entries in shell format
         for (key, value) in &entries {
-            if !key.starts_with("DOTENV_PUBLIC_KEY") {
+            if !is_public_key_name(key) {
                 println!("export {}={}", key, wrap_shell_value(value));
             }
         }

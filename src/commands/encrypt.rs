@@ -1,9 +1,6 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::{sign_and_update_env_file_content, sign_available};
-use crate::commands::{
-    adjust_env_key, construct_env_file_header, get_env_file_arg, get_private_key,
-    get_public_key_for_file, get_public_key_name, update_env_file, write_public_key_to_file,
-};
+use crate::commands::{adjust_env_key, construct_env_file_header, get_env_file_arg, get_private_key, get_public_key_for_file, get_public_key_name, is_public_key_included, update_env_file, write_public_key_to_file};
 use clap::ArgMatches;
 use colored_json::Paint;
 use glob::Pattern;
@@ -86,8 +83,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
     } else {
         let public_key = get_public_key_for_file(&env_file).unwrap();
-        let mut new_file_content = if file_content.contains("DOTENV_PUBLIC_KEY=")
-            || file_content.contains("dotenv.public.key=")
+        let mut new_file_content = if is_public_key_included(&file_content)
         {
             new_lines.join("\n")
         } else {

@@ -49,7 +49,9 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 } else if line.is_empty() {
                     // empty lines
                     new_lines.push(line.to_string());
-                } else if line.starts_with("DOTENV_PUBLIC_KEY") {
+                } else if line.starts_with("DOTENV_PUBLIC_KEY")
+                    || line.starts_with("dotenv.public.key")
+                {
                     // public key line
                     new_lines.push(line.to_string());
                 } else if line.contains("=encrypted:") {

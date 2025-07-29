@@ -338,6 +338,14 @@ pub fn get_public_key_name(profile_name: &Option<String>) -> String {
     }
 }
 
+pub fn is_public_key_name(key: &str) -> bool {
+    key.starts_with("DOTENV_PUBLIC_KEY") || key.starts_with("dotenv.public.key")
+}
+
+pub fn is_public_key_included(file_content: &str) -> bool {
+    file_content.contains("DOTENV_PUBLIC_KEY") || file_content.contains("dotenv.public.key")
+}
+
 pub fn get_private_key_name(profile_name: &Option<String>) -> String {
     if let Some(name) = profile_name {
         format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
