@@ -25,6 +25,7 @@ libsecp256k1 = { version = "0.7.2", default-features = false, features = ["stati
 sha2 = "0.10"
 aes-gcm = "0.10.3"
 argon2 = { version = "0.5" }
+totp-rs = { version = "5.7" ,features = ["otpauth","gen_secret"]}
 rand = "0.9"
 base64 = "0.22.1"
 #openssl = { version = "0.10", features = ["vendored"] }
