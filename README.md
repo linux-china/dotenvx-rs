@@ -116,6 +116,17 @@ If no profile is specified, the CLI will use the `.env` file and `DOTENV_PRIVATE
 **Tips**: you can create alias for a profile, such as `alias prod-env='dotenvx -p prod'` to manage secrets for
 production profile.
 
+In dotenvx, three profile styles are supported:
+
+- project specific profile: such as `test`, `prod`, `dev`, etc., and you can use `.env.test`, `.env.prod`, `.env.dev`
+  files to manage different
+  environments.
+- global profile: such as `g_github`, `g_ai`, etc., and profile name start with `g_` to indicate it's a global profile,
+  and you can use `.env.g_github`, `.env.g_ai` files to manage different global environments.
+- namespace profile: such as `region1_dev`, `region2_prod`, etc., and profile name start with `region1` to indicate it's
+  a namespace profile, and you can use `.env.region1_dev`, `.env.region2_prod` files to manage different namespace
+  environments.
+
 ### How CLI to find private key?
 
 The CLI looks for the private key in the following order:
