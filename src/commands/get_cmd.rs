@@ -1,4 +1,4 @@
-use crate::commands::crypt_util::decrypt_env_item;
+use crate::commands::crypt_util::{decrypt_env_item, generate_totp_password};
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::{
     adjust_env_key, get_env_file_arg, get_private_key_for_file, merge_with_environment_variables,
@@ -39,8 +39,20 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 };
                 if format == "shell" {
                     println!("export {}={}", key_name, wrap_shell_value(&plain_value));
+                    if key_name.starts_with("otpauth://totp") {
+                        let otp_password = generate_totp_password(&plain_value).unwrap_or_default();
+                        let totp_password_key = format!("{key_name}_PASSWORD");
+                        println!("export {totp_password_key}={otp_password}");
+                    }
                 } else if format == "json" {
-                    let body = serde_json::json!({key_name: plain_value});
+                    let body = if key_name.starts_with("otpauth://totp") {
+                        let totp_password_key = format!("{key_name}_PASSWORD");
+                        let totp_password =
+                            generate_totp_password(&plain_value).unwrap_or_default();
+                        serde_json::json!({key_name: plain_value,totp_password_key:totp_password})
+                    } else {
+                        serde_json::json!({key_name: plain_value})
+                    };
                     println!("{}", to_colored_json_auto(&body).unwrap());
                 } else {
                     println!("{plain_value}");
