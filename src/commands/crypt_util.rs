@@ -17,6 +17,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use totp_rs::TOTP;
 
 pub struct EcKeyPair {
     pub public_key: PublicKey,
@@ -232,6 +233,12 @@ pub fn decrypt_file<P: AsRef<Path>>(
     // Write the decrypted bytes to the output file
     fs::write(output_file, plain_bytes)?;
     Ok(())
+}
+
+fn generate_totp_password(totp_url: &str) -> anyhow::Result<String> {
+    let totp = TOTP::from_url(totp_url)?;
+    totp.generate_current()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
 #[cfg(test)]
