@@ -170,8 +170,8 @@ pub fn construct_env_file_header(env_pub_key_name: &str, public_key: &str) -> St
         r#"
 # ---
 # id: {}
-# name: your project name
-# group: com.example.project_group
+# name: projet_name
+# group: group_name
 # ---
 {}="{}"
 
@@ -250,8 +250,8 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             r#"
 # ---
 # id: {keys_file_uuid}
-# name: input your name here
-# group: demo
+# name: project_name
+# group: group_name
 # ---
 
 #  Private decryption keys. DO NOT commit to source control

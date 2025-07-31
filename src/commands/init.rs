@@ -75,8 +75,8 @@ fn create_global_env_keys() {
             r#"
 # ---
 # uuid: {keys_file_id}
-# name: input your name here
-# group: demo
+# name: project_name
+# group: group_name
 # ---
 
 {private_keys}
