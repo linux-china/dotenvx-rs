@@ -235,7 +235,7 @@ pub fn decrypt_file<P: AsRef<Path>>(
     Ok(())
 }
 
-fn generate_totp_password(totp_url: &str) -> anyhow::Result<String> {
+pub fn generate_totp_password(totp_url: &str) -> anyhow::Result<String> {
     let totp = TOTP::from_url(totp_url)?;
     totp.generate_current()
         .map_err(|e| anyhow::anyhow!(e.to_string()))
