@@ -156,6 +156,12 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
         } else {
             header_text
         };
+        // create parent directory if it does not exist
+        if let Some(parent_dir) = env_file.as_ref().parent() {
+            if !parent_dir.exists() {
+                fs::create_dir_all(parent_dir).unwrap();
+            }
+        }
         if file_content.ends_with("\n") {
             fs::write(&env_file, file_content.trim_start().as_bytes()).unwrap();
         } else {
@@ -329,7 +335,12 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
     let dotenv_file = if let Some(arg_value) = env_file_arg {
         arg_value.clone()
     } else if let Some(profile_name) = profile {
-        format!(".env.{profile_name}")
+        if profile_name.starts_with("g_") {
+            let dotenvx_home = dirs::home_dir().unwrap().join(".dotenvx");
+            format!("{}/.env.{profile_name}", dotenvx_home.display())
+        } else {
+            format!(".env.{profile_name}")
+        }
     } else {
         ".env".to_string()
     };
@@ -453,7 +464,11 @@ pub fn find_env_file_path(dir: &Path, env_file_name: &str) -> Option<PathBuf> {
     None
 }
 
-pub fn list_env_files<P: AsRef<Path>>(root: P, max_depth: usize, profile: &Option<String>) -> Vec<DirEntry> {
+pub fn list_env_files<P: AsRef<Path>>(
+    root: P,
+    max_depth: usize,
+    profile: &Option<String>,
+) -> Vec<DirEntry> {
     walkdir::WalkDir::new(root)
         .max_depth(max_depth)
         .into_iter()
