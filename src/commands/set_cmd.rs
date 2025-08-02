@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::{
-    adjust_env_key, create_env_file, get_env_file_arg, get_public_key_for_file, update_env_file,
-    escape_shell_value,
+    adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file,
+    update_env_file,
 };
 use clap::ArgMatches;
 use lazy_static::lazy_static;
@@ -25,7 +25,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         return;
     }
     let key = adjust_env_key(key_arg.unwrap(), &env_file);
-    if !validate_key_name(&key) {
+    if !validate_key_name(&key, &env_file) {
         eprintln!(
             "Invalid key name: '{key}'. Key names must start with a letter or underscore and can only contain letters, numbers, and underscores."
         );
@@ -101,8 +101,12 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
 }
 
-pub fn validate_key_name(key: &str) -> bool {
-    REGEX_KEY_NAME.is_match(key)
+pub fn validate_key_name(key: &str, env_file: &str) -> bool {
+    if env_file.contains(".env") {
+        REGEX_KEY_NAME.is_match(key)
+    } else {
+        true
+    }
 }
 
 #[cfg(test)]
@@ -113,7 +117,7 @@ mod tests {
     fn test_validate_key_name() {
         let valid_keys = vec!["KEY", "NO-WORK", "KEY_NAME", "KEY_NAME_123"];
         for valid_key in valid_keys {
-            let result = validate_key_name(valid_key);
+            let result = validate_key_name(valid_key, ".env");
             println!("{valid_key}: {result}");
         }
     }
