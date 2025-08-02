@@ -162,8 +162,10 @@ pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &
     if file_name.ends_with(".properties") && !content.contains("dotenv.public.key=") {
         let new_content = format!("dotenv.public.key={}\n\n{}", public_key, content.trim());
         fs::write(&env_file, new_content).unwrap();
-    } else {
+    } else if content.ends_with("\n") {
         fs::write(&env_file, content).unwrap();
+    } else {
+        fs::write(&env_file, format!("{content}\n")).unwrap();
     }
 }
 
