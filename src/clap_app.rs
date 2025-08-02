@@ -96,9 +96,9 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("value")
                 .help("Value")
-                .required(false)
                 .index(2)
-                .num_args(1),
+                .num_args(1)
+                .required(false),
         )
         .arg(
             Arg::new("clipboard")
