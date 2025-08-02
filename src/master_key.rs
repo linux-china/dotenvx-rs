@@ -1,4 +1,5 @@
 use clap::{Arg, ArgAction, ArgMatches, Command};
+use dirs::home_dir;
 use std::env;
 use std::process::Stdio;
 
@@ -6,20 +7,32 @@ pub const VERSION: &str = "0.3.2";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = build_global_keys_app();
-    app.get_matches();
+    let matches = app.get_matches();
     let mut raw_args: Vec<String> = env::args().skip(1).collect();
-    let profile_offset = raw_args
-        .iter()
-        .position(|x| *x == "-p" || *x == "--profile");
-    if let Some(offset) = profile_offset {
-        let profile_value = raw_args.get(offset + 1).cloned().unwrap_or_default();
-        if !profile_value.starts_with("g_") {
-            raw_args.remove(offset + 1); // Remove the profile value
-            raw_args.insert(offset + 1, format!("g-{profile_value}"));
+    // run the sub-commands
+    if let Some((command, command_matches)) = matches.subcommand() {
+        match command {
+            "ls" => {
+                let dotenvx_home = home_dir().unwrap().join(".dotenvx");
+                raw_args.push(dotenvx_home.to_str().unwrap().to_owned());
+            }
+            "get" | "set" | "encrypt" | "decrypt" => {
+                let profile_offset = raw_args
+                    .iter()
+                    .position(|x| *x == "-p" || *x == "--profile");
+                if let Some(offset) = profile_offset {
+                    let profile_value = raw_args.get(offset + 1).cloned().unwrap_or_default();
+                    if !profile_value.starts_with("g_") {
+                        raw_args.remove(offset + 1); // Remove the profile value
+                        raw_args.insert(offset + 1, format!("g-{profile_value}"));
+                    }
+                } else {
+                    raw_args.insert(0, "-p".to_string());
+                    raw_args.insert(1, "g_default".to_string());
+                }
+            }
+            &_ => println!("Unknown command"),
         }
-    } else {
-        raw_args.insert(0, "-p".to_string());
-        raw_args.insert(1, "g_default".to_string());
     }
     let mut command = std::process::Command::new("dotenvx");
     command
