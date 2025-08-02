@@ -153,7 +153,15 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
         } else {
             header_text
         };
-        fs::write(&env_file, file_content.trim_start().as_bytes()).unwrap();
+        if file_content.ends_with("\n") {
+            fs::write(&env_file, file_content.trim_start().as_bytes()).unwrap();
+        } else {
+            fs::write(
+                &env_file,
+                format!("{}\n", file_content.trim_start()).as_bytes(),
+            )
+            .unwrap();
+        }
     }
 }
 
