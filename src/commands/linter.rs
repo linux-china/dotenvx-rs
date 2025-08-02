@@ -3,7 +3,10 @@ use dotenv_linter::cli::options::CheckOptions;
 use dotenv_linter::{check, cli};
 
 pub fn linter_command(_: &ArgMatches) {
-    // Simulate command-line arguments
+    lint().unwrap();
+}
+
+pub fn lint() -> anyhow::Result<()> {
     let args_vec = vec![
         "dotenv-linter",
         "--skip",
@@ -11,8 +14,9 @@ pub fn linter_command(_: &ArgMatches) {
         "--exclude",
         ".env.keys",
     ];
-    let current_dir = std::env::current_dir().unwrap();
-    let matches = cli::command().try_get_matches_from(args_vec).unwrap();
+    let current_dir = std::env::current_dir()?;
+    let matches = cli::command().try_get_matches_from(args_vec)?;
     let options = CheckOptions::new(&matches);
     check(&options, &current_dir).unwrap();
+    Ok(())
 }
