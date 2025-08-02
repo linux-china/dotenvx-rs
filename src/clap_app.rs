@@ -253,7 +253,8 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         );
     let linter_command =
-        Command::new("lint").about("Check all .env files in the current directory:");
+        Command::new("lint").about("Check all .env files in the current directory.");
+    let doctor_command = Command::new("doctor").about("Diagnose your .env files and lint");
     let diff_command = Command::new("diff")
         .about("Display keys' values between all .env files")
         .arg(
@@ -321,5 +322,6 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(rotate_command)
         .subcommand(diff_command)
         .subcommand(linter_command)
+        .subcommand(doctor_command)
         .subcommand(cloud_command)
 }

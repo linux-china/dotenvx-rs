@@ -16,6 +16,7 @@ use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::env;
 use std::ffi::OsString;
+use crate::commands::doctor::doctor_command;
 
 mod clap_app;
 pub mod commands;
@@ -80,6 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "diff" => diff_command(command_matches),
             "rotate" => rotate_command(command_matches, &profile),
             "lint" => linter_command(command_matches),
+            "doctor" => doctor_command(command_matches),
             &_ => println!("Unknown command"),
         }
     }
