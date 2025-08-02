@@ -6,6 +6,7 @@ use crate::commands::encrypt::encrypt_command;
 use crate::commands::get_cmd::get_command;
 use crate::commands::init::init_command;
 use crate::commands::keypair::keypair_command;
+use crate::commands::linter::linter_command;
 use crate::commands::list::ls_command;
 use crate::commands::rotate::rotate_command;
 use crate::commands::run::{run_command, run_command_line};
@@ -71,13 +72,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "init" => init_command(command_matches, &profile),
             "encrypt" => encrypt_command(command_matches, &profile),
             "decrypt" => decrypt_command(command_matches, &profile),
+            "verify" => verify_command(command_matches, &profile),
             "keypair" => keypair_command(command_matches, &profile),
             "ls" => ls_command(command_matches, &profile),
             "get" => get_command(command_matches, &profile),
             "set" => set_command(command_matches, &profile),
             "diff" => diff_command(command_matches),
             "rotate" => rotate_command(command_matches, &profile),
-            "verify" => verify_command(command_matches, &profile),
+            "lint" => linter_command(command_matches),
             &_ => println!("Unknown command"),
         }
     }
