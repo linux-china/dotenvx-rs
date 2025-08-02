@@ -38,6 +38,7 @@ pub fn doctor_command(_: &ArgMatches) {
             );
         }
     }
-    println!("Linter is running diagnostics...");
+    println!();
+    println!("Run linter now...");
     lint().unwrap();
 }
