@@ -160,16 +160,11 @@ pub fn build_dotenvx_app() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg(
-            Arg::new("export")
-                .long("export")
-                .help("Output the key-value pairs as shell export commands")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("dump")
-                .long("dump")
-                .help("Decrypt all values to json format and print to stdout")
-                .action(ArgAction::SetTrue),
+            Arg::new("format")
+                .long("format")
+                .help("format of the output (text, shell, json, csv) (default: \"text\")")
+                .num_args(1)
+                .required(false),
         )
         .arg(
             Arg::new("value")
