@@ -11,6 +11,20 @@
 - Add get value from clipboard for `dotenvx set <key> --clipboard`, and you can use `pbpaste | dotenvx set url -` too.
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 - Add  `dotenvx doctor` to check all .env files.
+- Add new `mkey` binary executable to manage the personal credentials.
+
+```
+mkey: Effortlessly manage your credentials, just like using a master key
+
+Usage: mkey [OPTIONS] [COMMAND]
+
+Commands:
+  set      Set a single credential
+  get      Return a single credential
+  encrypt  convert .env file(s) to encrypted .env file(s)
+  decrypt  convert encrypted .env file(s) to plain .env file(s)
+  ls       print all global .env files
+```
 
 ## [0.3.2] - 2025-07-29
 
