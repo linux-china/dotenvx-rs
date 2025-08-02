@@ -375,7 +375,7 @@ pub fn get_private_key_name_for_file(env_file: &str) -> String {
 
 pub fn adjust_env_key(key: &str, env_file: &str) -> String {
     if !env_file.contains(".properties") {
-        key.replace('-', "_").to_uppercase()
+        key.replace(['-', '.'], "_").to_uppercase()
     } else {
         key.to_string()
     }
