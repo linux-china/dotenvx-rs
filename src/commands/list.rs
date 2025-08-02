@@ -1,3 +1,4 @@
+use crate::commands::list_env_files;
 use crate::commands::model::EnvFile;
 use clap::ArgMatches;
 use prettytable::format::Alignment;
@@ -10,29 +11,7 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
         .map(|s| s.as_str())
         .unwrap_or(".");
     // list all .env files in directory by walkdir
-    let mut entries: Vec<DirEntry> = walkdir::WalkDir::new(directory)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .filter(|e| {
-            let file_name = e.file_name().to_str().unwrap();
-            if file_name == ".env.keys" || file_name == ".env.vault" {
-                false
-            } else {
-                file_name.starts_with(".env.") || file_name == ".env"
-            }
-        })
-        .filter(|e| {
-            // filter by profile if provided
-            let file_name = e.file_name().to_str().unwrap();
-            if let Some(profile_name) = profile {
-                let env_file_name = format!(".env.{profile_name}");
-                file_name.starts_with(&env_file_name)
-            } else {
-                true
-            }
-        })
-        .collect();
+    let mut entries: Vec<DirEntry> = list_env_files(directory, 32, profile);
     if entries.is_empty() {
         println!("No .env files found in directory: {directory}");
     } else {

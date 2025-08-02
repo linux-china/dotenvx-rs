@@ -1,5 +1,5 @@
 use crate::commands::crypt_util::decrypt_env_item;
-use crate::commands::{adjust_env_key, get_private_key_for_file, read_dotenv_file};
+use crate::commands::{get_private_key_for_file, list_env_files, read_dotenv_file};
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_file;
 use prettytable::{row, Cell, Table};
@@ -17,23 +17,7 @@ pub fn diff_command(command_matches: &ArgMatches) {
         .to_uppercase();
     let key_names = key_names.split(',').collect::<Vec<&str>>();
     let current_dir = std::env::current_dir().unwrap();
-    let entries = walkdir::WalkDir::new(&current_dir)
-        .max_depth(1)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            if e.file_type().is_file() {
-                let file_name = e.file_name().to_str().unwrap();
-                if file_name == ".env.keys" {
-                    false
-                } else {
-                    file_name.starts_with(".env.") || file_name == ".env"
-                }
-            } else {
-                false
-            }
-        })
-        .collect::<Vec<_>>();
+    let entries = list_env_files(current_dir, 1, &None);
     if entries.is_empty() {
         eprintln!("No .env files found.");
         return;

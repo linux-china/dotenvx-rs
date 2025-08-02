@@ -11,6 +11,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::{env, fs, io};
+use walkdir::DirEntry;
 
 pub mod crypt_util;
 pub mod decrypt;
@@ -27,6 +28,7 @@ pub mod set_cmd;
 pub mod verify;
 
 pub mod cloud;
+pub mod doctor;
 pub mod linter;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
@@ -449,6 +451,33 @@ pub fn find_env_file_path(dir: &Path, env_file_name: &str) -> Option<PathBuf> {
         return find_env_file_path(parent, env_file_name);
     }
     None
+}
+
+pub fn list_env_files<P: AsRef<Path>>(root: P, max_depth: usize, profile: &Option<String>) -> Vec<DirEntry> {
+    walkdir::WalkDir::new(root)
+        .max_depth(max_depth)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| {
+            let file_name = e.file_name().to_str().unwrap();
+            if file_name == ".env.keys" || file_name == ".env.vault" {
+                false
+            } else {
+                file_name.starts_with(".env.") || file_name == ".env"
+            }
+        })
+        .filter(|e| {
+            // filter by profile if provided
+            let file_name = e.file_name().to_str().unwrap();
+            if let Some(profile_name) = profile {
+                let env_file_name = format!(".env.{profile_name}");
+                file_name.starts_with(&env_file_name)
+            } else {
+                true
+            }
+        })
+        .collect()
 }
 
 pub fn merge_with_environment_variables(entries: &mut HashMap<String, String>, is_overload: bool) {
