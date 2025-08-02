@@ -2,6 +2,13 @@
 
 # Task Keeper Changelog
 
+## [0.3.3] - 2025-08-02
+
+### Added
+
+- Add unified `--format` for `dootenvx get` and `dotenvx decrypt`.
+- Add totp support if value starts with `otpauth://totp`
+
 ## [0.3.2] - 2025-07-29
 
 ### Added
