@@ -96,9 +96,15 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("value")
                 .help("Value")
-                .required(true)
+                .required(false)
                 .index(2)
                 .num_args(1),
+        )
+        .arg(
+            Arg::new("clipboard")
+                .long("clipboard")
+                .help("Set key's value from clipboard")
+                .action(ArgAction::SetTrue),
         );
 
     let encrypt_command = Command::new("encrypt")
