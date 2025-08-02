@@ -47,7 +47,7 @@ fn get_profile(global_matches: &ArgMatches) -> Option<String> {
         if profile_name.starts_with("g_") {
             Some(profile_name)
         } else {
-            Some(format!("g_{}", profile_name))
+            Some(format!("g_{profile_name}"))
         }
     } else {
         Some("g_default".to_string())
@@ -56,7 +56,7 @@ fn get_profile(global_matches: &ArgMatches) -> Option<String> {
 
 pub fn build_global_keys_app() -> Command {
     let set_command = Command::new("set")
-        .about("set a single environment variable")
+        .about("Set a single credential")
         .arg(
             Arg::new("encrypt")
                 .short('c')
@@ -92,7 +92,7 @@ pub fn build_global_keys_app() -> Command {
                 .action(ArgAction::SetTrue),
         );
     let get_command = Command::new("get")
-        .about("return a single environment variable")
+        .about("Return a single credential")
         .arg(
             Arg::new("all")
                 .long("all")
@@ -189,7 +189,7 @@ pub fn build_global_keys_app() -> Command {
             Arg::new("profile")
                 .short('p')
                 .long("profile")
-                .help("Profile to use (such as 'default', 'github', 'ai', 'self' etc.)")
+                .help("Profile to use, such as 'default'(default), 'github', 'ai', 'self' etc.")
                 .num_args(1)
                 .required(false),
         )
@@ -197,7 +197,7 @@ pub fn build_global_keys_app() -> Command {
             Arg::new("command")
                 .short('c')
                 .long("command")
-                .help("Run the command with injected environment variables from .env file")
+                .help("Run the command with injected credentials from .env file")
                 .num_args(1..)
                 .required(false),
         )
