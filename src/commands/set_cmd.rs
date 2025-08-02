@@ -3,6 +3,7 @@ use crate::commands::{
     adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file,
     update_env_file,
 };
+use arboard::Clipboard;
 use clap::ArgMatches;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -20,10 +21,6 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let value_arg = command_matches
         .get_one::<String>("value")
         .map(|s| s.as_str());
-    if key_arg.is_none() || value_arg.is_none() {
-        eprintln!("Both key and value arguments are required.");
-        return;
-    }
     let key = adjust_env_key(key_arg.unwrap(), &env_file);
     if !validate_key_name(&key, &env_file) {
         eprintln!(
@@ -31,7 +28,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         );
         return;
     }
-    let mut value = value_arg.unwrap().to_string();
+    let mut value = value_arg.unwrap_or_default().to_string();
     // read from stdin if value is "-"
     if value == "-" {
         // Create a new String to store the piped input
@@ -42,6 +39,23 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
             .expect("Failed to read from stdin");
         // Trim the input to remove any leading/trailing whitespace
         value = input.trim_end().to_string();
+        if value.is_empty() {
+            eprintln!("Error: value cannot be empty when reading from stdin.");
+            return;
+        }
+    } else if command_matches.get_flag("clipboard") {
+        if let Ok(mut clipboard) = Clipboard::new() {
+            if let Ok(clipboard_text) = clipboard.get_text() {
+                value = clipboard_text.trim().to_string();
+            } else {
+                eprintln!("Failed to read from clipboard.");
+                std::process::exit(1);
+            }
+        }
+    }
+    if value.is_empty() {
+        eprintln!("Error: Value cannot be empty, please provide a value.");
+        return;
     }
     let env_file_exists = Path::new(&env_file).exists();
     // encrypt the value or not based on the existing .env file content
