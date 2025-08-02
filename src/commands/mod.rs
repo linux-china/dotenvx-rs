@@ -63,7 +63,13 @@ pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_private_key_name(profile_name);
-    let dotenv_keys_file_path = find_dotenv_keys_file();
+    let dotenv_keys_file_path = if let Some(profile) = profile_name
+        && profile.starts_with("g_")
+    {
+        dirs::home_dir().map(|home| home.join(KEYS_FILE_NAME))
+    } else {
+        find_dotenv_keys_file()
+    };
     let key_entries = if let Some(file_path) = &dotenv_keys_file_path {
         read_dotenv_file(file_path)?
     } else {
@@ -312,6 +318,11 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
                 } else {
                     new_content.push_str(line);
                     new_content.push('\n');
+                }
+            }
+            if let Some(parent_dir) = env_keys_file.as_ref().parent() {
+                if !parent_dir.exists() {
+                    fs::create_dir_all(parent_dir).unwrap();
                 }
             }
             fs::write(&env_keys_file, new_content.as_bytes())?;
