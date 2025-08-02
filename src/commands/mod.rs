@@ -377,24 +377,13 @@ pub fn adjust_env_key(key: &str, env_file: &str) -> String {
         key.to_string()
     }
 }
-pub fn wrap_shell_value(value: &str) -> String {
-    let mut wrapped_value = value.to_string();
-    let mut double_quote_required = false;
-    if wrapped_value.contains("\n") {
-        wrapped_value = wrapped_value.replace("\n", "\\n");
-        double_quote_required = true;
+pub fn escape_shell_value(value: &str) -> String {
+    use shlex::try_quote;
+    if let Ok(escaped_value) = try_quote(value) {
+        escaped_value.to_string()
+    } else {
+        value.to_string()
     }
-    if wrapped_value.contains("\"") {
-        wrapped_value = wrapped_value.replace('"', "\\\"");
-        double_quote_required = true;
-    }
-    if wrapped_value.contains(' ') {
-        double_quote_required = true;
-    }
-    if double_quote_required {
-        wrapped_value = format!("\"{wrapped_value}\"");
-    }
-    wrapped_value
 }
 
 pub fn append_to_ignores(file_name: &str) {
