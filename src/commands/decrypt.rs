@@ -1,11 +1,9 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::{
-    adjust_env_key, get_env_file_arg, get_private_key_for_file, is_public_key_name,
-    escape_shell_value,
+    adjust_env_key, escape_shell_value, get_env_file_arg, get_private_key_for_file, std_output,
 };
 use clap::ArgMatches;
 use colored::Colorize;
-use colored_json::to_colored_json_auto;
 use glob::Pattern;
 use java_properties::PropertiesIter;
 use std::collections::HashMap;
@@ -35,23 +33,17 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         entries.retain(|key, _| patterns.iter().any(|pattern| pattern.matches(key)));
         hint = format!("keys in .env file: {env_file}");
     }
-    // If the export flag is set, we print the entries in shell format
-    if command_matches.get_flag("export") {
-        // If the export flag is set, we print the entries in shell format
-        for (key, value) in &entries {
-            if !is_public_key_name(key) {
-                println!("export {}={}", key, escape_shell_value(value));
-            }
+    let is_stdout = command_matches.get_flag("stdout");
+    // stdout with format shell, json or csv
+    if is_stdout
+        && let Some(fmt) = command_matches.get_one::<String>("format")
+        && fmt != "text"
+    {
+        std_output(&entries, &Some(fmt));
+        if fmt == "shell" {
+            println!("# Run this command to configure your shell:");
+            println!("# eval $(dotenvx decrypt -f {env_file} --stdout --format shell)");
         }
-        println!("# Run this command to configure your shell:");
-        println!("# eval $(dotenvx decrypt -f {env_file})");
-        return;
-    }
-    // dump entries to stdout as json
-    if command_matches.get_flag("dump") {
-        // output the entries as json object
-        let body = serde_json::json!(entries);
-        println!("{}", to_colored_json_auto(&body).unwrap());
         return;
     }
     let file_content = fs::read_to_string(&env_file_path).unwrap();
@@ -72,7 +64,8 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             new_lines.push(line.to_string());
         }
     }
-    if command_matches.get_flag("stdout") {
+    // stdout with text format
+    if is_stdout {
         for line in new_lines {
             println!("{line}");
         }
