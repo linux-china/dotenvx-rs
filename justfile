@@ -1,13 +1,15 @@
 build:
-    cargo build
+    cargo build --bins
 
 dist-build:
     dist build --target x86_64-apple-darwin
 
 release:
-    cargo build --release
+    cargo build --bins --release
     ls -ls target/release/dotenvx
+    ls -ls target/release/mkey
     cp target/release/dotenvx ~/bin/dotenvx
+    cp target/release/mkey ~/bin/mkey
 
 cli-help:
     cargo run --bin dotenvx -- --help
