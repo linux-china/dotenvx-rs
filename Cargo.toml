@@ -40,6 +40,7 @@ walkdir = "2.5.0"
 clap = "4.5.41"
 colored = "3.0"
 prettytable-rs = "^0.10"
+arboard = "3.6"
 # file format
 java-properties = "2"
 csv = "1.3"
