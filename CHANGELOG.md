@@ -8,6 +8,9 @@
 
 - Add unified `--format` for `dootenvx get` and `dotenvx decrypt`.
 - Add totp support if value starts with `otpauth://totp`
+- Add get value from clipboard for `dotenvx set <key> --clipboard`, and you can use `pbpaste | dotenvx set url -` too.
+- Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
+- Add  `dotenvx doctor` to check all .env files.
 
 ## [0.3.2] - 2025-07-29
 
