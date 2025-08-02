@@ -1,13 +1,16 @@
 use crate::commands::crypt_util::EcKeyPair;
 use clap::ArgMatches;
 use colored::Colorize;
+use colored_json::to_colored_json_auto;
+use csv::WriterBuilder;
 use dotenvx_rs::common::get_profile_name_from_file;
 use java_properties::PropertiesIter;
+use serde_json::json;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::{env, fs};
+use std::{env, fs, io};
 
 pub mod crypt_util;
 pub mod decrypt;
@@ -442,6 +445,33 @@ pub fn merge_with_environment_variables(entries: &mut HashMap<String, String>, i
         for (key, value) in env::vars() {
             if entries.contains_key(&key) {
                 entries.insert(key, value);
+            }
+        }
+    }
+}
+
+pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
+    if let Some(fmt) = format {
+        if *fmt == "json" {
+            let json_value = json!(entries);
+            println!("{}", to_colored_json_auto(&json_value).unwrap());
+        } else if *fmt == "shell" {
+            for (key, value) in entries {
+                println!("export {}={}", key, escape_shell_value(value));
+            }
+        } else if *fmt == "csv" {
+            let mut wtr = WriterBuilder::new()
+                .delimiter(b',') // Use semicolon as delimiter
+                .terminator(csv::Terminator::CRLF) // Use CRLF for line endings
+                .from_writer(io::stdout());
+            wtr.write_record(["key", "value"]).unwrap();
+            for (key, value) in entries {
+                wtr.write_record([key, value]).unwrap();
+            }
+            wtr.flush().unwrap();
+        } else {
+            for (key, value) in entries {
+                println!("{}={}", key, escape_shell_value(value));
             }
         }
     }
