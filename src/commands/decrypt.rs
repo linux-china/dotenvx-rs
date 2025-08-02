@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::{
     adjust_env_key, get_env_file_arg, get_private_key_for_file, is_public_key_name,
-    wrap_shell_value,
+    escape_shell_value,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -40,7 +40,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         // If the export flag is set, we print the entries in shell format
         for (key, value) in &entries {
             if !is_public_key_name(key) {
-                println!("export {}={}", key, wrap_shell_value(value));
+                println!("export {}={}", key, escape_shell_value(value));
             }
         }
         println!("# Run this command to configure your shell:");
@@ -61,7 +61,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         if line.contains("=encrypted:") {
             let key = line.split('=').next().unwrap().trim();
             if let Some(value) = entries.get(key) {
-                let new_value = wrap_shell_value(value);
+                let new_value = escape_shell_value(value);
                 new_lines.push(format!("{key}={new_value}"));
                 is_changed = true;
             } else {

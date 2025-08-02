@@ -2,7 +2,7 @@ use crate::commands::crypt_util::{decrypt_env_item, generate_totp_password};
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::{
     adjust_env_key, get_env_file_arg, get_private_key_for_file, merge_with_environment_variables,
-    read_dotenv_file, wrap_shell_value,
+    read_dotenv_file, escape_shell_value,
 };
 use clap::ArgMatches;
 use colored_json::{to_colored_json_auto, ToColoredJson};
@@ -24,7 +24,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
         if let Some(value) = command_matches.get_one::<String>("value") {
             let plain_value = decrypt_env_item(&private_key, value).unwrap_or(value.clone());
             if format == "shell" {
-                println!("export {}={}", key_name, wrap_shell_value(&plain_value));
+                println!("export {}={}", key_name, escape_shell_value(&plain_value));
             } else {
                 println!("{plain_value}");
             }
@@ -38,7 +38,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
                     value.clone()
                 };
                 if format == "shell" {
-                    println!("export {}={}", key_name, wrap_shell_value(&plain_value));
+                    println!("export {}={}", key_name, escape_shell_value(&plain_value));
                     if key_name.starts_with("otpauth://totp") {
                         let otp_password = generate_totp_password(&plain_value).unwrap_or_default();
                         let totp_password_key = format!("{key_name}_PASSWORD");
@@ -69,7 +69,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
             merge_with_environment_variables(&mut entries, is_env_override);
             if format == "shell" {
                 for (key, value) in &entries {
-                    println!("export {}={}", key, wrap_shell_value(value));
+                    println!("export {}={}", key, escape_shell_value(value));
                 }
             } else {
                 let body = serde_json::json!(entries);

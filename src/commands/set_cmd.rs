@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::{
     adjust_env_key, create_env_file, get_env_file_arg, get_public_key_for_file, update_env_file,
-    wrap_shell_value,
+    escape_shell_value,
 };
 use clap::ArgMatches;
 use lazy_static::lazy_static;
@@ -65,7 +65,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         let encrypted_value = encrypt_env_item(&public_key, &value).unwrap();
         format!("{key}={encrypted_value}")
     } else {
-        format!("{}={}", key, wrap_shell_value(&value))
+        format!("{}={}", key, escape_shell_value(&value))
     };
     if command_matches.get_flag("stdout") {
         println!("export {pair}");
