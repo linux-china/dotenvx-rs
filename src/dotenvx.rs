@@ -1,9 +1,10 @@
-use crate::common::{get_profile_name_from_env, get_profile_name_from_file};
+use crate::common::{find_dotenv_keys_file, get_profile_name_from_env, get_profile_name_from_file};
 use base64::engine::general_purpose;
 use base64::Engine;
+use dirs::home_dir;
 use env::set_var;
 use std::env;
-use std::env::{home_dir, VarError};
+use std::env::VarError;
 use std::io::{Cursor, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
@@ -184,11 +185,16 @@ pub fn get_private_key(
         return Ok(private_key);
     }
     let env_key_prefix = format!("{env_key_name}=");
-    let mut dotenv_file_path = PathBuf::from(".env.keys");
-    if !dotenv_file_path.exists() {
-        dotenv_file_path = home_dir().unwrap().join(".env.keys");
-    }
-    if dotenv_file_path.exists() {
+    let dotenv_keys_file = if let Some(profile) = profile_name
+        && profile.starts_with("g_")
+    {
+        Some(home_dir().unwrap().join(".env.keys"))
+    } else {
+        find_dotenv_keys_file()
+    };
+    if let Some(dotenv_file_path) = dotenv_keys_file
+        && dotenv_file_path.exists()
+    {
         let dotenv_content = std::fs::read_to_string(dotenv_file_path)?;
         if let Some(dotenv_vault) = dotenv_content
             .lines()
