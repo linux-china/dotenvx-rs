@@ -24,11 +24,7 @@ pub fn run_command_line(global_matches: &ArgMatches, profile: &Option<String>) -
     let command_and_args = shlex::split(command_line).unwrap();
     let command_name = &command_and_args[0];
     let mut command_args: Vec<String> = command_and_args[1..].to_vec();
-    let env_file = if let Some(profile_name) = profile {
-        format!(".env.{profile_name}")
-    } else {
-        ".env".to_string()
-    };
+    let env_file = get_env_file_arg(global_matches, profile);
     run_command_with_dotenvx(command_name, &mut command_args, &env_file)
 }
 fn run_command_with_dotenvx(
