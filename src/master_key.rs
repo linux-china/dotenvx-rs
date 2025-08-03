@@ -6,10 +6,23 @@ use std::process::Stdio;
 pub const VERSION: &str = "0.3.2";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut raw_args: Vec<String> = env::args().skip(1).collect();
+    let delegate_command_index = raw_args.iter().position(|arg| arg == "--").unwrap_or(0);
+    // check if the run sub-command is present
+    if delegate_command_index > 0 {
+        let dotenvx_args: Vec<&str> = raw_args[0..delegate_command_index]
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        if dotenvx_args.contains(&"run") {
+            reset_profile(&mut raw_args);
+            run_dotenvx_command(&raw_args);
+            return Ok(());
+        }
+    }
+    // run the sub-commands
     let app = build_global_keys_app();
     let matches = app.get_matches();
-    let mut raw_args: Vec<String> = env::args().skip(1).collect();
-    // run the sub-commands
     if let Some((command, command_matches)) = matches.subcommand() {
         match command {
             "ls" => {
@@ -17,30 +30,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 raw_args.push(dotenvx_home.to_str().unwrap().to_owned());
             }
             "get" | "set" | "encrypt" | "decrypt" => {
-                let profile_offset = raw_args
-                    .iter()
-                    .position(|x| *x == "-p" || *x == "--profile");
-                if let Some(offset) = profile_offset {
-                    let profile_value = raw_args.get(offset + 1).cloned().unwrap_or_default();
-                    if !profile_value.starts_with("g_") {
-                        raw_args.remove(offset + 1); // Remove the profile value
-                        raw_args.insert(offset + 1, format!("g-{profile_value}"));
-                    }
-                } else {
-                    raw_args.insert(0, "-p".to_string());
-                    raw_args.insert(1, "g_default".to_string());
-                }
+                reset_profile(&mut raw_args);
             }
             &_ => println!("Unknown command"),
         }
     }
+    run_dotenvx_command(&raw_args);
+    Ok(())
+}
+
+fn run_dotenvx_command(dotentvx_args: &Vec<String>) {
     let mut command = std::process::Command::new("dotenvx");
     command
         .envs(env::vars())
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .args(raw_args);
+        .args(dotentvx_args);
     let mut child = command
         .spawn()
         .expect("DOTENV-CMD-500: failed to run command");
@@ -50,6 +56,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .code()
         .unwrap();
     std::process::exit(exit_code);
+}
+
+fn reset_profile(raw_args: &mut Vec<String>) {
+    let profile_offset = raw_args
+        .iter()
+        .position(|x| *x == "-p" || *x == "--profile");
+    if let Some(offset) = profile_offset {
+        let profile_value = raw_args.get(offset + 1).cloned().unwrap_or_default();
+        if !profile_value.starts_with("g_") {
+            raw_args.remove(offset + 1); // Remove the profile value
+            raw_args.insert(offset + 1, format!("g-{profile_value}"));
+        }
+    } else {
+        raw_args.insert(0, "-p".to_string());
+        raw_args.insert(1, "g_default".to_string());
+    }
 }
 
 fn get_profile(global_matches: &ArgMatches) -> Option<String> {
