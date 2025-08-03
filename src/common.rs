@@ -1,4 +1,5 @@
 use std::env;
+use std::path::{Path, PathBuf};
 
 pub fn get_profile_name_from_env() -> Option<String> {
     let env_vars = ["NODE_ENV", "RUN_ENV", "APP_ENV", "SPRING_PROFILES_ACTIVE"];
@@ -22,6 +23,20 @@ pub fn get_profile_name_from_file(env_file_name: &str) -> Option<String> {
             .rsplit('_')
             .next()
             .map(|x| x.to_string());
+    }
+    None
+}
+
+pub fn find_dotenv_keys_file() -> Option<PathBuf> {
+    let current_dir = env::current_dir().unwrap();
+    find_dotenv_keys_file_by_path(&current_dir)
+}
+
+pub fn find_dotenv_keys_file_by_path(dir: &Path) -> Option<PathBuf> {
+    if dir.join(".env.keys").exists() {
+        return Some(dir.join(".env.keys"));
+    } else if let Some(parent) = dir.parent() {
+        return find_dotenv_keys_file_by_path(parent);
     }
     None
 }
