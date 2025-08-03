@@ -120,8 +120,17 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
     } else {
         ".env".to_string()
     };
-    let dotenv_file_path = find_env_file_path(&env::current_dir()?, &env_file_name)
-        .unwrap_or_else(|| PathBuf::from(env_file_name));
+    let dotenv_file_path = if let Some(profile) = profile_name
+        && profile.starts_with("g_")
+    {
+        dirs::home_dir()
+            .unwrap()
+            .join(".dotenvx")
+            .join(env_file_name)
+    } else {
+        find_env_file_path(&env::current_dir()?, &env_file_name)
+            .unwrap_or_else(|| PathBuf::from(env_file_name))
+    };
     let entries = if dotenv_file_path.exists() {
         read_dotenv_file(&dotenv_file_path)?
     } else {
@@ -572,5 +581,12 @@ mod tests {
     fn test_write_private_key() {
         let env_file = PathBuf::from(KEYS_FILE_NAME);
         write_private_key_to_file(&env_file, "DOTENV_PRIVATE_KEY_TEST", "xxxx").unwrap();
+    }
+
+    #[test]
+    fn test_get_public_key_for_file() {
+        let env_file = "/Users/linux_china/.dotenvx/.env.g_default";
+        let public_key = get_public_key_for_file(env_file);
+        println!("public key: {}", public_key.unwrap());
     }
 }
