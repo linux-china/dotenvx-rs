@@ -2,6 +2,7 @@ use crate::clap_app::build_dotenvx_app;
 use crate::commands::crypt_util::{decrypt_file, encrypt_file};
 use crate::commands::decrypt::decrypt_command;
 use crate::commands::diff::diff_command;
+use crate::commands::doctor::doctor_command;
 use crate::commands::encrypt::encrypt_command;
 use crate::commands::get_cmd::get_command;
 use crate::commands::init::init_command;
@@ -16,7 +17,6 @@ use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::env;
 use std::ffi::OsString;
-use crate::commands::doctor::doctor_command;
 
 mod clap_app;
 pub mod commands;
@@ -24,22 +24,24 @@ pub mod commands;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = build_dotenvx_app();
     let mut raw_args: Vec<OsString> = env::args_os().collect();
-    let sub_command_index = raw_args.iter().position(|arg| arg == "--").unwrap_or(0);
+    let delegate_command_index = raw_args.iter().position(|arg| arg == "--").unwrap_or(0);
     // check if the run sub-command is present
-    if sub_command_index > 0 && raw_args[1] == "run" {
-        let dotenvx_args = raw_args[0..sub_command_index]
+    if delegate_command_index > 0 {
+        let dotenvx_args = raw_args[0..delegate_command_index]
             .iter()
             .map(|s| s.to_str().unwrap())
             .collect::<Vec<&str>>();
-        let matches = app.try_get_matches_from(dotenvx_args).unwrap();
-        let command_matches = matches.subcommand_matches("run").unwrap();
-        let profile = get_profile(&matches);
-        let command_args = raw_args[sub_command_index + 1..]
-            .iter()
-            .map(|s| s.to_str().unwrap().to_string())
-            .collect::<Vec<String>>();
-        let exit_code = run_command(&command_args, command_matches, &profile);
-        std::process::exit(exit_code);
+        if dotenvx_args.contains(&"run") {
+            let matches = app.try_get_matches_from(dotenvx_args).unwrap();
+            let command_matches = matches.subcommand_matches("run").unwrap();
+            let profile = get_profile(&matches);
+            let command_args = raw_args[delegate_command_index + 1..]
+                .iter()
+                .map(|s| s.to_str().unwrap().to_string())
+                .collect::<Vec<String>>();
+            let exit_code = run_command(&command_args, command_matches, &profile);
+            std::process::exit(exit_code);
+        }
     }
     // check "-pp" for decryption to be compatible with python-dotenvx
     if let Some(value) = raw_args.iter_mut().find(|x| *x == "-pp") {
