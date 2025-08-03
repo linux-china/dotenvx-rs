@@ -3,7 +3,7 @@ use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
 use csv::WriterBuilder;
-use dotenvx_rs::common::get_profile_name_from_file;
+use dotenvx_rs::common::{find_dotenv_keys_file, get_profile_name_from_file};
 use java_properties::PropertiesIter;
 use serde_json::json;
 use std::collections::HashMap;
@@ -458,21 +458,6 @@ pub fn append_to_ignores(file_name: &str) {
             }
         }
     }
-}
-
-/// Finds the `.env.keys` file in the current directory or its parent directories.
-pub fn find_dotenv_keys_file() -> Option<PathBuf> {
-    let current_dir = env::current_dir().unwrap();
-    find_dotenv_keys_file_by_path(&current_dir)
-}
-
-pub fn find_dotenv_keys_file_by_path(dir: &Path) -> Option<PathBuf> {
-    if dir.join(KEYS_FILE_NAME).exists() {
-        return Some(dir.join(KEYS_FILE_NAME));
-    } else if let Some(parent) = dir.parent() {
-        return find_dotenv_keys_file_by_path(parent);
-    }
-    None
 }
 
 pub fn find_env_file_path(dir: &Path, env_file_name: &str) -> Option<PathBuf> {
