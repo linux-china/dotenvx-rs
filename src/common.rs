@@ -13,7 +13,13 @@ pub fn get_profile_name_from_env() -> Option<String> {
     None
 }
 
-pub fn get_profile_name_from_file(env_file_name: &str) -> Option<String> {
+pub fn get_profile_name_from_file(env_file: &str) -> Option<String> {
+    let mut env_file_name = env_file;
+    if env_file.contains("/") {
+        env_file_name = env_file_name.rsplit('/').next().unwrap_or(env_file_name);
+    } else if env_file.contains('\\') {
+        env_file_name = env_file_name.rsplit('\\').next().unwrap_or(env_file_name);
+    }
     if env_file_name.starts_with(".env.") {
         let profile_name = env_file_name.replace(".env.", "");
         return Some(profile_name);
