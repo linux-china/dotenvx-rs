@@ -32,8 +32,8 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let public_key = kp.get_pk_hex();
     let mut pair = format!("{}={}", "KEY1", "value1");
     // detect framework
-    if let Some(framework) = framework_arg.or_else(|| detect_framework()) {
-        if (framework == "gofr" && env_file.starts_with(".env")) {
+    if let Some(framework) = framework_arg.or_else(detect_framework) {
+        if framework == "gofr" && env_file.starts_with(".env") {
             env_file = format!("configs/{env_file}");
         } else if framework == "spring-boot" {
             pair = format!("{}={}", "key1", "value1");
