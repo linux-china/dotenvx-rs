@@ -1,4 +1,5 @@
 use crate::commands::crypt_util::EcKeyPair;
+use crate::commands::framework::detect_framework;
 use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
@@ -31,6 +32,7 @@ pub mod verify;
 
 pub mod cloud;
 pub mod doctor;
+pub mod framework;
 pub mod linter;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
@@ -410,7 +412,9 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
     if is_remote_env_file(&dotenv_file) {
         return dotenv_file;
     }
+    // if the file does not exist in current dir, we try to detect it
     if !Path::new(&dotenv_file).exists() {
+        // detect other files
         let properties_file = if let Some(profile_name) = profile {
             format!("application_{profile_name}.properties")
         } else {
@@ -418,6 +422,28 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
         };
         if Path::new(&properties_file).exists() {
             return properties_file;
+        }
+        // detect framework
+        if let Some(framework) = detect_framework() {
+            if framework == "spring-boot" {
+                let properties_file = if let Some(profile_name) = profile {
+                    format!("src/main/resources/application_{profile_name}.properties")
+                } else {
+                    "src/main/resources/application.properties".to_string()
+                };
+                if Path::new(&properties_file).exists() {
+                    return properties_file;
+                }
+            } else if framework == "gofr" {
+                let env_file = if let Some(profile_name) = profile {
+                    format!("configs/.env.{profile_name}")
+                } else {
+                    "configs/.env".to_string()
+                };
+                if Path::new(&env_file).exists() {
+                    return env_file;
+                }
+            }
         }
     }
     dotenv_file
