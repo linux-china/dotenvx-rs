@@ -27,7 +27,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
             }
         }
     }
-    let framework_arg: Option<String> = command_matches.get_one("framework").map(|x| x.to_string());
+    let framework_arg = command_matches.get_one::<String>("framework").cloned();
     let kp = EcKeyPair::generate();
     let public_key = kp.get_pk_hex();
     let pair = format!("{}={}", "KEY1", "value1");
