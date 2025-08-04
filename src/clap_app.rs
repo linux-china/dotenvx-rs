@@ -241,6 +241,12 @@ pub fn build_dotenvx_app() -> Command {
                 .long("global")
                 .help("Create $HOME/.env.keys with profiles(dev, test, perf, sand, stage, prod)")
                 .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("framework")
+                .long("framework")
+                .help("Framework to use, such as spring-boot, gofr.")
+                .action(ArgAction::SetTrue),
         );
     let verify_command = Command::new("verify")
         .about("Verify the signature of the encrypted .env file")
