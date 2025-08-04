@@ -30,13 +30,14 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let framework_arg = command_matches.get_one::<String>("framework").cloned();
     let kp = EcKeyPair::generate();
     let public_key = kp.get_pk_hex();
-    let pair = format!("{}={}", "KEY1", "value1");
+    let mut pair = format!("{}={}", "KEY1", "value1");
     // detect framework
-    if let Some(framework) = framework_arg.or_else(|| detect_framework())
-        && framework == "gofr"
-        && env_file.starts_with(".env")
-    {
-        env_file = format!("configs/{env_file}");
+    if let Some(framework) = framework_arg.or_else(|| detect_framework()) {
+        if (framework == "gofr" && env_file.starts_with(".env")) {
+            env_file = format!("configs/{env_file}");
+        } else if framework == "spring-boot" {
+            pair = format!("{}={}", "key1", "value1");
+        }
     }
     create_env_file(&env_file, &public_key, Some(&pair));
     // create private key file
