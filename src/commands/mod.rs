@@ -5,6 +5,8 @@ use colored_json::to_colored_json_auto;
 use csv::WriterBuilder;
 use dotenvx_rs::common::{find_dotenv_keys_file, get_profile_name_from_file};
 use java_properties::PropertiesIter;
+use reqwest::blocking::Client;
+use reqwest::header;
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs::File;
@@ -59,7 +61,17 @@ pub fn read_dotenv_url(
     headers: Option<HashMap<String, String>>,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut entries: HashMap<String, String> = HashMap::new();
-    let response = reqwest::blocking::get(file_url).unwrap();
+    let client = Client::new();
+    let mut request_headers = header::HeaderMap::new();
+    if let Some(custom_headers) = headers {
+        for (key, value) in custom_headers {
+            request_headers.insert(
+                header::HeaderName::from_bytes(key.as_bytes()).unwrap(),
+                header::HeaderValue::from_str(&value).unwrap(),
+            );
+        }
+    }
+    let response = client.get(file_url).headers(request_headers).send()?;
     let body: String = response.text().unwrap();
     let reader = io::Cursor::new(body.into_bytes());
     for (key, value) in dotenvy::from_read_iter(reader).flatten() {
