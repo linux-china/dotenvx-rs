@@ -107,7 +107,7 @@ ways:
 - Get profile from .env file, such as `.env.prod` for `prod` profile, `.env.test` for `test` profile, etc.
 - GEt profile from environment variables: `NODE_ENV`, `RUN_ENV`, `APP_ENV`, `SPRING_PROFILES_ACTIVE`.
 
-Different profiles have different `.env` files, such as `.env.prod`, `.env.test`, `.env.dev`, etc.,  
+Different profiles have different `.env` files, such as `.env.prod`, `.env.test`, `.env.dev`, etc.,
 and different profiles have different private keys for encryption and decryption,
 such as `DOTENV_PRIVATE_KEY_PROD`, `DOTENV_PRIVATE_KEY_TEST`, etc.
 
@@ -167,10 +167,10 @@ you can use the `dotenvx rotate` command to generate a new key pair, examples:
 
 You can use the `dotenvx decrypt --export` command to decrypt the dotenv file and output as shell script.
 
-- `eval $(dotenvx decrypt --export)` command will decrypt dotenv file and export the variables to the current shell.
-- `eval $(dotenvx get key --format shell)` command will export key's value from .env as environment variable.
+- `eval $( dotenvx decrypt --stdout --format shell )` command will decrypt dotenv file and export the variables to the current shell.
+- `eval $( dotenvx get key --format shell )` command will export key's value from .env as environment variable.
 
-**Tips**: if you use [direnv](https://direnv.net/), and you can add `eval $(dotenvx decrypt --export)` to the `.envrc`
+**Tips**: if you use [direnv](https://direnv.net/), and you can add `eval $( dotenvx decrypt --stdout --format shell )` to the `.envrc`
 file to automatically load .env as the environment variables when you enter the directory.
 
 ### How to add encrypted key-value pair from CLI?
@@ -258,4 +258,3 @@ If you use [act](https://github.com/nektos/act) for local GitHub Actions test, p
 * [Dotenvx](https://dotenvx.com/): encrypts your .env files–limiting their attack vector while retaining their benefits.
 * [ecies-rs](https://github.com/ecies/rs): Elliptic Curve Integrated Encryption Scheme for secp256k1/curve25519 in Rust
 * [dotenvy](https://github.com/allan2/dotenvy): a well-maintained fork of the dotenv crate
-
