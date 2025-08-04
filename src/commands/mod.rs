@@ -261,7 +261,7 @@ pub fn construct_env_file_header(env_pub_key_name: &str, public_key: &str) -> St
 # name: project_name
 # group: group_name
 # ---
-{}="{}"
+{}={}
 
 # Environment variables. MAKE SURE to ENCRYPT them before committing to source control
 "#,
