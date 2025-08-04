@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // run the sub-commands
     let app = build_global_keys_app();
     let matches = app.get_matches();
-    if let Some((command, command_matches)) = matches.subcommand() {
+    if let Some((command, _)) = matches.subcommand() {
         match command {
             "ls" => {
                 let dotenvx_home = home_dir().unwrap().join(".dotenvx");
@@ -71,21 +71,6 @@ fn reset_profile(raw_args: &mut Vec<String>) {
     } else {
         raw_args.insert(0, "-p".to_string());
         raw_args.insert(1, "g_default".to_string());
-    }
-}
-
-fn get_profile(global_matches: &ArgMatches) -> Option<String> {
-    let profile = global_matches
-        .get_one::<String>("profile")
-        .map(|s| s.to_owned());
-    if let Some(profile_name) = profile {
-        if profile_name.starts_with("g_") {
-            Some(profile_name)
-        } else {
-            Some(format!("g_{profile_name}"))
-        }
-    } else {
-        Some("g_default".to_string())
     }
 }
 
