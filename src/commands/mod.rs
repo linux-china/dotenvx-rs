@@ -59,7 +59,8 @@ pub fn read_dotenv_url(
     headers: Option<HashMap<String, String>>,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut entries: HashMap<String, String> = HashMap::new();
-    let body: String = ureq::get(file_url).call()?.body_mut().read_to_string()?;
+    let response = reqwest::blocking::get(file_url).unwrap();
+    let body: String = response.text().unwrap();
     let reader = io::Cursor::new(body.into_bytes());
     for (key, value) in dotenvy::from_read_iter(reader).flatten() {
         entries.insert(key.clone(), value.clone());
