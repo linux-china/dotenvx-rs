@@ -61,6 +61,18 @@ pub fn read_dotenv_url(
     headers: Option<HashMap<String, String>>,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut entries: HashMap<String, String> = HashMap::new();
+    let body = read_content_from_dotenv_url(file_url, headers)?;
+    let reader = io::Cursor::new(body.into_bytes());
+    for (key, value) in dotenvy::from_read_iter(reader).flatten() {
+        entries.insert(key.clone(), value.clone());
+    }
+    Ok(entries)
+}
+
+pub fn read_content_from_dotenv_url(
+    file_url: &str,
+    headers: Option<HashMap<String, String>>,
+) -> Result<String, Box<dyn std::error::Error>> {
     let client = Client::new();
     let mut request_headers = header::HeaderMap::new();
     if let Some(custom_headers) = headers {
@@ -72,12 +84,17 @@ pub fn read_dotenv_url(
         }
     }
     let response = client.get(file_url).headers(request_headers).send()?;
-    let body: String = response.text().unwrap();
-    let reader = io::Cursor::new(body.into_bytes());
-    for (key, value) in dotenvy::from_read_iter(reader).flatten() {
-        entries.insert(key.clone(), value.clone());
+    if response.status().is_success() {
+        let body = response.text()?;
+        Ok(body)
+    } else {
+        Err(format!(
+            "Failed to fetch dotenv file from URL: {}. Status: {}",
+            file_url,
+            response.status()
+        )
+        .into())
     }
-    Ok(entries)
 }
 
 pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -390,6 +407,9 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
     } else {
         ".env".to_string()
     };
+    if is_remote_env_file(&dotenv_file) {
+        return dotenv_file;
+    }
     if !Path::new(&dotenv_file).exists() {
         let properties_file = if let Some(profile_name) = profile {
             format!("application_{profile_name}.properties")
@@ -561,6 +581,10 @@ pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
             }
         }
     }
+}
+
+pub fn is_remote_env_file(env_file: &str) -> bool {
+    env_file.starts_with("http://") || env_file.starts_with("https://")
 }
 
 #[cfg(test)]

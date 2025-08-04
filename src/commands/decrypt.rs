@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::{
     adjust_env_key, escape_shell_value, get_env_file_arg, get_private_key_for_file,
-    read_dotenv_url, std_output,
+    is_remote_env_file, read_content_from_dotenv_url, read_dotenv_url, std_output,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -18,8 +18,9 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         return;
     }
     let env_file = get_env_file_arg(command_matches, profile);
+    let is_remote_env = is_remote_env_file(&env_file);
     let env_file_path = std::path::PathBuf::from(&env_file);
-    if !env_file_path.exists() {
+    if !is_remote_env && !std::path::PathBuf::from(&env_file).exists() {
         eprintln!("Error: The specified env file '{env_file}' does not exist.");
         return;
     }
@@ -47,7 +48,11 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
         return;
     }
-    let file_content = fs::read_to_string(&env_file_path).unwrap();
+    let file_content = if is_remote_env {
+        read_content_from_dotenv_url(&env_file, None).unwrap()
+    } else {
+        fs::read_to_string(&env_file_path).unwrap()
+    };
     let mut new_lines: Vec<String> = Vec::new();
     let mut is_changed = false;
     for line in file_content.lines() {
