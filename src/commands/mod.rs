@@ -198,7 +198,13 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
 pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Option<&str>) {
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
     let profile_name = get_profile_name_from_file(file_name);
-    let env_pub_key_name = get_public_key_name(&profile_name);
+    let mut env_pub_key_name = get_public_key_name(&profile_name);
+    if file_name.ends_with(".properties") {
+        env_pub_key_name = env_pub_key_name
+            .to_lowercase()
+            .replace('_', ".")
+            .to_string();
+    }
     let header_text = construct_env_file_header(&env_pub_key_name, public_key);
     if env_file.as_ref().exists() {
         let file_content = fs::read_to_string(&env_file).unwrap();
@@ -252,7 +258,7 @@ pub fn construct_env_file_header(env_pub_key_name: &str, public_key: &str) -> St
         r#"
 # ---
 # id: {}
-# name: projet_name
+# name: project_name
 # group: group_name
 # ---
 {}="{}"
