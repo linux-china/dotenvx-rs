@@ -27,11 +27,12 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
             }
         }
     }
+    let framework_arg: Option<String> = command_matches.get_one("framework").map(|x| x.to_string());
     let kp = EcKeyPair::generate();
     let public_key = kp.get_pk_hex();
     let pair = format!("{}={}", "KEY1", "value1");
     // detect framework
-    if let Some(framework) = detect_framework()
+    if let Some(framework) = framework_arg.or_else(|| detect_framework())
         && framework == "gofr"
         && env_file.starts_with(".env")
     {
