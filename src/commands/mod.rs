@@ -54,6 +54,19 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
     Ok(entries)
 }
 
+pub fn read_dotenv_url(
+    file_url: &str,
+    headers: Option<HashMap<String, String>>,
+) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    let mut entries: HashMap<String, String> = HashMap::new();
+    let body: String = ureq::get(file_url).call()?.body_mut().read_to_string()?;
+    let reader = io::Cursor::new(body.into_bytes());
+    for (key, value) in dotenvy::from_read_iter(reader).flatten() {
+        entries.insert(key.clone(), value.clone());
+    }
+    Ok(entries)
+}
+
 pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     let profile_name = get_profile_name_from_file(env_file);
     get_private_key(&profile_name)
