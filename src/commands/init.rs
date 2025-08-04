@@ -1,4 +1,8 @@
-use crate::commands::{create_env_file, get_env_file_arg, get_private_key_name_for_file, is_public_key_included, write_private_key_to_file, EcKeyPair, KEYS_FILE_NAME};
+use crate::commands::framework::detect_framework;
+use crate::commands::{
+    create_env_file, get_env_file_arg, get_private_key_name_for_file, is_public_key_included, write_private_key_to_file,
+    EcKeyPair, KEYS_FILE_NAME,
+};
 use clap::ArgMatches;
 use colored::Colorize;
 use std::fs;
@@ -13,7 +17,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
         create_global_env_keys();
         return;
     }
-    let env_file = get_env_file_arg(command_matches, profile);
+    let mut env_file = get_env_file_arg(command_matches, profile);
     let env_file_exists = Path::new(&env_file).exists();
     if env_file_exists {
         if let Ok(file_content) = fs::read_to_string(&env_file) {
@@ -26,7 +30,15 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let kp = EcKeyPair::generate();
     let public_key = kp.get_pk_hex();
     let pair = format!("{}={}", "KEY1", "value1");
+    // detect framework
+    if let Some(framework) = detect_framework()
+        && framework == "gofr"
+        && env_file.starts_with(".env")
+    {
+        env_file = format!("configs/{env_file}");
+    }
     create_env_file(&env_file, &public_key, Some(&pair));
+    // create private key file
     let private_key_name = get_private_key_name_for_file(&env_file);
     write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &kp.get_sk_hex()).unwrap();
     println!(
