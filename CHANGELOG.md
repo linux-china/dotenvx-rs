@@ -8,7 +8,7 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
-## [0.4.0] - 2025-08-04
+## [0.4.1] - 2025-08-04
 
 ### Added
 
