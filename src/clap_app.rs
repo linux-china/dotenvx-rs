@@ -246,7 +246,8 @@ pub fn build_dotenvx_app() -> Command {
             Arg::new("framework")
                 .long("framework")
                 .help("Framework to use, such as spring-boot, gofr.")
-                .action(ArgAction::SetTrue),
+                .num_args(1)
+                .required(false),
         );
     let verify_command = Command::new("verify")
         .about("Verify the signature of the encrypted .env file")
