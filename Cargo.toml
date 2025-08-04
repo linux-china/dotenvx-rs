@@ -54,6 +54,7 @@ dotenv-linter = { git = "https://github.com/dotenv-linter/dotenv-linter.git", pa
 regex = "1.11.1"
 lazy_static = "1.5.0"
 anyhow = "1.0.2"
+ureq="3"
 
 
 [[bin]]
