@@ -1,6 +1,7 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::{
-    adjust_env_key, escape_shell_value, get_env_file_arg, get_private_key_for_file, std_output,
+    adjust_env_key, escape_shell_value, get_env_file_arg, get_private_key_for_file,
+    read_dotenv_url, std_output,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -99,10 +100,19 @@ pub fn decrypt_env_entries(
             })
             .unwrap();
     } else {
-        for item in dotenvy::from_filename_iter(env_file)? {
-            let (key, value) = &item.unwrap();
+        let items = if env_file.starts_with("http://") || env_file.starts_with("https://") {
+            read_dotenv_url(env_file, None)?
+        } else {
+            let mut entries: HashMap<String, String> = HashMap::new();
+            for item in dotenvy::from_filename_iter(env_file)? {
+                let (key, value) = &item.unwrap();
+                entries.insert(key.clone(), value.clone());
+            }
+            entries
+        };
+        for (key, value) in items {
             if value.starts_with("encrypted:") {
-                let decrypted_text = decrypt_env_item(&private_key, value)?;
+                let decrypted_text = decrypt_env_item(&private_key, &value)?;
                 entries.insert(key.clone(), decrypted_text);
             } else {
                 entries.insert(key.clone(), value.clone());
