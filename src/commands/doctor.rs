@@ -40,5 +40,5 @@ pub fn doctor_command(_: &ArgMatches) {
     }
     println!();
     println!("Run linter now...");
-    lint().unwrap();
+    //lint().unwrap();
 }

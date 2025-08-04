@@ -2,6 +2,12 @@
 
 # Task Keeper Changelog
 
+## [Unreleased]
+
+### Added
+
+- Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
+
 ## [0.4.0] - 2025-08-04
 
 ### Added
@@ -9,7 +15,6 @@
 - Add unified `--format` for `dootenvx get` and `dotenvx decrypt`.
 - Add totp support if value starts with `otpauth://totp`
 - Add get value from clipboard for `dotenvx set <key> --clipboard`, and you can use `pbpaste | dotenvx set url -` too.
-- Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 - Add  `dotenvx doctor` to check all .env files.
 - Add new `mkey` binary executable to manage the personal credentials.
 
@@ -28,8 +33,10 @@ Commands:
 
 ### framework
 
-- Add [gofr](https://gofr.dev/) support: create `configs/.env` with `dotenvx init` or `dotenvx set <Key> <Value>` commands.
-- Add [Spring Boot](https://spring.io/projects/spring-boot/): `src/main/resources/application.properties` is first citizen now.
+- Add [gofr](https://gofr.dev/) support: create `configs/.env` with `dotenvx init` or `dotenvx set <Key> <Value>`
+  commands.
+- Add [Spring Boot](https://spring.io/projects/spring-boot/): `src/main/resources/application.properties` is first
+  citizen now.
 
 ## [0.3.2] - 2025-07-29
 

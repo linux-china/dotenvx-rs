@@ -1,5 +1,4 @@
 use csv::WriterBuilder;
-use dotenv_linter::cli::options::CheckOptions;
 use glob::Pattern;
 use std::io;
 use testresult::TestResult;
@@ -48,19 +47,20 @@ fn test_csv() -> TestResult {
     Ok(())
 }
 
-#[test]
-fn test_linter() {
-    use dotenv_linter::{check, cli};
-    // Simulate command-line arguments
-    let args_vec = vec![
-        "dotenv-linter",
-        "--skip",
-        "UnorderedKey",
-        "--exclude",
-        ".env.keys",
-    ];
-    let current_dir = std::env::current_dir().unwrap();
-    let matches = cli::command().try_get_matches_from(args_vec).unwrap();
-    let options = CheckOptions::new(&matches);
-    check(&options, &current_dir).unwrap();
-}
+// #[test]
+// fn test_linter() {
+//     use dotenv_linter::cli::options::CheckOptions;
+//     use dotenv_linter::{check, cli};
+//     // Simulate command-line arguments
+//     let args_vec = vec![
+//         "dotenv-linter",
+//         "--skip",
+//         "UnorderedKey",
+//         "--exclude",
+//         ".env.keys",
+//     ];
+//     let current_dir = std::env::current_dir().unwrap();
+//     let matches = cli::command().try_get_matches_from(args_vec).unwrap();
+//     let options = CheckOptions::new(&matches);
+//     check(&options, &current_dir).unwrap();
+// }

@@ -328,7 +328,7 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(ls_command)
         .subcommand(rotate_command)
         .subcommand(diff_command)
-        .subcommand(linter_command)
+        //.subcommand(linter_command)
         .subcommand(doctor_command)
         .subcommand(cloud_command)
 }
