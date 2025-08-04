@@ -12,13 +12,6 @@ pub fn build_dotenvx_app() -> Command {
                 .help("path to your env file (default: .env)")
                 .num_args(1)
                 .required(false)
-        )
-        .arg(
-            Arg::new("overload")
-                .short('o')
-                .long("overload")
-                .help("override existing env variables (by default, existing env vars take precedence over .env files)")
-                .action(ArgAction::SetTrue)
         );
     let get_command = Command::new("get")
         .about("return a single environment variable")
@@ -53,7 +46,7 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("override")
                 .long("override")
-                .help("override existing env variables (by default, existing env vars take precedence over .env files)")
+                .help("override existing env variables(always true)")
                 .action(ArgAction::SetTrue),
         )
         .arg(

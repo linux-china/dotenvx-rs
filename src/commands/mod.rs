@@ -578,16 +578,6 @@ pub fn list_env_files<P: AsRef<Path>>(
         .collect()
 }
 
-pub fn merge_with_environment_variables(entries: &mut HashMap<String, String>, is_overload: bool) {
-    if !is_overload {
-        for (key, value) in env::vars() {
-            if entries.contains_key(&key) {
-                entries.insert(key, value);
-            }
-        }
-    }
-}
-
 pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
     if let Some(fmt) = format {
         if *fmt == "json" {

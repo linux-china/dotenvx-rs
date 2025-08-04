@@ -12,7 +12,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let format = command_matches
         .get_one::<String>("format")
         .unwrap_or(&default_format);
-    let is_env_override = command_matches.get_flag("override");
+    let is_env_override = true ; // command_matches.get_flag("override");
     // if a key is provided, we read the .env file and print the value of the key
     let mut decrypted_entries: HashMap<String, String> = HashMap::new();
     if let Some(key_name) = key_arg {
