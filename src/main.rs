@@ -98,6 +98,7 @@ fn encrypt_env_keys_file() {
         return;
     }
     let home_dir = dirs::home_dir().unwrap();
+    // encrypt the $HOME/.env.keys file to $HOME/.env.keys.aes
     if home_dir.join(".env.keys").exists() {
         let keys_file_path = home_dir.join(".env.keys");
         let encrypted_file_path = home_dir.join(".env.keys.aes");
@@ -109,8 +110,22 @@ fn encrypt_env_keys_file() {
                 "Failed to encrypt the .env.keys file. Please check your password and try again."
             );
         }
-    } else {
-        eprintln!("$HOME/.env.keys file does not exist.");
+    }
+    // encrypt the $HOME/.dotenvx/.env.keys.json
+    let dotenvx_home = home_dir.join(".dotenvx");
+    if dotenvx_home.join(".env.keys.json").exists() {
+        let keys_file_path = dotenvx_home.join(".env.keys.json");
+        let encrypted_file_path = dotenvx_home.join(".env.keys.json.aes");
+        if encrypt_file(&keys_file_path, &encrypted_file_path, &password).is_ok() {
+            std::fs::remove_file(&keys_file_path).unwrap();
+            println!(
+                "✔ Successfully encrypted the $HOME/.dotenvx/.env.keys.json file to .env.keys.json.aes",
+            );
+        } else {
+            eprintln!(
+                "Failed to encrypt the .env.keys.json file. Please check your password and try again."
+            );
+        }
     }
 }
 
@@ -127,8 +142,20 @@ fn decrypt_env_keys_file() {
                 "Failed to decrypt the $HOME/.env.keys.aes file. Please check your password and try again."
             );
         }
-    } else {
-        eprintln!("$HOME/.env.keys.aes file does not exist.");
+    }
+    let dotenvx_home = home_dir.join(".dotenvx");
+    if dotenvx_home.join(".env.keys.json.aes").exists() {
+        let keys_file_path = dotenvx_home.join(".env.keys.json");
+        let encrypted_file_path = dotenvx_home.join(".env.keys.json.aes");
+        if decrypt_file(&encrypted_file_path, &keys_file_path, &password).is_ok() {
+            println!(
+                "✔ Successfully decrypted the env.keys.json.aes file to $HOME/.dotenvx/.env.keys.json",
+            );
+        } else {
+            eprintln!(
+                "Failed to decrypt the $HOME/env.keys.json.aes file. Please check your password and try again."
+            );
+        }
     }
 }
 
