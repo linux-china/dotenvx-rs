@@ -8,6 +8,14 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.3] - 2025-08-04
+
+### Added
+
+- Add `dotenvx init --group <group_name> --name <app_name>` to add group and name for the .env files.
+- Add global keys store `$HOME/.dotenvx/.env.keys.json` to manage key pairs.
+- Add private key import: `dotenvx keypair --import`
+
 ## [0.4.2] - 2025-08-04
 
 ### Added
