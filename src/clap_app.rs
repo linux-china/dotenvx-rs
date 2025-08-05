@@ -167,7 +167,7 @@ pub fn build_dotenvx_app() -> Command {
         )
         .arg(
             Arg::new("value")
-                .help("Decrypt the encrypted value. If different environment, please use `dotnenvx -p <profile> decrypt`")
+                .help("Decrypt the encrypted value. If different environment, please use `dotenvx -p <profile> decrypt`")
                 .index(1)
                 .required(false),
         );
