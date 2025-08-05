@@ -189,6 +189,12 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         )
         .arg(
+            Arg::new("all")
+                .long("all")
+                .help("List all keys from $HOME/.dotenvx/.env.keys.json")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("import")
                 .long("import")
                 .help("Import private key and saved to $HOME/.dotenvx/.env.keys.json")

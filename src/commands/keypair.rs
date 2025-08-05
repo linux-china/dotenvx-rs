@@ -1,19 +1,24 @@
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    find_dotenv_keys_file, get_env_file_arg, get_private_key, get_private_key_name, get_public_key,
-    get_public_key_name, write_key_pairs, write_private_key_to_file, write_public_key_to_file,
+    find_all_keys, find_dotenv_keys_file, get_env_file_arg, get_private_key, get_private_key_name,
+    get_public_key, get_public_key_name, write_key_pairs, write_private_key_to_file, write_public_key_to_file,
     EcKeyPair, KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
 use dotenvx_rs::common::get_profile_name_from_file;
+use prettytable::format::Alignment;
+use prettytable::{row, Cell, Row, Table};
 use std::env;
 
 pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     // import private key
     if command_matches.get_flag("import") {
         import_private_key();
+        return;
+    } else if command_matches.get_flag("all") {
+        list_all_pairs();
         return;
     }
     let env_file = get_env_file_arg(command_matches, profile);
@@ -95,4 +100,37 @@ fn import_private_key() {
         eprintln!("Invalid private key.");
         std::process::exit(1);
     }
+}
+
+fn list_all_pairs() {
+    let all_pairs = find_all_keys();
+    if all_pairs.is_empty() {
+        println!("No key pairs found.");
+        return;
+    }
+    let title = "All global key pairs";
+    let mut table = Table::new();
+    table.set_titles(Row::new(vec![
+        Cell::new_align(title, Alignment::CENTER).with_hspan(5),
+    ]));
+    table.add_row(row![
+        "Public Key",
+        "Private Key",
+        "group",
+        "name",
+        "profile",
+    ]);
+
+    for (public_key, key_pair) in &all_pairs {
+        let pk_key_short = public_key[0..16].to_string();
+        let sk_key_short = key_pair.private_key[0..10].to_string();
+        table.add_row(row![
+            format!("{pk_key_short}..."),
+            format!("{sk_key_short}..."),
+            key_pair.group.clone().unwrap_or_default(),
+            key_pair.name.clone().unwrap_or_default(),
+            key_pair.profile.clone().unwrap_or_default(),
+        ]);
+    }
+    table.printstd();
 }
