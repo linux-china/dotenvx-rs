@@ -180,7 +180,7 @@ If you don't want to shell history to record the sensitive value,
 you can use `dotenvx set <key> -` to read the value from standard input (stdin),
 and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
 
-**Tips**: you can use `cat xxx.pem | dotenvx set my_private_pem -` to encrypt any text file as a key-value pair in the
+**Tips**: you can use `dotenvx set my_private_pem - < ./xxx.pem` to encrypt any text file as a key-value pair in the
 `.env` file.
 
 ### Why sign .env file?
