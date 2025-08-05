@@ -65,7 +65,7 @@ pub fn write_key_pairs(key_pair: &KeyPair) -> anyhow::Result<()> {
     let mut all_keys = find_all_keys();
     if !all_keys.contains_key(&key_pair.public_key) {
         all_keys.insert(key_pair.public_key.clone(), key_pair.clone());
-        let json_text = serde_json::to_string(&all_keys)?;
+        let json_text = serde_json::to_string_pretty(&all_keys)?;
         let dotenvx_home = get_dotenvx_home();
         if !dotenvx_home.exists() {
             fs::create_dir_all(&dotenvx_home)?;
@@ -418,13 +418,17 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             r#"
 # ---
 # id: {keys_file_uuid}
-# name: project_name
-# group: group_name
+# name: {}
+# group: {}
 # ---
 
 #  Private decryption keys. DO NOT commit to source control
-{private_key_name}={private_key_value}
-"#
+{}={}
+"#,
+            &key_pair.name.clone().unwrap_or("project_name".to_string()),
+            key_pair.group.clone().unwrap_or("group_name".to_string()),
+            private_key_name,
+            private_key_value
         );
         fs::write(&env_keys_file, file_content.trim_start().as_bytes())?;
 
