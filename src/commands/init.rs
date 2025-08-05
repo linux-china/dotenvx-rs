@@ -27,6 +27,8 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
             }
         }
     }
+    let group_arg = command_matches.get_one::<String>("group").cloned();
+    let name_arg = command_matches.get_one::<String>("name").cloned();
     let framework_arg = command_matches.get_one::<String>("framework").cloned();
     let kp = EcKeyPair::generate();
     let public_key = kp.get_pk_hex();
@@ -39,7 +41,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
             pair = format!("{}={}", "key1", "value1");
         }
     }
-    create_env_file(&env_file, &public_key, Some(&pair));
+    create_env_file(&env_file, &public_key, Some(&pair), &group_arg, &name_arg);
     // create private key file
     let private_key_name = get_private_key_name_for_file(&env_file);
     write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &kp.get_sk_hex()).unwrap();
