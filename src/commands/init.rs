@@ -1,6 +1,9 @@
 use crate::commands::framework::detect_framework;
 use crate::commands::model::KeyPair;
-use crate::commands::{create_env_file, get_env_file_arg, get_private_key_name_for_file, is_public_key_included, write_key_pairs, write_private_key_to_file, EcKeyPair, KEYS_FILE_NAME};
+use crate::commands::{
+    create_env_file, get_env_file_arg, is_public_key_included, write_key_pairs,
+    EcKeyPair, KEYS_FILE_NAME,
+};
 use clap::ArgMatches;
 use colored::Colorize;
 use std::fs;
@@ -54,7 +57,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     //write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
     println!(
         "{}",
-        format!("✔ Succeed, please check .env file({env_file}) and .env.keys files.").green()
+        format!("✔ Succeed, please check .env file({env_file}).").green()
     );
 }
 
