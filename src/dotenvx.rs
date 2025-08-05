@@ -1,6 +1,5 @@
 use crate::common::{find_dotenv_keys_file, get_profile_name_from_env, get_profile_name_from_file};
-use base64::engine::general_purpose;
-use base64::Engine;
+use base64ct::{Base64, Encoding};
 use dirs::home_dir;
 use env::set_var;
 use std::env;
@@ -226,9 +225,9 @@ fn check_and_decrypt(
 
 fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Result<String> {
     let encrypted_bytes = if let Some(stripped_value) = encrypted_text.strip_prefix("encrypted:") {
-        general_purpose::STANDARD.decode(stripped_value).unwrap()
+        Base64::decode_vec(stripped_value).unwrap()
     } else {
-        general_purpose::STANDARD.decode(encrypted_text).unwrap()
+        Base64::decode_vec(encrypted_text).unwrap()
     };
     let sk = hex::decode(private_key).unwrap();
     let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();

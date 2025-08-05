@@ -3,9 +3,7 @@ use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use argon2::password_hash::SaltString;
 use argon2::{self, Argon2, PasswordHasher};
-use base64::engine::general_purpose;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::Engine;
+use base64ct::{Base64, Base64Url, Encoding};
 use colored::Colorize;
 use dotenvx_rs::dotenvx::get_private_key;
 use ecies::utils::generate_keypair;
@@ -71,7 +69,7 @@ pub fn encrypt_env_item(
 ) -> Result<String, Box<dyn std::error::Error>> {
     let pk_bytes = hex::decode(public_key).unwrap();
     let encrypted_bytes = ecies::encrypt(&pk_bytes, value_plain.as_bytes()).unwrap();
-    let base64_text = general_purpose::STANDARD.encode(encrypted_bytes);
+    let base64_text = Base64::encode_string(&encrypted_bytes);
     Ok(format!("encrypted:{base64_text}"))
 }
 
@@ -80,11 +78,9 @@ pub fn decrypt_env_item(
     encrypted_text: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let encrypted_bytes = if encrypted_text.starts_with("encrypted:") {
-        general_purpose::STANDARD
-            .decode(encrypted_text.strip_prefix("encrypted:").unwrap())
-            .unwrap()
+        Base64::decode_vec(encrypted_text.strip_prefix("encrypted:").unwrap()).unwrap()
     } else {
-        general_purpose::STANDARD.decode(encrypted_text).unwrap()
+        Base64::decode_vec(encrypted_text).unwrap()
     };
     let sk = hex::decode(private_key).unwrap();
     let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();
@@ -119,7 +115,7 @@ pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> 
     let sk_bytes = hex::decode(private_key)?;
     if let Ok(sk) = SecretKey::parse_slice(&sk_bytes) {
         let signature = sign(&msg, &sk).0;
-        Ok(general_purpose::STANDARD.encode(signature.serialize()))
+        Ok(Base64::encode_string(&signature.serialize()))
     } else {
         Err(anyhow::anyhow!("Invalid private key format"))
     }
@@ -152,7 +148,7 @@ pub fn verify_signature(public_key: &str, message: &str, signature: &str) -> any
     // Step 2: Verify the signature with the public key
     let pk_bytes = hex::decode(public_key)?;
     if let Ok(pk) = PublicKey::parse_slice(&pk_bytes, None) {
-        let signature_bytes = general_purpose::STANDARD.decode(signature)?;
+        let signature_bytes = Base64::decode_vec(signature)?;
         let signature = libsecp256k1::Signature::parse_standard_slice(&signature_bytes).unwrap();
         let result = libsecp256k1::verify(&msg, &signature, &pk);
         if result {
@@ -171,11 +167,11 @@ pub fn generate_jwt_token(
     claims: serde_json::Value,
 ) -> anyhow::Result<String> {
     let header_obj = json!({"typ": "JWT","alg": "ES256K"});
-    let header = URL_SAFE_NO_PAD.encode(serde_json::to_string(&header_obj)?);
-    let payload = URL_SAFE_NO_PAD.encode(serde_json::to_string(&claims)?);
+    let header = Base64Url::encode_string(serde_json::to_string(&header_obj)?.as_bytes());
+    let payload = Base64Url::encode_string(serde_json::to_string(&claims)?.as_bytes());
     let message = format!("{header}.{payload}");
     let signature_bytes = sign_message_bytes(private_key_hext, &message)?;
-    let signature = URL_SAFE_NO_PAD.encode(signature_bytes.as_slice());
+    let signature = Base64Url::encode_string(signature_bytes.as_slice());
     Ok(format!("{header}.{payload}.{signature}"))
 }
 

@@ -1,5 +1,4 @@
-use base64::engine::general_purpose;
-use base64::Engine;
+use base64ct::{Base64, Encoding};
 use ecies::utils::generate_keypair;
 use ecies::{decrypt, encrypt, PublicKey, SecretKey};
 use libsecp256k1::{sign, verify, Message};
@@ -41,7 +40,7 @@ fn test_signature() {
     let message_hash = hasher.finalize();
     let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     let signature = sign(&msg, &sk).0;
-    let signature_hex = general_purpose::STANDARD.encode(signature.serialize());
+    let signature_hex = Base64::encode_string(&signature.serialize());
     println!("signature: {signature_hex}");
     let result = verify(&msg, &signature, &pk);
     println!("verify result: {result}");
