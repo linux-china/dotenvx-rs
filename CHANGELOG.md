@@ -15,6 +15,7 @@
 - Add `dotenvx init --group <group_name> --name <app_name>` to add group and name for the .env files.
 - Add global keys store `$HOME/.dotenvx/.env.keys.json` to manage key pairs.
 - Add private key import: `dotenvx keypair --import`
+- List all global keys: `dotenvx keypair --all`
 
 ## [0.4.2] - 2025-08-04
 
