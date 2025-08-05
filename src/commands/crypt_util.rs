@@ -43,6 +43,17 @@ impl EcKeyPair {
         }
     }
 
+    pub fn from_input(sk_hex: &str) -> anyhow::Result<Self> {
+        let sk_bytes = hex::decode(sk_hex)?;
+        let sk =
+            SecretKey::parse_slice(&sk_bytes).map_err(|_| anyhow::anyhow!("Invalid secret key"))?;
+        let pk = PublicKey::from_secret_key(&sk);
+        Ok(EcKeyPair {
+            public_key: pk,
+            secret_key: sk,
+        })
+    }
+
     pub fn get_pk_hex(&self) -> String {
         let pk_compressed_bytes = self.public_key.serialize_compressed();
         hex::encode(pk_compressed_bytes)
