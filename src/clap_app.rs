@@ -39,7 +39,7 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("format")
                 .long("format")
-                .help("format of the output (text, json, shell, csv) (default: \"text\")")
+                .help("format of the output (text, json, shell, csv, raw) (default: \"text\")")
                 .num_args(1)
                 .required(false),
         )
