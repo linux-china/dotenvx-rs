@@ -195,7 +195,13 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
     Ok(kp.get_pk_hex())
 }
 
-pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Option<&str>) {
+pub fn create_env_file<P: AsRef<Path>>(
+    env_file: P,
+    public_key: &str,
+    pairs: Option<&str>,
+    group: &Option<String>,
+    name: &Option<String>,
+) {
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
     let profile_name = get_profile_name_from_file(file_name);
     let mut env_pub_key_name = get_public_key_name(&profile_name);
@@ -205,7 +211,24 @@ pub fn create_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, pairs: Opt
             .replace('_', ".")
             .to_string();
     }
-    let header_text = construct_env_file_header(&env_pub_key_name, public_key);
+    let header_text = if file_name.ends_with(".properties") && env_file.as_ref().exists() {
+        let mut app_name: Option<String> = group.clone();
+        let mut app_group: Option<String> = name.clone();
+        let f = File::open(&env_file).unwrap();
+        let reader = BufReader::new(f);
+        PropertiesIter::new(reader)
+            .read_into(|key, value| {
+                if key == "spring.application.name" {
+                    app_name = Some(value);
+                } else if key == "spring.application.group" {
+                    app_group = Some(value);
+                }
+            })
+            .unwrap();
+        construct_env_file_header(&env_pub_key_name, public_key, &app_group, &app_name)
+    } else {
+        construct_env_file_header(&env_pub_key_name, public_key, group, name)
+    };
     if env_file.as_ref().exists() {
         let file_content = fs::read_to_string(&env_file).unwrap();
         if !file_content.contains(&env_pub_key_name) {
@@ -252,20 +275,29 @@ pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &
     }
 }
 
-pub fn construct_env_file_header(env_pub_key_name: &str, public_key: &str) -> String {
+pub fn construct_env_file_header(
+    env_pub_key_name: &str,
+    public_key: &str,
+    group: &Option<String>,
+    name: &Option<String>,
+) -> String {
     let env_file_uuid = uuid::Uuid::now_v7().to_string();
     format!(
         r#"
 # ---
 # id: {}
-# name: project_name
-# group: group_name
+# name: {}
+# group: {}
 # ---
 {}={}
 
 # Environment variables. MAKE SURE to ENCRYPT them before committing to source control
 "#,
-        &env_file_uuid, &env_pub_key_name, public_key
+        &env_file_uuid,
+        name.clone().unwrap_or("project_ame".to_owned()),
+        group.clone().unwrap_or("group_name".to_owned()),
+        &env_pub_key_name,
+        public_key
     )
 }
 
@@ -277,7 +309,7 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
     let profile_name = get_profile_name_from_file(file_name);
     let env_pub_key_name = get_public_key_name(&profile_name);
-    let header_text = construct_env_file_header(&env_pub_key_name, public_key);
+    let header_text = construct_env_file_header(&env_pub_key_name, public_key, &None, &None);
     // file does not exist, and we create it
     if !env_file.as_ref().exists() {
         fs::write(&env_file, header_text.trim_start().as_bytes())?;
