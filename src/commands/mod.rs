@@ -683,6 +683,10 @@ pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
                 wtr.write_record([key, value]).unwrap();
             }
             wtr.flush().unwrap();
+        } else if *fmt == "raw" {
+            for value in entries.values() {
+                println!("{value}");
+            }
         } else {
             for (key, value) in entries {
                 println!("{}={}", key, escape_shell_value(value));
