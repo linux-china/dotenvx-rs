@@ -11,7 +11,7 @@ pub fn build_dotenvx_app() -> Command {
                 .long("env-file")
                 .help("path to your env file (default: .env)")
                 .num_args(1)
-                .required(false)
+                .required(false),
         );
     let get_command = Command::new("get")
         .about("return a single environment variable")
@@ -218,15 +218,23 @@ pub fn build_dotenvx_app() -> Command {
             Arg::new("env-file")
                 .short('f')
                 .long("env-file")
-                .help("path to your env file (default: .env)")
+                .help("Path to your env file (default: .env)")
                 .num_args(1)
                 .required(false),
         )
         .arg(
-            Arg::new("stdout")
-                .long("stdout")
-                .help("Send new key pair to stdout")
-                .action(ArgAction::SetTrue),
+            Arg::new("group")
+                .long("group")
+                .help("Group for .env file.")
+                .num_args(1)
+                .required(false),
+        )
+        .arg(
+            Arg::new("name")
+                .long("name")
+                .help("Name for .env file")
+                .num_args(1)
+                .required(false),
         )
         .arg(
             Arg::new("global")
@@ -241,6 +249,12 @@ pub fn build_dotenvx_app() -> Command {
                 .help("Framework to use, such as spring-boot, gofr.")
                 .num_args(1)
                 .required(false),
+        )
+        .arg(
+            Arg::new("stdout")
+                .long("stdout")
+                .help("Send new key pair to stdout")
+                .action(ArgAction::SetTrue),
         );
     let verify_command = Command::new("verify")
         .about("Verify the signature of the encrypted .env file")
