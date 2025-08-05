@@ -1,3 +1,4 @@
+use crate::commands::model::KeyPair;
 use crate::commands::{
     find_dotenv_keys_file, get_env_file_arg, get_private_key, get_private_key_name, get_public_key,
     get_public_key_name, write_private_key_to_file, write_public_key_to_file, EcKeyPair,
@@ -49,14 +50,9 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
         // dump the public key to .env file and private key to .env.keys file
         if command_matches.get_flag("dump") {
             let public_key_hex = public_key.unwrap().to_string();
+            let key_pair = KeyPair::new(&public_key_hex, &private_key.unwrap(), profile);
             write_public_key_to_file(&env_file, &public_key_hex).unwrap();
-            write_private_key_to_file(
-                KEYS_FILE_NAME,
-                &env_private_key_name,
-                &private_key.unwrap(),
-                &public_key_hex,
-            )
-            .unwrap();
+            write_private_key_to_file(KEYS_FILE_NAME, &env_private_key_name, &key_pair).unwrap();
             return;
         }
         if format == "shell" {

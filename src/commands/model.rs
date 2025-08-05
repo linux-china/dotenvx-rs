@@ -1,11 +1,50 @@
 use crate::commands::crypt_util::{
     decrypt_env_item, encrypt_env_item, sign_message, verify_signature,
 };
+use crate::commands::is_public_key_name;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
-use crate::commands::is_public_key_name;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyPair {
+    pub public_key: String,
+    pub private_key: String,
+    pub group: Option<String>,
+    pub name: Option<String>,
+    pub profile: Option<String>,
+    pub comment: Option<String>,
+}
+impl KeyPair {
+    pub fn new(public_key: &str, private_key: &str, profile: &Option<String>) -> Self {
+        KeyPair {
+            public_key: public_key.to_string(),
+            private_key: private_key.to_string(),
+            group: None,
+            name: None,
+            profile: profile.clone(),
+            comment: None,
+        }
+    }
+    pub fn from(
+        public_key: &str,
+        private_key: &str,
+        group: &Option<String>,
+        name: &Option<String>,
+        profile: &Option<String>,
+    ) -> Self {
+        KeyPair {
+            public_key: public_key.to_string(),
+            private_key: private_key.to_string(),
+            group: group.clone(),
+            name: name.clone(),
+            profile: profile.clone(),
+            comment: None,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct EnvFile {

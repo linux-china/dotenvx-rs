@@ -1,5 +1,6 @@
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::encrypt::encrypt_env_entries;
+use crate::commands::model::KeyPair;
 use crate::commands::{
     escape_shell_value, get_env_file_arg, get_private_key_name_for_file, write_private_key_to_file, write_public_key_to_file,
     EcKeyPair, KEYS_FILE_NAME,
@@ -36,7 +37,8 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
         // update the public/private key in the .env file
         write_public_key_to_file(&env_file, &pk_hex).unwrap();
         let private_key_name = get_private_key_name_for_file(&env_file);
-        write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &sk_hex, &pk_hex).unwrap();
+        let key_pair = KeyPair::new(&pk_hex, &pk_hex, profile);
+        write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
         // encrypt the .env file again
         if encrypt_mode {
             let file_content = fs::read_to_string(&env_file).unwrap();
