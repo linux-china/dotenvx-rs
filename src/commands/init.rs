@@ -1,8 +1,8 @@
 use crate::commands::framework::detect_framework;
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    create_env_file, get_env_file_arg, is_public_key_included, write_key_pairs,
-    EcKeyPair, KEYS_FILE_NAME,
+    create_env_file, get_env_file_arg, is_public_key_included, write_key_pairs, EcKeyPair,
+    KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -15,7 +15,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
         return;
     }
     if command_matches.get_flag("global") {
-        create_global_env_keys();
+        create_global_env_keys(profile);
         return;
     }
     let mut env_file = get_env_file_arg(command_matches, profile);
@@ -69,13 +69,33 @@ fn generate_kp_and_export() {
     println!("export DOTENV_PRIVATE_KEY={private_key}");
 }
 
-fn create_global_env_keys() {
+fn create_global_env_keys(profile: &Option<String>) {
     let keys_file_path = dirs::home_dir().unwrap().join(KEYS_FILE_NAME);
     if keys_file_path.exists() {
-        eprintln!(
-            "{}",
-            "The global keys file already exists: $HOME/.env.keys".red()
-        );
+        let file_content = fs::read_to_string(&keys_file_path).unwrap();
+        let private_key_name = if let Some(profile_name) = profile {
+            format!("DOTENV_PRIVATE_KEY_{}", profile_name.to_uppercase())
+        } else {
+            "DOTENV_PRIVATE_KEY".to_string()
+        };
+        if file_content.contains(&format!("{private_key_name}=")) {
+            eprintln!("{} already exists.", private_key_name.red());
+        } else {
+            let kp = EcKeyPair::generate();
+            let private_key = kp.get_sk_hex();
+            let new_line = format!("{private_key_name}={private_key}");
+            fs::write(
+                &keys_file_path,
+                format!("{file_content}\n{new_line}\n").as_bytes(),
+            )
+            .unwrap();
+            let key_pair = KeyPair::new(&kp.get_pk_hex(), &private_key, profile);
+            write_key_pairs(&key_pair).unwrap();
+            eprintln!(
+                "{}",
+                format!("{private_key_name} added to $HOME/.env.keys").green()
+            );
+        }
     } else {
         let profiles = vec!["dev", "test", "perf", "sandbox", "stage", "prod"];
         let mut lines: Vec<String> = Vec::new();
@@ -85,6 +105,7 @@ fn create_global_env_keys() {
             let private_key = kp.get_sk_hex();
             lines.push(format!("DOTENV_PRIVATE_KEY={private_key}"));
         }
+        let mut key_pairs: Vec<KeyPair> = Vec::new();
         // private keys for each profile
         for profile in profiles {
             let kp = EcKeyPair::generate();
@@ -94,6 +115,8 @@ fn create_global_env_keys() {
                 profile.to_uppercase(),
                 private_key
             ));
+            let key_pair = KeyPair::new(&kp.get_pk_hex(), &private_key, &Some(profile.to_string()));
+            key_pairs.push(key_pair);
         }
         let private_keys = lines.join("\n");
         let keys_file_id = uuid::Uuid::now_v7().to_string();
@@ -101,14 +124,16 @@ fn create_global_env_keys() {
             r#"
 # ---
 # uuid: {keys_file_id}
-# name: project_name
-# group: group_name
 # ---
 
 {private_keys}
 "#
         );
         fs::write(&keys_file_path, file_content.trim_start().as_bytes()).unwrap();
+        // write key pairs to global .env.keys.json file
+        for key_pair in key_pairs {
+            write_key_pairs(&key_pair).unwrap();
+        }
         println!(
             "{}",
             "Global $HOME/.env.keys file created with profiles dev, test, perf, sand, stage, prod."
