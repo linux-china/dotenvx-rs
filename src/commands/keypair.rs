@@ -1,8 +1,8 @@
 use crate::commands::model::KeyPair;
 use crate::commands::{
     find_dotenv_keys_file, get_env_file_arg, get_private_key, get_private_key_name, get_public_key,
-    get_public_key_name, write_private_key_to_file, write_public_key_to_file, EcKeyPair,
-    KEYS_FILE_NAME,
+    get_public_key_name, write_key_pairs, write_private_key_to_file, write_public_key_to_file,
+    EcKeyPair, KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -11,6 +11,11 @@ use dotenvx_rs::common::get_profile_name_from_file;
 use std::env;
 
 pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
+    // import private key
+    if command_matches.get_flag("import") {
+        import_private_key();
+        return;
+    }
     let env_file = get_env_file_arg(command_matches, profile);
     let format = if let Some(arg_value) = command_matches.get_one::<String>("format") {
         arg_value.clone()
@@ -73,5 +78,21 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
             });
             println!("{}", to_colored_json_auto(&body).unwrap());
         }
+    }
+}
+
+fn import_private_key() {
+    let private_key = rpassword::prompt_password("Private Key: ").unwrap();
+    if let Ok(pair) = EcKeyPair::from_input(&private_key) {
+        let public_key = pair.get_pk_hex();
+        let key_pair = KeyPair::new(&public_key, &private_key, &None);
+        write_key_pairs(&key_pair).unwrap();
+        println!(
+            "{}",
+            "✔ Private key imported successfully.".to_string().green()
+        );
+    } else {
+        eprintln!("Invalid private key.");
+        std::process::exit(1);
     }
 }
