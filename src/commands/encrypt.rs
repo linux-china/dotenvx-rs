@@ -92,7 +92,8 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         } else {
             // append public key to .env file if it does not exist
             let public_key_name = get_public_key_name(profile);
-            construct_env_file_header(&public_key_name, &public_key) + &new_lines.join("\n")
+            construct_env_file_header(&public_key_name, &public_key, &None, &None)
+                + &new_lines.join("\n")
         };
         if is_sign_required {
             new_file_content = add_or_replace_signature(profile, &new_file_content).unwrap();

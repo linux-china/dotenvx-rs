@@ -94,7 +94,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         {
             env_file = format!("configs/{env_file}");
         }
-        create_env_file(&env_file, &public_key, Some(&pair));
+        create_env_file(&env_file, &public_key, Some(&pair), &None, &None);
         println!("Added {key} to {env_file}");
     } else if env_file_content.contains(&format!("{key}=")) {
         // Update existing key
