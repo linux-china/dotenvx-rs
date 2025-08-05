@@ -48,9 +48,15 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
         // dump the public key to .env file and private key to .env.keys file
         if command_matches.get_flag("dump") {
-            write_public_key_to_file(&env_file, &public_key.unwrap()).unwrap();
-            write_private_key_to_file(KEYS_FILE_NAME, &env_private_key_name, &private_key.unwrap())
-                .unwrap();
+            let public_key_hex = public_key.unwrap().to_string();
+            write_public_key_to_file(&env_file, &public_key_hex).unwrap();
+            write_private_key_to_file(
+                KEYS_FILE_NAME,
+                &env_private_key_name,
+                &private_key.unwrap(),
+                &public_key_hex,
+            )
+            .unwrap();
             return;
         }
         if format == "shell" {

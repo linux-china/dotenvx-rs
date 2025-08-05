@@ -44,7 +44,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     create_env_file(&env_file, &public_key, Some(&pair), &group_arg, &name_arg);
     // create private key file
     let private_key_name = get_private_key_name_for_file(&env_file);
-    write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &kp.get_sk_hex()).unwrap();
+    write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &kp.get_sk_hex(), &public_key).unwrap();
     println!(
         "{}",
         format!("✔ Succeed, please check .env file({env_file}) and .env.keys files.").green()

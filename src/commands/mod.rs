@@ -37,6 +37,41 @@ pub mod linter;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
+pub fn get_dotenvx_home() -> PathBuf {
+    dirs::home_dir().unwrap().join(".dotenvx")
+}
+
+pub fn find_private_key_from_home(public_key_hex: &str) -> Option<String> {
+    let all_keys = find_all_keys();
+    all_keys.get(public_key_hex).cloned()
+}
+
+pub fn find_all_keys() -> HashMap<String, String> {
+    let dotenvx_home = dirs::home_dir().unwrap().join(".dotenvx");
+    let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+    if env_keys_json_file.exists() {
+        let file_content = fs::read_to_string(env_keys_json_file).unwrap();
+        serde_json::from_str(&file_content).unwrap_or_default()
+    } else {
+        HashMap::new()
+    }
+}
+
+pub fn write_key_pairs(public_key_hex: &str, private_key_hex: &str) -> anyhow::Result<()> {
+    let mut all_keys = find_all_keys();
+    if !all_keys.contains_key(public_key_hex) {
+        all_keys.insert(public_key_hex.to_string(), private_key_hex.to_string());
+        let json_text = serde_json::to_string(&all_keys)?;
+        let dotenvx_home = get_dotenvx_home();
+        if !dotenvx_home.exists() {
+            fs::create_dir_all(&dotenvx_home)?;
+        }
+        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+        fs::write(env_keys_json_file, json_text.as_bytes())?;
+    }
+    Ok(())
+}
+
 pub fn read_dotenv_file<P: AsRef<Path>>(
     path: P,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -130,13 +165,14 @@ pub fn get_private_key(
     }
     // create a new private key if not found
     let key_pair = EcKeyPair::generate();
+    let public_key_hex = key_pair.get_pk_hex();
     let private_key_hex = key_pair.get_sk_hex();
     if let Some(file_path) = &dotenv_keys_file_path {
-        write_private_key_to_file(file_path, &env_key_name, &private_key_hex)?;
+        write_private_key_to_file(file_path, &env_key_name, &private_key_hex, &public_key_hex)?;
     } else {
         // if .env.keys file not found, create it in the current directory
         let file_path = PathBuf::from(KEYS_FILE_NAME);
-        write_private_key_to_file(&file_path, &env_key_name, &private_key_hex)?;
+        write_private_key_to_file(&file_path, &env_key_name, &private_key_hex, &public_key_hex)?;
     }
     Ok(private_key_hex)
 }
@@ -355,6 +391,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
     env_keys_file: P,
     private_key_name: &str,
     private_key_value: &str,
+    public_key_value: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let keys_file_uuid = uuid::Uuid::now_v7().to_string();
     let private_key_short = private_key_value.chars().take(6).collect::<String>();
@@ -430,6 +467,8 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             );
         }
     }
+    // write the key pairs to global
+    write_key_pairs(public_key_value, private_key_value)?;
     Ok(())
 }
 
@@ -669,7 +708,7 @@ mod tests {
     #[test]
     fn test_write_private_key() {
         let env_file = PathBuf::from(KEYS_FILE_NAME);
-        write_private_key_to_file(&env_file, "DOTENV_PRIVATE_KEY_TEST", "xxxx").unwrap();
+        write_private_key_to_file(&env_file, "DOTENV_PRIVATE_KEY_TEST", "xxxx", "yyyyy").unwrap();
     }
 
     #[test]
