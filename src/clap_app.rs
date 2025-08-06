@@ -26,7 +26,7 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("all")
                 .long("all")
-                .help("include all machine envs as well")
+                .help("Include all variables from .env file")
                 .action(ArgAction::SetTrue),
         )
         .arg(Arg::new("key").help("key's name").index(1).required(false))
