@@ -329,14 +329,14 @@ pub fn create_env_file<P: AsRef<Path>>(
 
 pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &str) {
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
-    if file_name.ends_with(".properties") && !content.contains("dotenv.public.key=") {
+    if file_name.ends_with(".properties") && !content.contains("dotenv.public.key") {
         let header = construct_env_file_header(
             &get_public_key_name_for_file(file_name),
             public_key,
             &None,
             &None,
         );
-        let new_content = format!("{}\n{}\n", header, content.trim());
+        let new_content = format!("{}\n{}\n", header.trim(), content.trim());
         fs::write(&env_file, new_content).unwrap();
     } else if content.ends_with("\n") {
         fs::write(&env_file, content).unwrap();
@@ -591,10 +591,15 @@ pub fn get_private_key_name(profile_name: &Option<String>) -> String {
 }
 
 pub fn get_public_key_name_for_file(env_file: &str) -> String {
-    if let Some(name) = get_profile_name_from_file(env_file) {
+    let public_key_name = if let Some(name) = get_profile_name_from_file(env_file) {
         format!("DOTENV_PUBLIC_KEY_{}", name.to_uppercase())
     } else {
         "DOTENV_PUBLIC_KEY".to_string()
+    };
+    if env_file.ends_with(".properties") {
+        public_key_name.to_lowercase().replace('_', ".")
+    } else {
+        public_key_name
     }
 }
 
