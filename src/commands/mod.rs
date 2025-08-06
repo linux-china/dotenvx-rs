@@ -330,7 +330,13 @@ pub fn create_env_file<P: AsRef<Path>>(
 pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &str) {
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
     if file_name.ends_with(".properties") && !content.contains("dotenv.public.key=") {
-        let new_content = format!("dotenv.public.key={}\n\n{}", public_key, content.trim());
+        let header = construct_env_file_header(
+            &get_public_key_name_for_file(file_name),
+            public_key,
+            &None,
+            &None,
+        );
+        let new_content = format!("{}\n{}\n", header, content.trim());
         fs::write(&env_file, new_content).unwrap();
     } else if content.ends_with("\n") {
         fs::write(&env_file, content).unwrap();
@@ -363,6 +369,8 @@ pub fn construct_env_file_header(
         &env_pub_key_name,
         public_key
     )
+    .trim()
+    .to_string()
 }
 
 pub fn write_public_key_to_file<P: AsRef<Path>>(
