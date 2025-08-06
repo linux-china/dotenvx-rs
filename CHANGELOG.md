@@ -22,6 +22,7 @@ and you can use `dotenvx set --encrypt <Key> <Value>` to set the key-value pairs
 - Add global keys store `$HOME/.dotenvx/.env.keys.json` to manage key pairs.
 - Add private key import: `dotenvx keypair --import`
 - Add json dump for decryption: `dotenvx decrypt --dump`
+- Add GoFr support: auto-detect `configs/.env` 
 - List all global keys: `dotenvx keypair --all`
 
 ## [0.4.2] - 2025-08-04
