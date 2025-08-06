@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgAction, Command};
 use dirs::home_dir;
 use std::env;
 use std::process::Stdio;
