@@ -525,7 +525,7 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
     if !Path::new(&dotenv_file).exists() {
         // detect other files
         let properties_file = if let Some(profile_name) = profile {
-            format!("application_{profile_name}.properties")
+            format!("application-{profile_name}.properties")
         } else {
             "application.properties".to_string()
         };
@@ -536,7 +536,7 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
         if let Some(framework) = detect_framework() {
             if framework == "spring-boot" {
                 let properties_file = if let Some(profile_name) = profile {
-                    format!("src/main/resources/application_{profile_name}.properties")
+                    format!("src/main/resources/application-{profile_name}.properties")
                 } else {
                     "src/main/resources/application.properties".to_string()
                 };
