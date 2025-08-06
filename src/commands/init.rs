@@ -1,13 +1,13 @@
 use crate::commands::framework::detect_framework;
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    create_env_file, get_env_file_arg, is_public_key_included, write_key_pair, write_key_pairs,
-    EcKeyPair, KEYS_FILE_NAME,
+    create_env_file, get_env_file_arg, get_private_key_name_for_file, is_public_key_included, write_key_pair,
+    write_key_pairs, write_private_key_to_file, EcKeyPair, KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
 use colored::Colorize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if command_matches.get_flag("stdout") {
@@ -51,10 +51,17 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
         &name_arg,
         profile,
     );
-    // write to global .env.keys.json file, no local .env.key file generated
-    write_key_pair(&key_pair).unwrap();
-    //let private_key_name = get_private_key_name_for_file(&env_file);
-    //write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
+    if PathBuf::from(KEYS_FILE_NAME).exists() {
+        let private_key_name = get_private_key_name_for_file(&env_file);
+        write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
+    } else {
+        // write to global .env.keys.json file, no local .env.key file generated
+        write_key_pair(&key_pair).unwrap();
+        println!(
+            "{}",
+            "✔ private key saved to $HOME/.dotenvx/.env.keys.json".green()
+        );
+    }
     println!(
         "{}",
         format!("✔ Succeed, please check .env file({env_file}).").green()
