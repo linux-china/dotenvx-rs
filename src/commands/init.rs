@@ -84,11 +84,8 @@ fn create_global_env_keys(profile: &Option<String>) {
             let kp = EcKeyPair::generate();
             let private_key = kp.get_sk_hex();
             let new_line = format!("{private_key_name}={private_key}");
-            fs::write(
-                &keys_file_path,
-                format!("{file_content}\n{new_line}\n").as_bytes(),
-            )
-            .unwrap();
+            let new_file_content = format!("{}\n{}\n", file_content.trim_end(), new_line);
+            fs::write(&keys_file_path, new_file_content.as_bytes()).unwrap();
             let key_pair = KeyPair::new(&kp.get_pk_hex(), &private_key, profile);
             write_key_pair(&key_pair).unwrap();
             eprintln!(
