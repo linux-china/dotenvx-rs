@@ -61,7 +61,7 @@ pub fn find_all_keys() -> HashMap<String, KeyPair> {
     }
 }
 
-pub fn write_key_pairs(key_pair: &KeyPair) -> anyhow::Result<()> {
+pub fn write_key_pair(key_pair: &KeyPair) -> anyhow::Result<()> {
     let mut all_keys = find_all_keys();
     if !all_keys.contains_key(&key_pair.public_key) {
         all_keys.insert(key_pair.public_key.clone(), key_pair.clone());
@@ -73,6 +73,23 @@ pub fn write_key_pairs(key_pair: &KeyPair) -> anyhow::Result<()> {
         let env_keys_json_file = dotenvx_home.join(".env.keys.json");
         fs::write(env_keys_json_file, json_text.as_bytes())?;
     }
+    Ok(())
+}
+
+pub fn write_key_pairs(key_pairs: &Vec<KeyPair>) -> anyhow::Result<()> {
+    let mut all_keys = find_all_keys();
+    for key_pair in key_pairs {
+        if !all_keys.contains_key(&key_pair.public_key) {
+            all_keys.insert(key_pair.public_key.clone(), key_pair.clone());
+        }
+    }
+    let json_text = serde_json::to_string_pretty(&all_keys)?;
+    let dotenvx_home = get_dotenvx_home();
+    if !dotenvx_home.exists() {
+        fs::create_dir_all(&dotenvx_home)?;
+    }
+    let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+    fs::write(env_keys_json_file, json_text.as_bytes())?;
     Ok(())
 }
 
@@ -483,7 +500,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
         }
     }
     // write the key pairs to global
-    write_key_pairs(key_pair)?;
+    write_key_pair(key_pair)?;
     Ok(())
 }
 

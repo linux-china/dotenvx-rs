@@ -1,7 +1,7 @@
 use crate::commands::model::KeyPair;
 use crate::commands::{
     find_all_keys, find_dotenv_keys_file, get_env_file_arg, get_private_key, get_private_key_name,
-    get_public_key, get_public_key_name, write_key_pairs, write_private_key_to_file, write_public_key_to_file,
+    get_public_key, get_public_key_name, write_key_pair, write_private_key_to_file, write_public_key_to_file,
     EcKeyPair, KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
@@ -91,7 +91,7 @@ fn import_private_key() {
     if let Ok(pair) = EcKeyPair::from_input(&private_key) {
         let public_key = pair.get_pk_hex();
         let key_pair = KeyPair::new(&public_key, &private_key, &None);
-        write_key_pairs(&key_pair).unwrap();
+        write_key_pair(&key_pair).unwrap();
         println!(
             "{}",
             "✔ Private key imported successfully.".to_string().green()
