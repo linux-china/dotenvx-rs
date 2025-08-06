@@ -2,6 +2,7 @@ use crate::commands::crypt_util::{
     decrypt_env_item, encrypt_env_item, sign_message, verify_signature,
 };
 use crate::commands::is_public_key_name;
+use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -16,6 +17,7 @@ pub struct KeyPair {
     pub name: Option<String>,
     pub profile: Option<String>,
     pub comment: Option<String>,
+    pub timestamp: Option<DateTime<Local>>,
 }
 impl KeyPair {
     pub fn new(public_key: &str, private_key: &str, profile: &Option<String>) -> Self {
@@ -26,6 +28,7 @@ impl KeyPair {
             name: None,
             profile: profile.clone(),
             comment: None,
+            timestamp: Some(Local::now()),
         }
     }
     pub fn from(
@@ -42,6 +45,7 @@ impl KeyPair {
             name: name.clone(),
             profile: profile.clone(),
             comment: None,
+            timestamp: Some(Local::now()),
         }
     }
 }
