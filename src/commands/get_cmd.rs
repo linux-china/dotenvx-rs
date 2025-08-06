@@ -1,4 +1,5 @@
 use crate::commands::crypt_util::{decrypt_env_item, generate_totp_password};
+use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::{
     adjust_env_key, get_env_file_arg, get_private_key_for_file, read_dotenv_file, std_output,
 };
@@ -12,7 +13,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let format = command_matches
         .get_one::<String>("format")
         .unwrap_or(&default_format);
-    let is_env_override = true ; // command_matches.get_flag("override");
+    let is_env_override = true; // command_matches.get_flag("override");
     // if a key is provided, we read the .env file and print the value of the key
     let mut decrypted_entries: HashMap<String, String> = HashMap::new();
     if let Some(key_name) = key_arg {
@@ -50,6 +51,11 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
             let totp_password_key = format!("{key_name}_PASSWORD");
             decrypted_entries.insert(totp_password_key, otp_password);
         }
+    } else if let Ok(entries) = decrypt_env_entries(&env_file) {
+        decrypted_entries = entries;
+    } else {
+        eprintln!("Error: Unable to decrypt entries from {env_file}");
+        std::process::exit(1);
     }
     std_output(&decrypted_entries, &Some(format));
 }
