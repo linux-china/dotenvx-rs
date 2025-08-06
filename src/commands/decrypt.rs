@@ -35,6 +35,14 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         entries.retain(|key, _| patterns.iter().any(|pattern| pattern.matches(key)));
         hint = format!("keys in .env file: {env_file}");
     }
+    // check dump flag
+    if command_matches.get_flag("dump") {
+        unsafe {
+            std::env::set_var("NO_COLOR", "1");
+        }
+        std_output(&entries, &Some(&"json".to_string()));
+        return;
+    }
     let is_stdout = command_matches.get_flag("stdout");
     // stdout with format shell, json or csv
     if is_stdout

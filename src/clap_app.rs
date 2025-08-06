@@ -166,6 +166,12 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         )
         .arg(
+            Arg::new("dump")
+                .long("dump")
+                .help("Dump the decrypted value to stdout with json format")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("value")
                 .help("Decrypt the encrypted value. If different environment, please use `dotenvx -p <profile> decrypt`")
                 .index(1)
