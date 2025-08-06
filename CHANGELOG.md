@@ -13,6 +13,9 @@
 dotenvx introduces `$HOME/.dotenvx/.env.keys.json` to manage key pairs globally,
 and avoids AI agents from accessing the private key directly.
 
+`application.properties` is now the first citizen for Spring Boot applications,
+and you can use `dotenvx set --encrypt <Key> <Value>` to set the key-value pairs in the file.
+
 ### Added
 
 - Add `dotenvx init --group <group_name> --name <app_name>` to add group and name for the .env files.
