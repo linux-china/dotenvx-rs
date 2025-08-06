@@ -57,9 +57,11 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     } else {
         // write to global .env.keys.json file, no local .env.key file generated
         write_key_pair(&key_pair).unwrap();
+        let private_key_short = &key_pair.private_key[0..6];
         println!(
             "{}",
-            "✔ private key saved to $HOME/.dotenvx/.env.keys.json".green()
+            format!("✔ private key({private_key_short}) saved to $HOME/.dotenvx/.env.keys.json")
+                .green()
         );
     }
     println!(
