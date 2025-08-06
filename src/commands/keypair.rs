@@ -87,10 +87,14 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
 }
 
 fn import_private_key() {
-    let private_key = rpassword::prompt_password("Private Key: ").unwrap();
+    let private_key = rpassword::prompt_password("Private key: ").unwrap();
+    let comment = rprompt::prompt_reply("Note: ").unwrap();
     if let Ok(pair) = EcKeyPair::from_input(&private_key) {
         let public_key = pair.get_pk_hex();
-        let key_pair = KeyPair::new(&public_key, &private_key, &None);
+        let mut key_pair = KeyPair::new(&public_key, &private_key, &None);
+        if !comment.is_empty() {
+            key_pair.comment = Some(comment);
+        }
         write_key_pair(&key_pair).unwrap();
         println!(
             "{}",
