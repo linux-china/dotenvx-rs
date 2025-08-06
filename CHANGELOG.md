@@ -10,6 +10,9 @@
 
 ## [0.4.3] - 2025-08-04
 
+dotenvx introduces `$HOME/.dotenvx/.env.keys.json` to manage key pairs globally,
+and avoids AI agents from accessing the private key directly.
+
 ### Added
 
 - Add `dotenvx init --group <group_name> --name <app_name>` to add group and name for the .env files.
