@@ -1,8 +1,8 @@
 use crate::commands::framework::detect_framework;
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    create_env_file, get_env_file_arg, is_public_key_included, write_key_pairs, EcKeyPair,
-    KEYS_FILE_NAME,
+    create_env_file, get_env_file_arg, is_public_key_included, write_key_pair, write_key_pairs,
+    EcKeyPair, KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -52,7 +52,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
         profile,
     );
     // write to global .env.keys.json file, no local .env.key file generated
-    write_key_pairs(&key_pair).unwrap();
+    write_key_pair(&key_pair).unwrap();
     //let private_key_name = get_private_key_name_for_file(&env_file);
     //write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
     println!(
@@ -90,7 +90,7 @@ fn create_global_env_keys(profile: &Option<String>) {
             )
             .unwrap();
             let key_pair = KeyPair::new(&kp.get_pk_hex(), &private_key, profile);
-            write_key_pairs(&key_pair).unwrap();
+            write_key_pair(&key_pair).unwrap();
             eprintln!(
                 "{}",
                 format!("{private_key_name} added to $HOME/.env.keys").green()
@@ -118,6 +118,16 @@ fn create_global_env_keys(profile: &Option<String>) {
             let key_pair = KeyPair::new(&kp.get_pk_hex(), &private_key, &Some(profile.to_string()));
             key_pairs.push(key_pair);
         }
+        // dotenvx cloud key pair
+        let dotenvx_cloud_keypair = EcKeyPair::generate();
+        let key_pair = KeyPair::from(
+            &dotenvx_cloud_keypair.get_pk_hex(),
+            &dotenvx_cloud_keypair.get_sk_hex(),
+            &Some("dotenvx".to_owned()),
+            &Some("dotenvx-cloud".to_owned()),
+            &Some("g_dotenvx".to_owned()),
+        );
+        key_pairs.push(key_pair);
         let private_keys = lines.join("\n");
         let keys_file_id = uuid::Uuid::now_v7().to_string();
         let file_content = format!(
@@ -131,9 +141,7 @@ fn create_global_env_keys(profile: &Option<String>) {
         );
         fs::write(&keys_file_path, file_content.trim_start().as_bytes()).unwrap();
         // write key pairs to global .env.keys.json file
-        for key_pair in key_pairs {
-            write_key_pairs(&key_pair).unwrap();
-        }
+        write_key_pairs(&key_pairs).unwrap();
         println!(
             "{}",
             "Global $HOME/.env.keys file created with profiles dev, test, perf, sand, stage, prod."
