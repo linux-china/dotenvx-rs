@@ -514,9 +514,12 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
 
 pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) -> String {
     let env_file_arg = command_matches.get_one::<String>("env-file");
-    let dotenv_file = if let Some(arg_value) = env_file_arg {
-        arg_value.clone()
-    } else if let Some(profile_name) = profile {
+    // specified .env file argument takes precedence
+    if let Some(env_file) = env_file_arg {
+        return env_file.clone();
+    }
+    // load env file by profile
+    let dotenv_file = if let Some(profile_name) = profile {
         if profile_name.starts_with("g_") {
             let dotenvx_home = dirs::home_dir().unwrap().join(".dotenvx");
             format!("{}/.env.{profile_name}", dotenvx_home.display())
@@ -526,10 +529,7 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
     } else {
         ".env".to_string()
     };
-    if is_remote_env_file(&dotenv_file) {
-        return dotenv_file;
-    }
-    // if the file does not exist in current dir, we try to detect it
+    // if the file does not exist in the current dir, we try to detect it
     if !Path::new(&dotenv_file).exists() {
         // detect other files
         let properties_file = if let Some(profile_name) = profile {
