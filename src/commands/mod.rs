@@ -468,7 +468,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
         // no key in the file, we add it
         if !env_keys_content.contains(private_key_name) {
             let new_content = format!(
-                "{}\n{}=\"{}\"\n",
+                "{}\n{}={}\n",
                 env_keys_content.trim(),
                 private_key_name,
                 private_key_value
