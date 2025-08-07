@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "encrypt" => encrypt_command(command_matches, &profile),
             "decrypt" => decrypt_command(command_matches, &profile),
             "verify" => verify_command(command_matches, &profile),
-            "keypair" => keypair_command(command_matches, &profile),
+            "keypair" | "kp" => keypair_command(command_matches, &profile),
             "ls" => ls_command(command_matches, &profile),
             "get" => get_command(command_matches, &profile),
             "set" => set_command(command_matches, &profile),

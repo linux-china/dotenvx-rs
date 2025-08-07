@@ -26,7 +26,7 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("all")
                 .long("all")
-                .help("Include all variables from .env file")
+                .help("Include all variables from a .env file")
                 .action(ArgAction::SetTrue),
         )
         .arg(Arg::new("key").help("key's name").index(1).required(false))
@@ -96,7 +96,7 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("clipboard")
                 .long("clipboard")
-                .help("Set key's value from clipboard")
+                .help("Set key's value from the clipboard")
                 .action(ArgAction::SetTrue),
         );
 
@@ -178,7 +178,8 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         );
     let keypair_command = Command::new("keypair")
-        .about("Validate and print public/private keys for .env file in current directory")
+        .visible_alias("kp")
+        .about("Validate and print public/private keys for .env file in the current directory")
         .arg(
             Arg::new("env-file")
                 .short('f')
