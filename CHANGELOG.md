@@ -8,6 +8,13 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.4] - 2025-08-06
+
+### Add
+
+- Fix some bugs with Spring Boot support.
+- add alias `kp` for `keypair` command
+
 ## [0.4.3] - 2025-08-04
 
 dotenvx introduces `$HOME/.dotenvx/.env.keys.json` to manage key pairs globally,
@@ -22,7 +29,7 @@ and you can use `dotenvx set --encrypt <Key> <Value>` to set the key-value pairs
 - Add global keys store `$HOME/.dotenvx/.env.keys.json` to manage key pairs.
 - Add private key import: `dotenvx keypair --import`
 - Add json dump for decryption: `dotenvx decrypt --dump`
-- Add GoFr support: auto-detect `configs/.env` 
+- Add GoFr support: auto-detect `configs/.env`
 - List all global keys: `dotenvx keypair --all`
 
 ## [0.4.2] - 2025-08-04
