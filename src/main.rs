@@ -15,6 +15,7 @@ use crate::commands::set_cmd::set_command;
 use crate::commands::verify::verify_command;
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
+use keyring::Entry;
 use std::env;
 use std::ffi::OsString;
 
@@ -97,6 +98,13 @@ fn encrypt_env_keys_file() {
         eprintln!("Passwords do not match. Please try again.");
         return;
     }
+    // let store_in_keychain = rprompt::prompt_reply("Save to keychain(Yes/No)?: ").unwrap();
+    // if store_in_keychain.to_lowercase().starts_with("y") {
+    //     if let Ok(entry) = Entry::new("dotenvx-keys-password", "dotenvx") {
+    //         entry.set_password(&password).unwrap();
+    //         entry.get_password().unwrap();
+    //     }
+    // }
     let home_dir = dirs::home_dir().unwrap();
     // encrypt the $HOME/.env.keys file to $HOME/.env.keys.aes
     if home_dir.join(".env.keys").exists() {
@@ -130,7 +138,16 @@ fn encrypt_env_keys_file() {
 }
 
 fn decrypt_env_keys_file() {
-    let password = rpassword::prompt_password("Your password: ").unwrap();
+    // check if the password is stored in the keychain
+    let mut password = "".to_owned();
+    // if let Ok(entry) = Entry::new("dotenvx-keys-password", "dotenvx") {
+    //     if let Ok(password_from_store) = entry.get_password() {
+    //         password = password_from_store;
+    //     }
+    // }
+    if password.is_empty() {
+        password = rpassword::prompt_password("Your password: ").unwrap();
+    }
     let home_dir = dirs::home_dir().unwrap();
     if home_dir.join(".env.keys.aes").exists() {
         let keys_file_path = home_dir.join(".env.keys");
