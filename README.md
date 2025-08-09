@@ -1,7 +1,7 @@
 Dotenvx Rust SDK/CLI
 ======================
 
-What is Dotenvx? [Dotenvx](https://dotenvx.com/) encrypts your .env files - limiting their attack vector while retaining
+What is Dotenvx? [Dotenvx](https://dotenvx.com/) encrypts your .env files—limiting their attack vector while retaining
 their benefits.
 
 dotenvx-rs is a Rust command-line toolchain for [dotenvx]() to make .env files secure and easy to use,
@@ -39,23 +39,21 @@ fn test_dotenv_load() {
 dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
 with some differences:
 
-- Smaller and faster and written in Rust: the `dotenvx` executable is only 3MB.
+- Smaller and faster and written in Rust: the `dotenvx` executable is only 4MB.
+- Global keys store: `$HOME/.dotenvx/.env.keys.json` to prevent AI Agent to scan `.env.keys` file in the project directory.
+- Spring Boot support: dotenvx CLI can read `application.properties` and spring profile.
 - Global `--profile` as first citizen to make it easy to manage different environments
-- Global private key management: Use `dotenvx init --global` to create a global `$HOME/.env.keys` file and manage
-  private keys for different environments by profile style.
-- Add `init` sub command to create `.env` and `.env.keys` file
-- Add `diff` sub command to compare keys from all .env files
-- Easy integration for Rust CLIs to load encrypted .env files
+- More smaller features
 - No ext sub command
 
 ### Migrated to dotenvx CLI
 
 If you have .env files already, you just run `dotenvx init`, and dotenvx CLI will create `.env.keys` file
-and update .env file with new public key.
+and update .env file with a new public key.
 
 # .env file specification
 
-Every .env file has three sections: metadata(front matter), public key and environment variables.
+Every .env file has three sections: metadata (front matter), public key, and environment variables.
 
 Example as following:
 
@@ -74,9 +72,9 @@ HELLO=encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnv
 
 Explanation:
 
-- Metadata section(front matter): starts with `# ---` and ends with `# ---`
+- Metadata section (front matter): starts with `# ---` and ends with `# ---`
 - .env file UUID: a unique identifier for the .env file, used to track changes and versions
-- sign: a signature for the .env file, used to verify the integrity of the file, and make sure the file is not tampered
+- sign: a signature for the .env file, used to verify the integrity of the file and make sure the file is not tampered
 - DOTENV_PUBLIC_KEY: the public key used to encrypt data and verify the signature
 - Environment variables: the encrypted environment variables, starts with `encrypted:` prefix
 
@@ -98,7 +96,7 @@ DOTENV_PRIVATE_KEY_EXAMPLE="a3d15e4b69c4a942c381xxx"
 
 # FAQ
 
-### What is profile?
+### What is a profile?
 
 A profile is a way to manage different environments in dotenvx CLI, and you can specify the profile with the following
 ways:
@@ -127,23 +125,23 @@ In dotenvx, three profile styles are supported:
   a namespace profile, and you can use `.env.region1_dev`, `.env.region2_prod` files to manage different namespace
   environments.
 
-### How CLI to find private key?
+### How does CLI find a private key?
 
 The CLI looks for the private key in the following order:
 
-For example the private key name is `DOTENVX_PRIVATE_KEY_PROD`:
+For example, the private key name is `DOTENVX_PRIVATE_KEY_PROD`:
 
 - Find from `.env.keys` file in the current directory and parent directories recursively, and `$HOME/.env.keys` is
   checked as well.
 - Find from `DOTENVX_PRIVATE_KEY_PROD` environment variable
 
-If you want to use unified private key for different environments, and you can use following environment variables:
+If you want to use a unified private key for different environments, and you can use the following environment variables:
 
 - `DOTENVX_PRIVATE_KEY` for `.env` file and local development
 - `DOTENVX_PRIVATE_KEY_PROD` for `.env.prod` file and production
 - `DOTENVX_PRIVATE_KEY_TEST` for `.env.test` file and testing
 
-**Tips**: you can use `dotenvx init --stdout` to generate key pair.
+**Tips**: you can use `dotenvx init --stdout` to generate a key pair.
 
 ### How to manage private keys?
 
@@ -153,7 +151,7 @@ dotenvx CLI uses profile style to manage private keys, and you can use following
 - Global private: use `dotenvx init --global` to create a global `$HOME/.env.keys` file to manage unified private keys
   for different projects.
 - Team/Production global private keys: use `ABC_TEST`, `REGION1_PROD` as profile names to manage private keys for
-  different teams, products or regions.
+  different teams, products, or regions.
 
 ### How to rotate/reset key pairs for env files?
 
@@ -163,11 +161,11 @@ you can use the `dotenvx rotate` command to generate a new key pair, examples:
 - Rotate the private key for `.env` file: `dotenvx rotate`
 - Rotate the private key for `.env.prod` file: `dotenvx rotate -f .env.prod`
 
-### How to decrypt dotenv file and export variables as environment variables?
+### How to decrypt a dotenv file and export variables as environment variables?
 
-You can use the `dotenvx decrypt --export` command to decrypt the dotenv file and output as shell script.
+You can use the `dotenvx decrypt --export` command to decrypt the dotenv file and output as a shell script.
 
-- `eval $( dotenvx decrypt --stdout --format shell )` command will decrypt dotenv file and export the variables to the current shell.
+- `eval $( dotenvx decrypt --stdout --format shell )` command will decrypt a dotenv file and export the variables to the current shell.
 - `eval $( dotenvx get key --format shell )` command will export key's value from .env as environment variable.
 
 **Tips**: if you use [direnv](https://direnv.net/), and you can add `eval $( dotenvx decrypt --stdout --format shell )` to the `.envrc`
@@ -183,12 +181,12 @@ and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
 **Tips**: you can use `dotenvx set --encrypt my_private_pem - < ./xxx.pem` to encrypt any text file as a key-value pair in the
 `.env` file.
 
-### Why sign .env file?
+### Why sign the.env file?
 
 The `.env` file still text file, and other people or tools can modify it, and let the application load the modified
 `.env` file, which may cause security issues.
 
-For example, you have an email which is a PayPal account to receive payments. Of course, you don't want others to
+For example, you have an email, which is a PayPal account to receive payments. Of course, you don't want others to
 change the email address to their own PayPal account, and then you will lose your money.
 
 To prevent this, the `.env` file is signed with a signature(secp256k1) and put in the metadata section of the file.
@@ -198,11 +196,11 @@ How the signature works:
 
 - The author run `dotenvx encrypt --sign` to sign the `.env` file with the private key,
   and the signature will be added to the metadata section of the file.
-- Signature: SHA256 hash of the `.env` trimmed .env file content(without sign line), and then sign the hash with the
+- Signature: SHA256 hash of the `.env` trimmed .env file content (without sign line), and then sign the hash with the
   private key to get the signature, and signature is a base64 encoded string and added to the metadata section of the
   file.
 - Verification: Load the `.env` file, extract the public key and signature from the metadata section, SHA256 hash
-  the .env file trimmed content(without sign line), and then verify the signature with the public key and the hash.
+  the .env file-trimmed content (without sign line), and then verify the signature with the public key and the hash.
 
 With this signature, you can ensure that the `.env` file is not tampered, and other people/tools can trust the
 `.env` file content and use it safely.
@@ -222,7 +220,7 @@ and other people/tools can use the encrypted `.env.keys.aes` file without knowin
 **Attention**: You should remember the password, and it will be used by `dotenvx --unseal` to decrypt the
 `$HOME/.env.keys.aes` file.
 
-### How to check key's difference between .env files?
+### How to check the keys' difference between .env files?
 
 You can use the `dotenvx diff key1,key2` command to display the difference values from .env files,
 and dotenvx will search all .env files in the current directory and compare the values of the specified keys.
