@@ -267,11 +267,14 @@ mod tests {
 
     #[test]
     fn test_jwt_generate() {
+        use chrono::Utc;
+        let now = Utc::now().timestamp();
         let private_key = "c81efd721a711661296a53b768c780e0d9ec9d597e49d8ed53eed0b638b958cf";
         let claims = json!({
-            "sub": "example-user",
-            "exp": 1735689600, // Expiration time (e.g., 2025-01-01T00:00:00Z)
-            "iat": 1622505600, // Issued at time (e.g., 2021-06-01T00:00:00Z)
+            "sub": "linux-china",
+            "kid": "b895c58f944855010fa88f7a76642e2005d51705cb27597c7a85347628ac5dcf",
+            "exp": now + 60*60*24*365, // Expiration time (e.g., 2026-01-01T00:00:00Z)
+            "iat": now, // now (e.g., 2021-06-01T00:00:00Z)
             "iss": "example-issuer"
         });
         let jwt_token = generate_jwt_token(private_key, claims).unwrap();
