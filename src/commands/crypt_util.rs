@@ -3,7 +3,7 @@ use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use argon2::password_hash::SaltString;
 use argon2::{self, Argon2, PasswordHasher};
-use base64ct::{Base64, Base64Url, Encoding};
+use base64ct::{Base64, Base64UrlUnpadded, Encoding};
 use colored::Colorize;
 use dotenvx_rs::dotenvx::get_private_key;
 use ecies::utils::generate_keypair;
@@ -167,11 +167,11 @@ pub fn generate_jwt_token(
     claims: serde_json::Value,
 ) -> anyhow::Result<String> {
     let header_obj = json!({"typ": "JWT","alg": "ES256K"});
-    let header = Base64Url::encode_string(serde_json::to_string(&header_obj)?.as_bytes());
-    let payload = Base64Url::encode_string(serde_json::to_string(&claims)?.as_bytes());
+    let header = Base64UrlUnpadded::encode_string(serde_json::to_string(&header_obj)?.as_bytes());
+    let payload = Base64UrlUnpadded::encode_string(serde_json::to_string(&claims)?.as_bytes());
     let message = format!("{header}.{payload}");
     let signature_bytes = sign_message_bytes(private_key_hext, &message)?;
-    let signature = Base64Url::encode_string(signature_bytes.as_slice());
+    let signature = Base64UrlUnpadded::encode_string(signature_bytes.as_slice());
     Ok(format!("{header}.{payload}.{signature}"))
 }
 
@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_jwt_generate() {
-        let private_key = "9e70188d351c25d0714929205df9b8f4564b6b859966bdae7aef7f752a749d8b";
+        let private_key = "c81efd721a711661296a53b768c780e0d9ec9d597e49d8ed53eed0b638b958cf";
         let claims = json!({
             "sub": "example-user",
             "exp": 1735689600, // Expiration time (e.g., 2025-01-01T00:00:00Z)
