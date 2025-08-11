@@ -355,7 +355,7 @@ pub fn construct_env_file_header(
     format!(
         r#"
 # ---
-# id: {}
+# uuid: {}
 # name: {}
 # group: {}
 # ---
@@ -442,7 +442,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
         let file_content = format!(
             r#"
 # ---
-# id: {keys_file_uuid}
+# uuid: {keys_file_uuid}
 # name: {}
 # group: {}
 # ---

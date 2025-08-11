@@ -37,7 +37,7 @@ pub fn doctor_command(_: &ArgMatches) {
                 let header = format!(
                     r#"
 # ---
-# id: {}
+# uuid: {}
 # name: app_name
 # group: group_name
 # ---
