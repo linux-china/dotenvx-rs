@@ -1,4 +1,3 @@
-use crate::commands::linter::lint;
 use crate::commands::list_env_files;
 use clap::ArgMatches;
 use colored::Colorize;
@@ -30,6 +29,24 @@ pub fn doctor_command(_: &ArgMatches) {
                 eprintln!("{}",
                     format!("Warning: The public key in {file_name} does not match the expected format: DOTENV_PUBLIC_KEY").red()
                 );
+            }
+            // check front matter
+            if !(file_content.contains("# id:") || file_content.contains("# uuid:")) {
+                println!("No metadata(front matter) in {file_name}, and add it to the file.");
+                let env_file_uuid = uuid::Uuid::now_v7().to_string();
+                let header = format!(
+                    r#"
+# ---
+# id: {}
+# name: app_name
+# group: group_name
+# ---
+"#,
+                    env_file_uuid
+                );
+                let new_content = format!("{}\n{}", header.trim(), file_content);
+                std::fs::write(file_path, new_content).unwrap();
+                println!("Metadata added to {file_name} with id: {env_file_uuid}");
             }
         } else {
             eprintln!(
