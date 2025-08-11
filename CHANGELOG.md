@@ -8,6 +8,13 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.5] - 2025-08-12
+
+### Fixed
+
+- Replace `# id:` with `# uuid:` in the front matter of .env files.
+- Add front matter for .env file when running `dotenvx doctor`
+
 ## [0.4.4] - 2025-08-06
 
 ### Add
