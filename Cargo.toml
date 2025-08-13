@@ -39,7 +39,7 @@ rprompt="2.2.0"
 glob = "0.3"
 dirs = "6"
 walkdir = "2.5.0"
-clap = "4.5.42"
+clap = "4.5.45"
 colored = "3.0"
 prettytable-rs = "^0.10"
 arboard = "3.6"
@@ -56,8 +56,8 @@ colored_json = "5"
 chrono= { version = "0.4.41",features = ["serde"] }
 regex = "1.11.1"
 lazy_static = "1.5.0"
-anyhow = "1.0.98"
-reqwest = { version = "0.12.22", features = ["blocking"] }
+anyhow = "1.0.99"
+reqwest = { version = "0.12.23", features = ["blocking"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
