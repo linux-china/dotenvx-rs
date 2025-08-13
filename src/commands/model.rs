@@ -13,6 +13,7 @@ use std::path::Path;
 pub struct KeyPair {
     pub public_key: String,
     pub private_key: String,
+    pub path: Option<String>,
     pub group: Option<String>,
     pub name: Option<String>,
     pub profile: Option<String>,
@@ -24,6 +25,7 @@ impl KeyPair {
         KeyPair {
             public_key: public_key.to_string(),
             private_key: private_key.to_string(),
+            path: None,
             group: None,
             name: None,
             profile: profile.clone(),
@@ -41,6 +43,7 @@ impl KeyPair {
         KeyPair {
             public_key: public_key.to_string(),
             private_key: private_key.to_string(),
+            path: None,
             group: group.clone(),
             name: name.clone(),
             profile: profile.clone(),
