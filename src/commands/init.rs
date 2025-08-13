@@ -43,14 +43,19 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
     }
     create_env_file(&env_file, &public_key, Some(&pair), &group_arg, &name_arg);
-    // create private key file
-    let key_pair = KeyPair::from(
+    let env_file_path = PathBuf::from(&env_file)
+        .canonicalize()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    let mut key_pair = KeyPair::from(
         &public_key,
         &kp.get_sk_hex(),
         &group_arg,
         &name_arg,
         profile,
     );
+    key_pair.path = Some(env_file_path);
     if PathBuf::from(KEYS_FILE_NAME).exists() {
         let private_key_name = get_private_key_name_for_file(&env_file);
         write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
