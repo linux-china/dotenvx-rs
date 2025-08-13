@@ -107,12 +107,13 @@ fn list_all_pairs() {
     let title = "All global key pairs";
     let mut table = Table::new();
     table.set_titles(Row::new(vec![
-        Cell::new_align(title, Alignment::CENTER).with_hspan(7),
+        Cell::new_align(title, Alignment::CENTER).with_hspan(8),
     ]));
     table.add_row(row![
         "Public Key",
         "Private Key",
         "timestamp",
+        "path",
         "group",
         "name",
         "profile",
@@ -120,8 +121,8 @@ fn list_all_pairs() {
     ]);
 
     for (public_key, key_pair) in &all_pairs {
-        let pk_key_short = public_key[0..16].to_string();
-        let sk_key_short = key_pair.private_key[0..10].to_string();
+        let pk_key_short = public_key[0..6].to_string();
+        let sk_key_short = key_pair.private_key[0..6].to_string();
         table.add_row(row![
             format!("{pk_key_short}..."),
             format!("{sk_key_short}..."),
@@ -129,6 +130,7 @@ fn list_all_pairs() {
                 .timestamp
                 .map(|x| x.format("%Y-%m-%d %H:%M:%S").to_string())
                 .unwrap_or_default(),
+            key_pair.path.clone().unwrap_or_default(),
             key_pair.group.clone().unwrap_or_default(),
             key_pair.name.clone().unwrap_or_default(),
             key_pair.profile.clone().unwrap_or_default(),
