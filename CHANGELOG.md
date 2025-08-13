@@ -14,6 +14,7 @@
 
 - Replace `# id:` with `# uuid:` in the front matter of .env files.
 - Add front matter for .env file when running `dotenvx doctor`
+- Add `path` field for `$HOME/.dotenvx/.env.keys.json`
 
 ## [0.4.4] - 2025-08-06
 
