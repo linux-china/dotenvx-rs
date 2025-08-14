@@ -88,7 +88,7 @@ pub fn decrypt_env_item(
 }
 
 pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
-    if let Ok(private_key) = get_private_key(profile) {
+    if let Ok(private_key) = get_private_key(&None, profile) {
         if let Ok(plain_text) = decrypt_env_item(&private_key, encrypted_value) {
             println!("{plain_text}");
         } else {
