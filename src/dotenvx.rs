@@ -339,4 +339,16 @@ mod tests {
         // Assuming the private key is set correctly in the environment
         // The decryption will depend on the actual private key used
     }
+
+    #[test]
+    fn test_find_all_keys() {
+        let all_keys = find_all_keys();
+        println!("all_keys: {all_keys:?}");
+    }
+
+    #[test]
+    fn test_find_private_key() {
+        let public_key = "02336cf0909ec7473e6e45a46aedd998e955bfce282ade31a1fa8168a64b7f659d";
+        get_private_key(&Some(public_key.to_string()), &None).expect("Failed to get a private key");
+    }
 }
