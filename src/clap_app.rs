@@ -304,7 +304,25 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         );
     let cloud_command = Command::new("cloud")
-        .about("Dotenv cloud operations, such as registration, sync, audit etc.");
+        .about("Dotenv cloud operations, such as registration, send, sync etc.")
+        .subcommand(Command::new("signup").about("Sign up an account on Dotenvx cloud"))
+        .subcommand(Command::new("send").about("Send secret to a user on Dotenvx cloud"))
+        .subcommand(
+            Command::new("sync")
+                .about("Send secret to a user on Dotenvx cloud")
+                .arg(
+                    Arg::new("env-file")
+                        .short('f')
+                        .long("env-file")
+                        .help("path to your env file for synchronization on Dotenvx cloud")
+                        .num_args(1)
+                        .required(false),
+                ),
+        )
+        .subcommand(
+            Command::new("backup")
+                .about("Encrypt and backup your $HOME/.dotenvx/.env.keys.aes on Dotenvx cloud"),
+        );
     Command::new("dotenvx")
         .version(VERSION)
         .author("linux_china <libing.chen@gmail.com>")
