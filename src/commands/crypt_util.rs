@@ -32,7 +32,7 @@ impl EcKeyPair {
     }
 
     pub fn from_secret_key(sk_hex: &str) -> Self {
-        let sk_bytes = hex::decode(sk_hex).unwrap();
+        let sk_bytes = hex::decode(check_sk_hex(sk_hex)).unwrap();
         let sk = SecretKey::parse_slice(&sk_bytes).unwrap();
         let pk = PublicKey::from_secret_key(&sk);
         EcKeyPair {
@@ -63,6 +63,15 @@ impl EcKeyPair {
     }
 }
 
+pub fn check_sk_hex(sk_hex: &str) -> &str {
+    let key_len = sk_hex.len();
+    if key_len > 64 {
+        &sk_hex[(key_len - 64)..]
+    } else {
+        sk_hex
+    }
+}
+
 pub fn encrypt_env_item(
     public_key: &str,
     value_plain: &str,
@@ -82,14 +91,14 @@ pub fn decrypt_env_item(
     } else {
         Base64::decode_vec(encrypted_text).unwrap()
     };
-    let sk = hex::decode(private_key).unwrap();
+    let sk = hex::decode(check_sk_hex(private_key)).unwrap();
     let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();
     Ok(String::from_utf8(decrypted_bytes)?)
 }
 
 pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
     if let Ok(private_key) = get_private_key(&None, profile) {
-        if let Ok(plain_text) = decrypt_env_item(&private_key, encrypted_value) {
+        if let Ok(plain_text) = decrypt_env_item(check_sk_hex(&private_key), encrypted_value) {
             println!("{plain_text}");
         } else {
             eprintln!(
@@ -112,7 +121,7 @@ pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> 
     let message_hash = hasher.finalize();
     let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Sign the message hash with the private key
-    let sk_bytes = hex::decode(private_key)?;
+    let sk_bytes = hex::decode(check_sk_hex(private_key))?;
     if let Ok(sk) = SecretKey::parse_slice(&sk_bytes) {
         let signature = sign(&msg, &sk).0;
         Ok(Base64::encode_string(&signature.serialize()))
@@ -129,7 +138,7 @@ pub fn sign_message_bytes(private_key: &str, message: &str) -> anyhow::Result<Ve
     let message_hash = hasher.finalize();
     let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Sign the message hash with the private key
-    let sk_bytes = hex::decode(private_key)?;
+    let sk_bytes = hex::decode(check_sk_hex(private_key))?;
     if let Ok(sk) = SecretKey::parse_slice(&sk_bytes) {
         let signature = sign(&msg, &sk).0;
         Ok(signature.serialize().to_vec())
@@ -163,14 +172,14 @@ pub fn verify_signature(public_key: &str, message: &str, signature: &str) -> any
 
 /// generate a JWT token using the private key and claims, and algorithm ES256K(secp256k1)
 pub fn generate_jwt_token(
-    private_key_hext: &str,
+    private_key_hex: &str,
     claims: serde_json::Value,
 ) -> anyhow::Result<String> {
     let header_obj = json!({"typ": "JWT","alg": "ES256K"});
     let header = Base64UrlUnpadded::encode_string(serde_json::to_string(&header_obj)?.as_bytes());
     let payload = Base64UrlUnpadded::encode_string(serde_json::to_string(&claims)?.as_bytes());
     let message = format!("{header}.{payload}");
-    let signature_bytes = sign_message_bytes(private_key_hext, &message)?;
+    let signature_bytes = sign_message_bytes(private_key_hex, &message)?;
     let signature = Base64UrlUnpadded::encode_string(signature_bytes.as_slice());
     Ok(format!("{header}.{payload}.{signature}"))
 }
@@ -255,8 +264,8 @@ mod tests {
 
     #[test]
     fn test_signature_and_verify() {
-        let public_key = "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0";
-        let private_key = "9e70188d351c25d0714929205df9b8f4564b6b859966bdae7aef7f752a749d8b";
+        let public_key = "02f6e5c1a348cd70ee9ebcdf271892878d83d7bb9c1cd0644ae0da0a04904b83e4";
+        let private_key = "00d3a1bf3a9a989e3ae11a58e89d95e26d32e0445d825d7fe7ef162ffad2706580";
         let message = "Hello, secp256k1!";
         // Sign the message
         let signature = sign_message(private_key, message).unwrap();
