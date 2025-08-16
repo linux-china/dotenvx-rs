@@ -8,6 +8,13 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.9] - 2025-08-15
+
+### Fixed
+
+- Fix lib to load private key from `$HOME/.dotenvx/.env.keys.json`
+- Make sure the private key compatible with 64 hex encoded string
+
 ## [0.4.8] - 2025-08-14
 
 ### Fixed
