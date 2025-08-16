@@ -27,10 +27,9 @@ aes-gcm = "0.10.3"
 argon2 = { version = "0.5" }
 totp-rs = { version = "5.7", features = ["otpauth", "gen_secret"] }
 rand = "0.9"
-uuid = { version = "1.17", features = ["v4", "v7"] }
+uuid = { version = "1.18", features = ["v4", "v7"] }
 base64ct = "1.8.0"
 keyring = { version = "3.6.3", features = ["apple-native", "windows-native", "sync-secret-service"] }
-#openssl = { version = "0.10", features = ["vendored"] }
 hex = "0.4.3"
 # cli
 shlex = "1.3"
