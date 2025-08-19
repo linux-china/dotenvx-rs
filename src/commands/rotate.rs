@@ -53,7 +53,6 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 .green()
             );
         }
-        write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
         // encrypt the .env file again
         if encrypt_mode {
             let file_content = fs::read_to_string(&env_file).unwrap();
