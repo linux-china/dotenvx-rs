@@ -1,4 +1,5 @@
 use crate::common::{find_dotenv_keys_file, get_profile_name_from_env, get_profile_name_from_file};
+use anyhow::anyhow;
 use base64ct::{Base64, Encoding};
 use chrono::{DateTime, Local};
 use dirs::home_dir;
@@ -199,6 +200,41 @@ fn from_read_with_dotenvx<R: Read>(reader: R) -> dotenvy::Result<()> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct DotenvxKeyStore {
+    pub version: String,
+    pub metadata: HashMap<String, KeyPair>,
+    pub keys: HashMap<String, KeyPair>,
+}
+
+impl DotenvxKeyStore {
+    pub fn load_global() -> anyhow::Result<DotenvxKeyStore> {
+        let dotenvx_home = home_dir().unwrap().join(".dotenvx");
+        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+        if env_keys_json_file.exists() {
+            let file_content = std::fs::read_to_string(env_keys_json_file)?;
+            return if file_content.contains("version=\"0.1.0\"") {
+                Ok(serde_json::from_str(&file_content)?)
+            } else {
+                let keys: HashMap<String, KeyPair> = serde_json::from_str(&file_content)?;
+                Ok(DotenvxKeyStore {
+                    version: "0.0.0".to_string(),
+                    metadata: HashMap::new(),
+                    keys,
+                })
+            }
+        }
+        Err(anyhow!("$HOME/.dotenvx/.env.keys.json not foud"))
+    }
+
+    pub fn find_private_key(&self, public_key: &str) -> Option<String> {
+        if let Some(key_pair) = self.keys.get(public_key) {
+            return Some(key_pair.private_key.clone());
+        }
+        None
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct KeyPair {
     pub public_key: String,
     pub private_key: String,
@@ -211,7 +247,7 @@ struct KeyPair {
 }
 
 fn find_all_keys() -> HashMap<String, KeyPair> {
-    let dotenvx_home = dirs::home_dir().unwrap().join(".dotenvx");
+    let dotenvx_home = home_dir().unwrap().join(".dotenvx");
     let env_keys_json_file = dotenvx_home.join(".env.keys.json");
     if env_keys_json_file.exists() {
         let file_content = std::fs::read_to_string(env_keys_json_file).unwrap();
@@ -220,6 +256,7 @@ fn find_all_keys() -> HashMap<String, KeyPair> {
         HashMap::new()
     }
 }
+
 pub fn get_private_key(
     public_key: &Option<String>,
     profile_name: &Option<String>,
@@ -350,5 +387,11 @@ mod tests {
     fn test_find_private_key() {
         let public_key = "02336cf0909ec7473e6e45a46aedd998e955bfce282ade31a1fa8168a64b7f659d";
         get_private_key(&Some(public_key.to_string()), &None).expect("Failed to get a private key");
+    }
+
+    #[test]
+    fn test_keystore() {
+        DotenvxKeyStore::load_global()
+            .expect("Failed to load global keystore");
     }
 }
