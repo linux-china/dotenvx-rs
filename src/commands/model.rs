@@ -1,13 +1,69 @@
 use crate::commands::crypt_util::{
     decrypt_env_item, encrypt_env_item, sign_message, verify_signature,
 };
-use crate::commands::is_public_key_name;
+use crate::commands::{get_dotenvx_home, is_public_key_name};
+use anyhow::anyhow;
 use chrono::{DateTime, Local};
+use dotenvx_rs::common::get_profile_name_from_file;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DotenvxKeyStore {
+    pub version: String,
+    pub metadata: HashMap<String, KeyPair>,
+    pub keys: HashMap<String, KeyPair>,
+}
+
+impl DotenvxKeyStore {
+    pub fn new() -> Self {
+        DotenvxKeyStore {
+            version: "0.1.0".to_string(),
+            metadata: HashMap::new(),
+            keys: HashMap::new(),
+        }
+    }
+    pub fn load_global() -> anyhow::Result<DotenvxKeyStore> {
+        let dotenvx_home = get_dotenvx_home();
+        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+        if env_keys_json_file.exists() {
+            let file_content = fs::read_to_string(env_keys_json_file)?;
+            return if file_content.contains("version=\"0.1.0\"") {
+                Ok(serde_json::from_str(&file_content)?)
+            } else {
+                let keys: HashMap<String, KeyPair> = serde_json::from_str(&file_content)?;
+                Ok(DotenvxKeyStore {
+                    version: "0.0.0".to_string(),
+                    metadata: HashMap::new(),
+                    keys,
+                })
+            };
+        }
+        Err(anyhow!("$HOME/.dotenvx/.env.keys.json not foud"))
+    }
+
+    pub fn find_private_key(&self, public_key: &str) -> Option<String> {
+        if let Some(key_pair) = self.keys.get(public_key) {
+            return Some(key_pair.private_key.clone());
+        }
+        None
+    }
+
+    pub fn write(&self) -> anyhow::Result<()> {
+        let dotenvx_home = get_dotenvx_home();
+        if !dotenvx_home.exists() {
+            fs::create_dir_all(&dotenvx_home)?;
+        }
+        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+        let file_content = serde_json::to_string_pretty(self)?;
+        fs::write(env_keys_json_file, file_content)?;
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyPair {
@@ -20,6 +76,7 @@ pub struct KeyPair {
     pub comment: Option<String>,
     pub timestamp: Option<DateTime<Local>>,
 }
+
 impl KeyPair {
     pub fn new(public_key: &str, private_key: &str, profile: &Option<String>) -> Self {
         KeyPair {
@@ -50,6 +107,62 @@ impl KeyPair {
             comment: None,
             timestamp: Some(Local::now()),
         }
+    }
+}
+
+pub struct EnvKeys {
+    pub metadata: Option<HashMap<String, String>>,
+    pub keys: Option<Vec<String>>,
+    pub source: Option<String>,
+}
+
+impl EnvKeys {
+    pub fn from_file<P: AsRef<Path>>(env_keys_file_path: P) -> anyhow::Result<EnvKeys> {
+        let content = fs::read_to_string(&env_keys_file_path)?;
+        let metadata = extract_front_matter(&content);
+        let keys: Vec<String> = content
+            .lines()
+            .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
+            .map(|line| line.trim().to_string())
+            .collect();
+        Ok(EnvKeys {
+            metadata: Some(metadata),
+            keys: Some(keys),
+            source: Some(env_keys_file_path.as_ref().to_string_lossy().to_string()),
+        })
+    }
+
+    pub fn new<P: AsRef<Path>>(env_keys_file_path: P) -> Self {
+        let keys_uuid = uuid::Uuid::now_v7().to_string();
+        let mut metadata = HashMap::new();
+        metadata.insert("uuid".to_string(), keys_uuid);
+        EnvKeys {
+            metadata: Some(metadata),
+            keys: Some(Vec::new()),
+            source: Some(env_keys_file_path.as_ref().to_string_lossy().to_string()),
+        }
+    }
+
+    pub fn write(&self) -> anyhow::Result<()> {
+        let mut content = String::new();
+        if let Some(metadata) = &self.metadata {
+            content.push_str("# ---\n");
+            for (key, value) in metadata {
+                content.push_str(&format!("# {key}: {value}\n"));
+            }
+            content.push_str("# ---\n\n");
+        }
+        if let Some(keys) = &self.keys {
+            for key in keys {
+                content.push_str(&format!("{key}\n"));
+            }
+        }
+        let file_path = self
+            .source
+            .as_ref()
+            .ok_or_else(|| anyhow!("Source path is not set"))?;
+        fs::write(file_path, content)?;
+        Ok(())
     }
 }
 
@@ -140,6 +253,38 @@ impl EnvFile {
         } else {
             false
         }
+    }
+}
+
+struct ApplicationProperties {
+    pub profile: Option<String>,
+    pub metadata: HashMap<String, String>,
+    pub entries: HashMap<String, String>,
+    pub content: String,
+    pub source: Option<String>,
+}
+
+impl ApplicationProperties {
+    pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<Self, std::io::Error> {
+        let content = fs::read_to_string(&file_path)?;
+        let metadata = extract_front_matter(&content);
+        let entries = dotenvy::from_read_iter(Cursor::new(content.as_bytes()))
+            .flatten()
+            .collect();
+        let file_name = file_path
+            .as_ref()
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("application.properties")
+            .to_string();
+        let profile = get_profile_name_from_file(&file_name);
+        Ok(ApplicationProperties {
+            profile,
+            metadata,
+            entries,
+            content,
+            source: Some(file_path.as_ref().to_string_lossy().to_string()),
+        })
     }
 }
 
