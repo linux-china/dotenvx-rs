@@ -147,6 +147,10 @@ impl EnvKeys {
         let mut content = String::new();
         if let Some(metadata) = &self.metadata {
             content.push_str("# ---\n");
+            if !metadata.contains_key("uuid") {
+                let keys_uuid = uuid::Uuid::now_v7().to_string();
+                content.push_str(&format!("# uuid: {keys_uuid}\n"));
+            }
             for (key, value) in metadata {
                 content.push_str(&format!("# {key}: {value}\n"));
             }
