@@ -8,6 +8,12 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.10] - 2025-08-20
+
+### Fixed
+
+- New file format for `$HOME/.dotenvx/.env.keys.json`
+
 ## [0.4.9] - 2025-08-15
 
 ### Fixed
