@@ -15,15 +15,17 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DotenvxKeyStore {
     pub version: String,
-    pub metadata: HashMap<String, KeyPair>,
+    pub metadata: HashMap<String, String>,
     pub keys: HashMap<String, KeyPair>,
 }
 
 impl DotenvxKeyStore {
     pub fn new() -> Self {
+        let mut metadata = HashMap::new();
+        metadata.insert("uuid".to_owned(), uuid::Uuid::now_v7().to_string());
         DotenvxKeyStore {
             version: "0.1.0".to_string(),
-            metadata: HashMap::new(),
+            metadata,
             keys: HashMap::new(),
         }
     }
@@ -32,7 +34,7 @@ impl DotenvxKeyStore {
         let env_keys_json_file = dotenvx_home.join(".env.keys.json");
         if env_keys_json_file.exists() {
             let file_content = fs::read_to_string(env_keys_json_file)?;
-            return if file_content.contains("version=\"0.1.0\"") {
+            return if file_content.contains("\"version\"") {
                 Ok(serde_json::from_str(&file_content)?)
             } else {
                 let keys: HashMap<String, KeyPair> = serde_json::from_str(&file_content)?;
@@ -442,11 +444,18 @@ impl EnvFile {
 #[cfg(test)]
 mod tests {
     use crate::commands::crypt_util::{sign_message, verify_signature};
+    use crate::commands::model::DotenvxKeyStore;
 
     #[test]
     fn test_from_file() {
         let env_file = super::EnvFile::from(".env.example").unwrap();
         println!("{env_file:?}");
+    }
+
+    #[test]
+    fn test_global() {
+        let store = DotenvxKeyStore::load_global().unwrap();
+        println!("{store:?}");
     }
 
     #[test]
