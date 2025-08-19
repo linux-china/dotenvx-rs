@@ -202,7 +202,7 @@ fn from_read_with_dotenvx<R: Read>(reader: R) -> dotenvy::Result<()> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DotenvxKeyStore {
     pub version: String,
-    pub metadata: HashMap<String, KeyPair>,
+    pub metadata: HashMap<String, String>,
     pub keys: HashMap<String, KeyPair>,
 }
 
@@ -212,7 +212,7 @@ impl DotenvxKeyStore {
         let env_keys_json_file = dotenvx_home.join(".env.keys.json");
         if env_keys_json_file.exists() {
             let file_content = std::fs::read_to_string(env_keys_json_file)?;
-            return if file_content.contains("version=\"0.1.0\"") {
+            return if file_content.contains("\"version\"") {
                 Ok(serde_json::from_str(&file_content)?)
             } else {
                 let keys: HashMap<String, KeyPair> = serde_json::from_str(&file_content)?;
@@ -221,7 +221,7 @@ impl DotenvxKeyStore {
                     metadata: HashMap::new(),
                     keys,
                 })
-            }
+            };
         }
         Err(anyhow!("$HOME/.dotenvx/.env.keys.json not foud"))
     }
@@ -349,6 +349,12 @@ mod tests {
     }
 
     #[test]
+    fn test_load_global() {
+        let store = DotenvxKeyStore::load_global().unwrap();
+        println!("{:#?}", store);
+    }
+
+    #[test]
     fn test_ecies_decrypt() {
         let encrypted_text = "encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7";
         let private_key = get_private_key(&None, &None).unwrap();
@@ -391,7 +397,6 @@ mod tests {
 
     #[test]
     fn test_keystore() {
-        DotenvxKeyStore::load_global()
-            .expect("Failed to load global keystore");
+        DotenvxKeyStore::load_global().expect("Failed to load global keystore");
     }
 }
