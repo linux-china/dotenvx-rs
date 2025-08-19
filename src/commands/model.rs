@@ -209,7 +209,7 @@ impl EnvFile {
             None
         };
         let metadata = extract_front_matter(&content);
-        if let Ok(entries) = read_dotenv_content(&content) {
+        if let Ok(entries) = read_dotenv_entries(&content) {
             Ok(EnvFile {
                 name: name.to_string(),
                 source,
@@ -292,7 +292,7 @@ impl ApplicationProperties {
     }
 }
 
-pub fn read_dotenv_content(
+pub fn read_dotenv_entries(
     content: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut entries: HashMap<String, String> = HashMap::new();
