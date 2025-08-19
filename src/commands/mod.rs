@@ -1,6 +1,6 @@
 use crate::commands::crypt_util::EcKeyPair;
 use crate::commands::framework::detect_framework;
-use crate::commands::model::KeyPair;
+use crate::commands::model::{DotenvxKeyStore, KeyPair};
 use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
@@ -43,53 +43,53 @@ pub fn get_dotenvx_home() -> PathBuf {
 }
 
 pub fn find_private_key_from_home(public_key_hex: &str) -> Option<String> {
-    let all_keys = find_all_keys();
-    all_keys
-        .get(public_key_hex)
-        .cloned()
-        .map(|pair| pair.private_key)
+    if let Ok(key_store) = DotenvxKeyStore::load_global() {
+        key_store.find_private_key(public_key_hex);
+    }
+    None
 }
 
 pub fn find_all_keys() -> HashMap<String, KeyPair> {
-    let dotenvx_home = dirs::home_dir().unwrap().join(".dotenvx");
-    let env_keys_json_file = dotenvx_home.join(".env.keys.json");
-    if env_keys_json_file.exists() {
-        let file_content = fs::read_to_string(env_keys_json_file).unwrap();
-        serde_json::from_str(&file_content).unwrap()
+    if let Ok(key_store) = DotenvxKeyStore::load_global() {
+        key_store.keys.clone()
     } else {
         HashMap::new()
     }
 }
 
 pub fn write_key_pair(key_pair: &KeyPair) -> anyhow::Result<()> {
-    let mut all_keys = find_all_keys();
-    if !all_keys.contains_key(&key_pair.public_key) {
-        all_keys.insert(key_pair.public_key.clone(), key_pair.clone());
-        let json_text = serde_json::to_string_pretty(&all_keys)?;
-        let dotenvx_home = get_dotenvx_home();
-        if !dotenvx_home.exists() {
-            fs::create_dir_all(&dotenvx_home)?;
-        }
-        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
-        fs::write(env_keys_json_file, json_text.as_bytes())?;
+    let mut key_store = if let Ok(store) = DotenvxKeyStore::load_global() {
+        store
+    } else {
+        DotenvxKeyStore::new()
+    };
+    if !key_store.keys.contains_key(&key_pair.public_key) {
+        key_store
+            .keys
+            .insert(key_pair.public_key.clone(), key_pair.clone());
+        return key_store.write();
     }
     Ok(())
 }
 
 pub fn write_key_pairs(key_pairs: &Vec<KeyPair>) -> anyhow::Result<()> {
-    let mut all_keys = find_all_keys();
+    let mut key_store = if let Ok(store) = DotenvxKeyStore::load_global() {
+        store
+    } else {
+        DotenvxKeyStore::new()
+    };
+    let mut is_changed = false;
     for key_pair in key_pairs {
-        if !all_keys.contains_key(&key_pair.public_key) {
-            all_keys.insert(key_pair.public_key.clone(), key_pair.clone());
+        if !key_store.keys.contains_key(&key_pair.public_key) {
+            is_changed = true;
+            key_store
+                .keys
+                .insert(key_pair.public_key.clone(), key_pair.clone());
         }
     }
-    let json_text = serde_json::to_string_pretty(&all_keys)?;
-    let dotenvx_home = get_dotenvx_home();
-    if !dotenvx_home.exists() {
-        fs::create_dir_all(&dotenvx_home)?;
+    if is_changed {
+        return key_store.write();
     }
-    let env_keys_json_file = dotenvx_home.join(".env.keys.json");
-    fs::write(env_keys_json_file, json_text.as_bytes())?;
     Ok(())
 }
 
