@@ -38,9 +38,11 @@ impl DotenvxKeyStore {
                 Ok(serde_json::from_str(&file_content)?)
             } else {
                 let keys: HashMap<String, KeyPair> = serde_json::from_str(&file_content)?;
+                let mut metadata = HashMap::new();
+                metadata.insert("uuid".to_owned(), uuid::Uuid::now_v7().to_string());
                 Ok(DotenvxKeyStore {
-                    version: "0.0.0".to_string(),
-                    metadata: HashMap::new(),
+                    version: "0.1.0".to_string(),
+                    metadata,
                     keys,
                 })
             };
