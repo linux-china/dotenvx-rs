@@ -206,6 +206,18 @@ struct DotenvxKeyStore {
     pub keys: HashMap<String, KeyPair>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct KeyPair {
+    pub public_key: String,
+    pub private_key: String,
+    pub path: Option<String>,
+    pub group: Option<String>,
+    pub name: Option<String>,
+    pub profile: Option<String>,
+    pub comment: Option<String>,
+    pub timestamp: Option<DateTime<Local>>,
+}
+
 impl DotenvxKeyStore {
     pub fn load_global() -> anyhow::Result<DotenvxKeyStore> {
         let dotenvx_home = home_dir().unwrap().join(".dotenvx");
@@ -216,9 +228,11 @@ impl DotenvxKeyStore {
                 Ok(serde_json::from_str(&file_content)?)
             } else {
                 let keys: HashMap<String, KeyPair> = serde_json::from_str(&file_content)?;
+                let mut metadata = HashMap::new();
+                metadata.insert("uuid".to_owned(), uuid::Uuid::now_v7().to_string());
                 Ok(DotenvxKeyStore {
-                    version: "0.0.0".to_string(),
-                    metadata: HashMap::new(),
+                    version: "0.1.0".to_string(),
+                    metadata,
                     keys,
                 })
             };
@@ -234,37 +248,15 @@ impl DotenvxKeyStore {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct KeyPair {
-    pub public_key: String,
-    pub private_key: String,
-    pub path: Option<String>,
-    pub group: Option<String>,
-    pub name: Option<String>,
-    pub profile: Option<String>,
-    pub comment: Option<String>,
-    pub timestamp: Option<DateTime<Local>>,
-}
-
-fn find_all_keys() -> HashMap<String, KeyPair> {
-    let dotenvx_home = home_dir().unwrap().join(".dotenvx");
-    let env_keys_json_file = dotenvx_home.join(".env.keys.json");
-    if env_keys_json_file.exists() {
-        let file_content = std::fs::read_to_string(env_keys_json_file).unwrap();
-        serde_json::from_str(&file_content).unwrap()
-    } else {
-        HashMap::new()
-    }
-}
-
 pub fn get_private_key(
     public_key: &Option<String>,
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     if let Some(public_key_hex) = public_key {
-        let key_pairs = find_all_keys();
-        if let Some(key_pair) = key_pairs.get(public_key_hex) {
-            return Ok(key_pair.private_key.clone());
+        if let Ok(global_store) = DotenvxKeyStore::load_global() {
+            if let Some(private_key) = global_store.find_private_key(public_key_hex) {
+                return Ok(private_key);
+            }
         }
     }
     let env_key_name = if let Some(name) = profile_name {
@@ -381,12 +373,6 @@ mod tests {
         }
         // Assuming the private key is set correctly in the environment
         // The decryption will depend on the actual private key used
-    }
-
-    #[test]
-    fn test_find_all_keys() {
-        let all_keys = find_all_keys();
-        println!("all_keys: {all_keys:?}");
     }
 
     #[test]
