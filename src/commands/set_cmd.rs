@@ -48,6 +48,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         if let Ok(mut clipboard) = Clipboard::new() {
             if let Ok(clipboard_text) = clipboard.get_text() {
                 value = clipboard_text.trim().to_string();
+                clipboard.clear().unwrap();
             } else {
                 eprintln!("Failed to read from clipboard.");
                 std::process::exit(1);
