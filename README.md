@@ -40,7 +40,8 @@ dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](
 with some differences:
 
 - Smaller and faster and written in Rust: the `dotenvx` executable is only 4MB.
-- Global keys store: `$HOME/.dotenvx/.env.keys.json` to prevent AI Agent to scan `.env.keys` file in the project directory.
+- Global keys store: `$HOME/.dotenvx/.env.keys.json` to prevent AI Agent to scan `.env.keys` file in the project
+  directory.
 - Spring Boot support: dotenvx CLI can read `application.properties` and spring profile.
 - Global `--profile` as first citizen to make it easy to manage different environments
 - More smaller features
@@ -48,8 +49,9 @@ with some differences:
 
 ### Migrated to dotenvx CLI
 
-If you have .env files already, you just run `dotenvx init`, and dotenvx CLI will create `.env.keys` file
-and update .env file with a new public key.
+If you have .env files already, you just run `dotenvx init`, and dotenvx CLI will create `.env` file with Dotenvx
+format,
+and save the private key to `$HOME/.dotenvx/.env.keys.json` file.
 
 # .env file specification
 
@@ -129,13 +131,14 @@ In dotenvx, three profile styles are supported:
 
 The CLI looks for the private key in the following order:
 
-For example, the private key name is `DOTENVX_PRIVATE_KEY_PROD`:
+- Check the `.env` or `properties` file to find the public key.
+- Find the private key from global `$HOME/.dotenvx/.env.keys.json` file.
+- If not found, find from `.env.keys` file in the current directory and parent directories recursively, and
+  `$HOME/.env.keys` will be checked as well.
+- Find from `DOTENVX_PRIVATE_KEY` or `DOTENVX_PRIVATE_KEY_PROFILE_NAME` environment variable
 
-- Find from `.env.keys` file in the current directory and parent directories recursively, and `$HOME/.env.keys` is
-  checked as well.
-- Find from `DOTENVX_PRIVATE_KEY_PROD` environment variable
-
-If you want to use a unified private key for different environments, and you can use the following environment variables:
+If you want to use a unified private key for different environments, and you can use the following environment
+variables:
 
 - `DOTENVX_PRIVATE_KEY` for `.env` file and local development
 - `DOTENVX_PRIVATE_KEY_PROD` for `.env.prod` file and production
@@ -147,7 +150,9 @@ If you want to use a unified private key for different environments, and you can
 
 dotenvx CLI uses profile style to manage private keys, and you can use following practices to manage private keys:
 
-- Project specific private keys: use `dotenvx init` to create `.env.keys` file in the project's directory
+- Project specific private keys: use `dotenvx init` to create `.env` file in the project's directory and save the
+  private key
+  to the `$HOME/.dotenvx/.env.keys.json` file.
 - Global private: use `dotenvx init --global` to create a global `$HOME/.env.keys` file to manage unified private keys
   for different projects.
 - Team/Production global private keys: use `ABC_TEST`, `REGION1_PROD` as profile names to manage private keys for
@@ -165,21 +170,22 @@ you can use the `dotenvx rotate` command to generate a new key pair, examples:
 
 You can use the `dotenvx decrypt --export` command to decrypt the dotenv file and output as a shell script.
 
-- `eval $( dotenvx decrypt --stdout --format shell )` command will decrypt a dotenv file and export the variables to the current shell.
+- `eval $( dotenvx decrypt --stdout --format shell )` command will decrypt a dotenv file and export the variables to the
+  current shell.
 - `eval $( dotenvx get key --format shell )` command will export key's value from .env as environment variable.
 
-**Tips**: if you use [direnv](https://direnv.net/), and you can add `eval $( dotenvx decrypt --stdout --format shell )` to the `.envrc`
-file to automatically load .env as the environment variables when you enter the directory.
+**Tips**: if you use [direnv](https://direnv.net/), and you can add `eval $( dotenvx decrypt --stdout --format shell )`
+to the `.envrc` file to automatically load .env as the environment variables when you enter the directory.
 
-### How to add encrypted key-value pair from CLI?
+### How to add encrypted key-value from CLI?
 
 You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to the `.env` file.
 If you don't want to shell history to record the sensitive value,
 you can use `dotenvx set <key> -` to read the value from standard input (stdin),
 and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
 
-**Tips**: you can use `dotenvx set --encrypt my_private_pem - < ./xxx.pem` to encrypt any text file as a key-value pair in the
-`.env` file.
+**Tips**: you can use `dotenvx set --encrypt my_private_pem - < ./xxx.pem` to encrypt any text file as a key-value pair
+in the `.env` file.
 
 ### Why sign the.env file?
 
@@ -205,11 +211,13 @@ How the signature works:
 With this signature, you can ensure that the `.env` file is not tampered, and other people/tools can trust the
 `.env` file content and use it safely.
 
+**Attention**: dotenvx will overwrite the environment variables with the values from the `.env` file, 
+and priority is given to the `.env` file over the environment variables.
+
 ### Why introduce `dotenvx --seal` and `dotenvx --unseal`?
 
 dotenvx CLI uses private keys to sign/decrypt the `.env` files, and these private keys are very important and should not
-be
-leaked to the public.
+be leaked to the public.
 
 dotenvx CLI read the private keys from the `$HOME/.env.keys` file or `DOTENV_PRIVATE_KEY`,  `DOTENV_PRIVATE_KEY_XXX`
 environment variables, and these private keys are still as plain text, which is not secure enough.
