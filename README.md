@@ -154,7 +154,8 @@ dotenvx CLI uses profile style to manage private keys, and you can use following
   private key
   to the `$HOME/.dotenvx/.env.keys.json` file.
 - Global private: use `dotenvx init --global` to create a global `$HOME/.env.keys` file to manage unified private keys
-  for different projects.
+  for different projects. If you use `dotenvx set <key> <value>` in a directory, it will create a `.env` with public
+  key derived from  `DOTENV_PRIVATE_KEY` from `$HOME/.env.keys` file.
 - Team/Production global private keys: use `ABC_TEST`, `REGION1_PROD` as profile names to manage private keys for
   different teams, products, or regions.
 
@@ -211,7 +212,7 @@ How the signature works:
 With this signature, you can ensure that the `.env` file is not tampered, and other people/tools can trust the
 `.env` file content and use it safely.
 
-**Attention**: dotenvx will overwrite the environment variables with the values from the `.env` file, 
+**Attention**: dotenvx will overwrite the environment variables with the values from the `.env` file,
 and priority is given to the `.env` file over the environment variables.
 
 ### Why introduce `dotenvx --seal` and `dotenvx --unseal`?
