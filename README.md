@@ -135,16 +135,20 @@ The CLI looks for the private key in the following order:
 - Find the private key from global `$HOME/.dotenvx/.env.keys.json` file.
 - If not found, find from `.env.keys` file in the current directory and parent directories recursively, and
   `$HOME/.env.keys` will be checked as well.
-- Find from `DOTENVX_PRIVATE_KEY` or `DOTENVX_PRIVATE_KEY_PROFILE_NAME` environment variable
+- Find from `DOTENV_PRIVATE_KEY` or `DOTENV_PRIVATE_KEY_PROFILE_NAME` environment variable
 
 If you want to use a unified private key for different environments, and you can use the following environment
 variables:
 
-- `DOTENVX_PRIVATE_KEY` for `.env` file and local development
-- `DOTENVX_PRIVATE_KEY_PROD` for `.env.prod` file and production
-- `DOTENVX_PRIVATE_KEY_TEST` for `.env.test` file and testing
+- `DOTENV_PRIVATE_KEY` for `.env` file and local development
+- `DOTENV_PRIVATE_KEY_PROD` for `.env.prod` file and production
+- `DOTENV_PRIVATE_KEY_TEST` for `.env.test` file and testing
 
 **Tips**: you can use `dotenvx init --stdout` to generate a key pair.
+
+**Attention**: Some AI agents read environment variables for code generation by default, so you should avoid using
+`DOTENV_PRIVATE_KEY`, and use global `$HOME/.dotenvx/.env.keys.json`. For CI/CD, production deployment,
+environment variable for a private key is still a good choice.
 
 ### How to manage private keys?
 
@@ -220,11 +224,13 @@ and priority is given to the `.env` file over the environment variables.
 dotenvx CLI uses private keys to sign/decrypt the `.env` files, and these private keys are very important and should not
 be leaked to the public.
 
-dotenvx CLI read the private keys from the `$HOME/.env.keys` file or `DOTENV_PRIVATE_KEY`,  `DOTENV_PRIVATE_KEY_XXX`
-environment variables, and these private keys are still as plain text, which is not secure enough.
+dotenvx CLI read the private keys from `$HOME/.dotenvx/.env.keys.json`, `$HOME/.env.keys` files or `DOTENV_PRIVATE_KEY`,
+`DOTENV_PRIVATE_KEY_XXX` environment variables, and these private keys are still as plain text, which is not secure
+enough.
 
-With `dotenvx --seal` and `dotenvx --unseal`, you can encrypt the `$HOME/.env.keys` file with AES256 and a password,
-and other people/tools can use the encrypted `.env.keys.aes` file without knowing the password.
+With `dotenvx --seal` and `dotenvx --unseal`, you can encrypt the `$HOME/.dotenvx/.env.keys.json` and  `$HOME/.env.keys`
+file with AES256 and a password, and other people/tools cannot read the encrypted `.env.keys.aes` file without knowing
+the password.
 
 **Attention**: You should remember the password, and it will be used by `dotenvx --unseal` to decrypt the
 `$HOME/.env.keys.aes` file.
