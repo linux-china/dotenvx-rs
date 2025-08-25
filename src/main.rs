@@ -1,4 +1,5 @@
 use crate::clap_app::build_dotenvx_app;
+use crate::commands::cloud::cloud_command;
 use crate::commands::crypt_util::{decrypt_file, encrypt_file};
 use crate::commands::decrypt::decrypt_command;
 use crate::commands::diff::diff_command;
@@ -13,19 +14,35 @@ use crate::commands::rotate::rotate_command;
 use crate::commands::run::{run_command, run_command_line};
 use crate::commands::set_cmd::set_command;
 use crate::commands::verify::verify_command;
+use crate::shims::{is_shim_command, run_shim};
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
-use keyring::Entry;
 use std::env;
 use std::ffi::OsString;
-use crate::commands::cloud::cloud_command;
 
 mod clap_app;
 pub mod commands;
+pub mod shims;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = build_dotenvx_app();
     let mut raw_args: Vec<OsString> = env::args_os().collect();
+    // get the command name
+    let mut command_name = raw_args[0].clone().to_str().unwrap().to_owned();
+    if command_name.contains('/') || command_name.contains('\\') {
+        if let Some(pos) = command_name.rfind(['/', '\\']) {
+            command_name = command_name[pos + 1..].to_string();
+        }
+    }
+    // check if the command is a shim command
+    if is_shim_command(command_name.as_str()) {
+        let command_args = raw_args[1..]
+            .iter()
+            .map(|s| s.to_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+        let exist_code = run_shim(&command_name, &command_args);
+        std::process::exit(exist_code);
+    }
     let delegate_command_index = raw_args.iter().position(|arg| arg == "--").unwrap_or(0);
     // check if the run sub-command is present
     if delegate_command_index > 0 {
