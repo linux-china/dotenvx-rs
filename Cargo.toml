@@ -29,7 +29,7 @@ totp-rs = { version = "5.7", features = ["otpauth", "gen_secret"] }
 rand = "0.9"
 uuid = { version = "1.18", features = ["v4", "v7"] }
 base64ct = "1.8.0"
-keyring = { version = "3.6.3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+keyring = { version = "3.6.3", features = ["apple-native", "windows-native", "linux-native", "sync-secret-service"] }
 hex = "0.4.3"
 # cli
 shlex = "1.3"
@@ -40,7 +40,7 @@ dirs = "6"
 walkdir = "2.5.0"
 clap = "4.5.45"
 colored = "3.0"
-prettytable-rs = "^0.10"
+prettytable-rs = "0.10"
 arboard = "3.6"
 # file format
 java-properties = "2"
@@ -57,10 +57,11 @@ regex = "1.11.1"
 lazy_static = "1.5.0"
 anyhow = "1.0.99"
 reqwest = { version = "0.12.23", features = ["blocking"] }
+which = "8.0.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
-libdbus-sys = { version = "0.2.5", features = ["vendored"] }
+libdbus-sys = { version = "0.2.6", features = ["vendored"] }
 
 [[bin]]
 name = "mkey"
