@@ -2,7 +2,7 @@ use std::env;
 use std::process::{Command, Stdio};
 
 pub fn is_shim_command(command_name: &str) -> bool {
-    !(command_name.ends_with("dotenvx") || command_name.ends_with("dotenvx.exe"))
+    !(command_name == "dotenvx" || command_name == "dotenvx.exe")
 }
 
 pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
@@ -35,7 +35,7 @@ pub fn find_command_path(command_name: &str) -> Option<String> {
             if item.is_symlink() {
                 if let Ok(target) = std::fs::read_link(&item) {
                     let file_name = target.file_name().unwrap().to_str().unwrap().to_owned();
-                    if !file_name.contains("dotenvx") {
+                    if !(file_name == "dotenvx" || file_name == "dotenvx.exe") {
                         return Some(target.to_string_lossy().to_string());
                     }
                 }
