@@ -19,7 +19,7 @@ pub fn dotenv() -> dotenvy::Result<()> {
     } else {
         ".env".to_owned()
     };
-    from_path_with_dotenvx(&env_file, false)
+    from_path_with_dotenvx(&env_file, true)
 }
 
 pub fn dotenv_override() -> dotenvy::Result<()> {
@@ -47,7 +47,7 @@ pub fn dotenv_iter<P: AsRef<Path>>() -> dotenvy::Result<Vec<(String, String)>> {
 }
 
 pub fn from_path<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<()> {
-    from_path_with_dotenvx(&env_file, false)
+    from_path_with_dotenvx(&env_file, true)
 }
 
 pub fn from_path_override<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<()> {
@@ -75,7 +75,7 @@ pub fn from_filename<P: AsRef<Path>>(filename: P) -> dotenvy::Result<PathBuf> {
             ErrorKind::NotFound,
         )));
     }
-    from_path_with_dotenvx(&path, false)?;
+    from_path_with_dotenvx(&path, true)?;
     Ok(path)
 }
 
