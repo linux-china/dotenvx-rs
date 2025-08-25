@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
-use std::io::{Cursor, ErrorKind, Read};
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 pub fn dotenv() -> dotenvy::Result<()> {
@@ -330,6 +330,7 @@ fn set_env_var(key: &str, env_value: String, is_override: bool) {
 mod tests {
     use super::*;
     use std::fs;
+    use std::io::Cursor;
 
     #[test]
     fn test_load() {
@@ -361,7 +362,7 @@ mod tests {
         let reader = Cursor::new(dotenv_content.as_bytes());
         from_read(reader).unwrap();
         assert_eq!(env::var("HELLO").unwrap(), "World");
-        // Assuming the private key is set correctly in the environment
+        // Assuming the private key is set correctly in the environment,
         // The decryption will depend on the actual private key used
     }
     #[test]
