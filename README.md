@@ -182,6 +182,27 @@ You can use the `dotenvx decrypt --export` command to decrypt the dotenv file an
 **Tips**: if you use [direnv](https://direnv.net/), and you can add `eval $( dotenvx decrypt --stdout --format shell )`
 to the `.envrc` file to automatically load .env as the environment variables when you enter the directory.
 
+### How to integrate dotenvx with Language SDK?
+
+You can integrate dotenvx CLI with any language SDK by using `dotenvx decrypt --stdout --format shell` command to load
+`.env` into the environment variables.
+
+For example, if you use uv to manage Python virtual environments, you can create a shell script as following to replace
+`.venv/bin/python` file:
+
+```shell
+#!/bin/bash
+
+# load .env by dotenvx
+eval $( dotenvx decrypt --stdout --format shell )
+# Execute python3 command with arguments
+$HOME/.local/share/uv/python/cpython-3.13.7-macos-x86_64-none/bin/python3.13 "$@"
+```
+
+Then you can use new `.venv/bin/python` as the python interpreter, and it will load the `.env` file automatically.
+
+**Tips**: you can use `luaw`, `phpw`, `perlw` etc. to manage other language SDKs.
+
 ### How to add encrypted key-value from CLI?
 
 You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to the `.env` file.
