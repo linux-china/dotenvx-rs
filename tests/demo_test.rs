@@ -46,6 +46,18 @@ fn test_csv() -> TestResult {
     wtr.flush()?;
     Ok(())
 }
+#[test]
+fn test_which() -> TestResult {
+    let items = which::which_all("python3")?;
+    for item in items {
+        if item.is_symlink() {
+            // Get the target of the symlink
+            let target = std::fs::read_link(item)?;
+            println!("Target: {target:?}");
+        }
+    }
+    Ok(())
+}
 
 // #[test]
 // fn test_linter() {
