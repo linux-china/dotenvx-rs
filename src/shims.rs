@@ -36,7 +36,17 @@ pub fn find_command_path(command_name: &str) -> Option<String> {
                 if let Ok(target) = std::fs::read_link(&item) {
                     let file_name = target.file_name().unwrap().to_str().unwrap().to_owned();
                     if !(file_name == "dotenvx" || file_name == "dotenvx.exe") {
-                        return Some(target.to_string_lossy().to_string());
+                        let absolute_target = if target.is_absolute() {
+                            target.canonicalize().unwrap()
+                        } else {
+                            item.parent()
+                                .ok_or("No parent directory")
+                                .unwrap()
+                                .join(target)
+                                .canonicalize()
+                                .unwrap()
+                        };
+                        return Some(absolute_target.to_string_lossy().to_string());
                     }
                 }
             } else {
@@ -53,7 +63,7 @@ mod tests {
 
     #[test]
     fn test_find_command_path() {
-        let path = find_command_path("python3");
+        let path = find_command_path("lua");
         println!("Found command path: {:?}", path);
         assert!(path.is_some());
     }
