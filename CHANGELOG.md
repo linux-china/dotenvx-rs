@@ -8,6 +8,14 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.11] - 2025-08-26
+
+### Add
+
+- Clear clipboard after `dotenvx set <key> --clipboard`
+- Add shim support: `ln -s dotenvx ./python3` to support python command with Dotenvx
+- No error output for `dotenvx decrypt` if no `.env` file found.
+
 ## [0.4.10] - 2025-08-20
 
 ### Fixed
