@@ -21,7 +21,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let is_remote_env = is_remote_env_file(&env_file);
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !is_remote_env && !std::path::PathBuf::from(&env_file).exists() {
-        eprintln!("Error: The specified env file '{env_file}' does not exist.");
+        //eprintln!("Error: The specified env file '{env_file}' does not exist.");
         return;
     }
     let env_keys = command_matches.get_many::<String>("keys");
