@@ -50,3 +50,8 @@ rotate-example:
 
 demo-sh: build
     ./target/debug/dotenvx run -- ./demo.sh
+
+links: build
+  mkdir -p bin
+  rm -rf bin/*
+  ln -s $PWD/target/debug/dotenvx ./bin/python3
