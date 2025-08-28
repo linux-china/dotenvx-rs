@@ -13,6 +13,11 @@ pub fn link_command(command_matches: &ArgMatches, dotenvx_name: &str) {
         eprintln!("The target path already exists: {}", target_path.display());
         std::process::exit(1);
     }
+    if let Some(parent) = target_path.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+    }
     let dotenvx_path = if dotenvx_name.contains("/") || dotenvx_name.contains("\\") {
         PathBuf::from(dotenvx_name)
     } else {
