@@ -8,6 +8,15 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.12] - 2025-08-26
+
+### Add
+
+- Add link sub command to create symlink with dotenvx: `dotenvx link bin/lua`
+- Add shim command for `mysql`: get connection info from `MYSQL_URL` or `DATABASE_URL`, `DB_USER`, `DB_PASSWORD`
+- Add shim command for `psql`: get connection info from `POSTGRES_URL` or `DATABASE_URL`, `DB_USER`, `DB_PASSWORD`
+- Add shim command for `redis-cli`: `REDIS_URL`
+
 ## [0.4.11] - 2025-08-26
 
 ### Add

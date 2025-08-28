@@ -1,6 +1,6 @@
 use clap::{Arg, ArgAction, Command};
 
-pub const VERSION: &str = "0.4.11";
+pub const VERSION: &str = "0.4.12";
 
 pub fn build_dotenvx_app() -> Command {
     let run_command = Command::new("run")
