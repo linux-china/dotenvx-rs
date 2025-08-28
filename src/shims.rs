@@ -1,3 +1,7 @@
+use crate::commands::decrypt::decrypt_env_entries;
+use crate::commands::framework::detect_framework;
+use dotenvx_rs::common::get_profile_name_from_env;
+use std::collections::HashMap;
 use std::env;
 use std::process::{Command, Stdio};
 
@@ -8,6 +12,14 @@ pub fn is_shim_command(command_name: &str) -> bool {
 pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
     if let Some(command_path) = find_command_path(command_name) {
         let _ = dotenvx_rs::dotenv().is_ok();
+        let profile = get_profile_name_from_env();
+        if let Some(framework) = detect_framework() {
+            if framework == "gofr" {
+                inject_gofr(&profile);
+            } else if framework == "spring-boot" {
+                inject_spring_boot(&profile);
+            }
+        }
         let mut new_command_args: Vec<String> = vec![];
         if command_name == "mysql" || command_name == "mysql.exe" {
             new_command_args.extend(get_mysql_args());
@@ -19,6 +31,7 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
         if !command_args.is_empty() {
             new_command_args.extend(command_args.to_owned());
         }
+        println!("{new_command_args:?}");
         let mut command = Command::new(command_path);
         command
             .envs(env::vars())
@@ -68,6 +81,82 @@ pub fn find_command_path(command_name: &str) -> Option<String> {
     None
 }
 
+fn inject_gofr(profile: &Option<String>) {
+    if let Some(profile_name) = profile {
+        let dotenv_file = format!("configs/.env.{profile_name}");
+        dotenvx_rs::from_path(&dotenv_file).ok();
+    } else {
+        dotenvx_rs::from_path("configs/.env").ok();
+    }
+    if let Ok(db_host) = env::var("DB_HOST") {
+        let db_dialect = env::var("DB_DIALECT").unwrap_or("mysql".to_string());
+        let db_port = env::var("DB_PORT").unwrap_or_else(|_| {
+            if db_dialect == "postgres" {
+                "5432".to_string()
+            } else {
+                "3306".to_string()
+            }
+        });
+        let db_name = env::var("DB_NAME").unwrap_or("test".to_string());
+        let database_url = format!("{db_dialect}://{db_host}:{db_port}/{db_name}");
+        unsafe {
+            env::set_var("DATABASE_URL", database_url);
+        }
+    }
+    if let Ok(redis_host) = env::var("REDIS_HOST") {
+        let redis_port = env::var("REDIS_PORT").unwrap_or("6379".to_string());
+        let redis_db = env::var("REDIS_DB").unwrap_or("0".to_string());
+        let schema = if let Ok(redis_ssl) = env::var("REDIS_TLS_ENABLED")
+            && redis_ssl == "true"
+        {
+            "rediss"
+        } else {
+            "redis"
+        };
+        let redis_url = format!("{schema}://{redis_host}:{redis_port}/{redis_db}");
+        unsafe {
+            env::set_var("REDIS_URL", redis_url);
+        }
+    }
+}
+
+fn inject_spring_boot(profile: &Option<String>) {
+    let mut all_entries: HashMap<String, String> = HashMap::new();
+    if let Ok(entries) = decrypt_env_entries("src/main/resources/application.properties") {
+        all_entries.extend(entries);
+    }
+    if let Some(profile_name) = profile {
+        if let Ok(entries) = decrypt_env_entries(&format!(
+            "src/main/resources/application-{profile_name}.properties"
+        )) {
+            all_entries.extend(entries);
+        }
+    }
+    if let Some(datasource_url) = all_entries.get("spring.datasource.url") {
+        let mut database_url = datasource_url.as_str();
+        if datasource_url.starts_with("jdbc:") {
+            database_url = datasource_url.trim_start_matches("jdbc:");
+        }
+        unsafe {
+            env::set_var("DATABASE_URL", database_url);
+        }
+    }
+    if let Some(db_user) = all_entries.get("spring.datasource.username") {
+        if !db_user.is_empty() {
+            unsafe {
+                env::set_var("DB_USER", db_user);
+            }
+        }
+    }
+    if let Some(db_password) = all_entries.get("spring.datasource.password") {
+        if !db_password.is_empty() {
+            unsafe {
+                env::set_var("DB_PASSWORD", db_password);
+            }
+        }
+    }
+}
+
 fn get_mysql_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
     let mut mysql_url =
@@ -89,9 +178,14 @@ fn get_mysql_args() -> Vec<String> {
                 if !parsed_url.username().is_empty() {
                     args.push("-u".to_string());
                     args.push(parsed_url.username().to_string());
+                } else if let Ok(db_user) = env::var("DB_USER") {
+                    args.push("-u".to_string());
+                    args.push(db_user);
                 }
                 if let Some(password) = parsed_url.password() {
                     args.push(format!("--password={password}"));
+                } else if let Ok(db_password) = env::var("DB_PASSWORD") {
+                    args.push(format!("--password={db_password}"));
                 }
                 let db_name = parsed_url.path().trim_start_matches('/');
                 if !db_name.is_empty() {
@@ -124,9 +218,14 @@ fn get_psql_args() -> Vec<String> {
                 if !parsed_url.username().is_empty() {
                     args.push("-U".to_string());
                     args.push(parsed_url.username().to_string());
+                } else if let Ok(db_user) = env::var("DB_USER") {
+                    args.push("-U".to_string());
+                    args.push(db_user);
                 }
                 if let Some(password) = parsed_url.password() {
                     args.push(format!("--password={password}"));
+                } else if let Ok(db_password) = env::var("DB_PASSWORD") {
+                    args.push(format!("--password={db_password}"));
                 }
                 let db_name = parsed_url.path().trim_start_matches('/');
                 if !db_name.is_empty() {
@@ -140,8 +239,7 @@ fn get_psql_args() -> Vec<String> {
 
 fn get_redis_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
-    let redis_url = env::var("REDIS_URL").unwrap_or_default();
-    if !redis_url.is_empty() {
+    if let Ok(redis_url) = env::var("REDIS_URL") {
         if redis_url.starts_with("redis:") || redis_url.starts_with("rediss:") {
             if let Ok(parsed_url) = url::Url::parse(&redis_url) {
                 if let Some(host) = parsed_url.host_str() {
@@ -152,15 +250,25 @@ fn get_redis_args() -> Vec<String> {
                     args.push("-p".to_string());
                     args.push(port.to_string());
                 }
-                if let Some(password) = parsed_url.password() {
+                let mut username = parsed_url.username().to_string();
+                let mut password = parsed_url.password().unwrap_or_default().to_string();
+                if let Ok(redis_password) = env::var("REDIS_PASSWORD") {
+                    password = redis_password;
+                }
+                if let Ok(redis_user) = env::var("REDIS_USER") {
+                    username = redis_user;
+                }
+                if !username.is_empty() && !password.is_empty() {
+                    args.push("-u".to_string());
+                    args.push(username);
                     args.push("-a".to_string());
-                    args.push(password.to_string());
-                } else if !parsed_url.username().is_empty() && parsed_url.password().is_none() {
+                    args.push(password);
+                } else if !username.is_empty() && password.is_empty() {
+                    args.push("-u".to_string());
+                    args.push(username);
+                } else if username.is_empty() && !password.is_empty() {
                     args.push("-a".to_string());
-                    args.push(parsed_url.username().to_string());
-                } else {
-                    args.push("--user".to_string());
-                    args.push("".to_string());
+                    args.push(password);
                 }
                 let db_index = parsed_url.path().trim_start_matches('/').to_string();
                 if !db_index.is_empty() {
