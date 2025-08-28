@@ -203,6 +203,22 @@ Then you can use new `.venv/bin/python` as the python interpreter, and it will l
 
 **Tips**: you can use `luaw`, `phpw`, `perlw` etc. to manage other language SDKs.
 
+### What is dotenvx symbolic link?
+
+Dotenvx symbolic link is a way to run the command with injected environment variables by dotenvx.
+
+For example, you want to run a lua script with environment variables from `.env` file,
+you can create a symbolic link `dotenvx link bin/lua`, and then run `./bin/lua demo.lua` to run the lua script with
+environment variables from `.env` file.
+
+Another example is to  `mysql`, `psql` command. For example, you have database config in `.env` file already,
+and you want to log in mysql, and you should use `mysql -h host -u user -p db` and input password interactively.
+Why not read db config and help me log in mysql directly? I can't remember the long password for DB.
+
+You can create a symbolic link `dotenvx link bin/mysql`, and then run `./bin/mysql` to log in mysql automatically.
+
+**Attention**: symbolic link name should be the same as the command name. Now only `mysql` and `psql` are supported.
+
 ### How to add encrypted key-value from CLI?
 
 You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to the `.env` file.
