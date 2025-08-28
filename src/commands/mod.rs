@@ -35,6 +35,7 @@ pub mod cloud;
 pub mod doctor;
 pub mod framework;
 pub mod linter;
+pub mod link;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 

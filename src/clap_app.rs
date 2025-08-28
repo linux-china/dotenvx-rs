@@ -221,8 +221,16 @@ pub fn build_dotenvx_app() -> Command {
                 .index(1)
                 .required(false),
         );
+    let link_command = Command::new("link")
+        .about("Create a symbolic link with dotenvx")
+        .arg(
+            Arg::new("command")
+                .help("Command linked with dotenvx, such as 'lua', 'mysql', etc.")
+                .index(1)
+                .required(true),
+        );
     let rotate_command = Command::new("rotate")
-        .about("rotate keypair and re-encrypt .env file in current directory")
+        .about("rotate keypair and re-encrypt .env file in the current directory")
         .arg(
             Arg::new("env-file")
                 .short('f')
@@ -370,9 +378,10 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(verify_command)
         .subcommand(keypair_command)
         .subcommand(ls_command)
+        .subcommand(link_command)
         .subcommand(rotate_command)
         .subcommand(diff_command)
         //.subcommand(linter_command)
         .subcommand(doctor_command)
-        // .subcommand(cloud_command)
+    // .subcommand(cloud_command)
 }

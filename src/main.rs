@@ -8,6 +8,7 @@ use crate::commands::encrypt::encrypt_command;
 use crate::commands::get_cmd::get_command;
 use crate::commands::init::init_command;
 use crate::commands::keypair::keypair_command;
+use crate::commands::link::link_command;
 use crate::commands::linter::linter_command;
 use crate::commands::list::ls_command;
 use crate::commands::rotate::rotate_command;
@@ -97,6 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "verify" => verify_command(command_matches, &profile),
             "keypair" | "kp" => keypair_command(command_matches, &profile),
             "ls" => ls_command(command_matches, &profile),
+            "link" => link_command(command_matches, &command_name),
             "get" => get_command(command_matches, &profile),
             "set" => set_command(command_matches, &profile),
             "diff" => diff_command(command_matches),
