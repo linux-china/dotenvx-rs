@@ -31,7 +31,6 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
         if !command_args.is_empty() {
             new_command_args.extend(command_args.to_owned());
         }
-        println!("{new_command_args:?}");
         let mut command = Command::new(command_path);
         command
             .envs(env::vars())
