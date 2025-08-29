@@ -1,4 +1,7 @@
-use crate::common::{find_dotenv_keys_file, get_profile_name_from_env, get_profile_name_from_file};
+use crate::common::{
+    find_dotenv_keys_file, find_env_file_path, get_profile_name_from_env,
+    get_profile_name_from_file,
+};
 use anyhow::anyhow;
 use base64ct::{Base64, Encoding};
 use chrono::{DateTime, Local};
@@ -11,6 +14,7 @@ use std::env::VarError;
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
+/// load/decrypt .env file recursively from current directory to root directory
 pub fn dotenv() -> dotenvy::Result<()> {
     // load profile env
     let profile_name = get_profile_name_from_env();
@@ -19,7 +23,11 @@ pub fn dotenv() -> dotenvy::Result<()> {
     } else {
         ".env".to_owned()
     };
-    from_path_with_dotenvx(&env_file, true)
+    let env_file_path = find_env_file_path(&env::current_dir().unwrap(), &env_file);
+    if let Some(path) = env_file_path {
+        return from_path_with_dotenvx(&path, false);
+    }
+    Ok(())
 }
 
 pub fn dotenv_override() -> dotenvy::Result<()> {
