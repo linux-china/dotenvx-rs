@@ -77,6 +77,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
         return;
     }
+    // check content change, encrypt 丢失字段
     if !is_changed {
         if !is_sign_required {
             println!("{}", format!("✔ no changes ({env_file})").green());
@@ -93,6 +94,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             // append public key to .env file if it does not exist
             let public_key_name = get_public_key_name(profile);
             construct_env_file_header(&public_key_name, &public_key, &None, &None)
+                + "\n"
                 + &new_lines.join("\n")
         };
         if is_sign_required {
