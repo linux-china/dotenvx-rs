@@ -3,7 +3,7 @@ use dirs::home_dir;
 use std::env;
 use std::process::Stdio;
 
-pub const VERSION: &str = "0.4.12";
+pub const VERSION: &str = "0.4.13";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut raw_args: Vec<String> = env::args().skip(1).collect();

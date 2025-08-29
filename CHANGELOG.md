@@ -8,6 +8,14 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.13] - 2025-08-29
+
+### Add
+
+- Add link for uv python: `dotenvx link .venv/bin/python`
+- Fixed no line break between header and variables when to encrypt a new `.env` file
+- Find `.env` file recursively in the current directory and its parent directories.
+
 ## [0.4.12] - 2025-08-26
 
 ### Add
