@@ -5,7 +5,7 @@ use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
 use csv::WriterBuilder;
-use dotenvx_rs::common::{find_dotenv_keys_file, get_profile_name_from_file};
+use dotenvx_rs::common::{find_dotenv_keys_file, find_env_file_path, get_profile_name_from_file};
 use java_properties::PropertiesIter;
 use reqwest::blocking::Client;
 use reqwest::header;
@@ -34,8 +34,8 @@ pub mod verify;
 pub mod cloud;
 pub mod doctor;
 pub mod framework;
-pub mod linter;
 pub mod link;
+pub mod linter;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
@@ -653,15 +653,6 @@ pub fn append_to_ignores(file_name: &str) {
             }
         }
     }
-}
-
-pub fn find_env_file_path(dir: &Path, env_file_name: &str) -> Option<PathBuf> {
-    if dir.join(env_file_name).exists() {
-        return Some(dir.join(env_file_name));
-    } else if let Some(parent) = dir.parent() {
-        return find_env_file_path(parent, env_file_name);
-    }
-    None
 }
 
 pub fn list_env_files<P: AsRef<Path>>(
