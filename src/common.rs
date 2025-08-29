@@ -46,3 +46,12 @@ pub fn find_dotenv_keys_file_by_path(dir: &Path) -> Option<PathBuf> {
     }
     None
 }
+
+pub fn find_env_file_path(dir: &Path, env_file_name: &str) -> Option<PathBuf> {
+    if dir.join(env_file_name).exists() {
+        return Some(dir.join(env_file_name));
+    } else if let Some(parent) = dir.parent() {
+        return find_env_file_path(parent, env_file_name);
+    }
+    None
+}
