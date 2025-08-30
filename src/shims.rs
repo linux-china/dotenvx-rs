@@ -27,6 +27,8 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
             new_command_args.extend(get_psql_args());
         } else if command_name == "redis-cli" || command_name == "redis-cli.exe" {
             new_command_args.extend(get_redis_args());
+        } else if command_name == "mongosh" || command_name == "mongosh.exe" {
+            new_command_args.extend(get_mongodb_args());
         }
         if !command_args.is_empty() {
             new_command_args.extend(command_args.to_owned());
@@ -154,6 +156,42 @@ fn inject_spring_boot(profile: &Option<String>) {
             }
         }
     }
+    if let Some(mongo_uri) = all_entries.get("spring.data.mongodb.uri") {
+        if !mongo_uri.is_empty() {
+            unsafe {
+                env::set_var("MONGODB_URL", mongo_uri);
+            }
+        }
+    } else if let Some(mongo_host) = all_entries.get("spring.data.mongodb.host") {
+        let mongo_port = "27017".to_string();
+        let mongo_port = all_entries
+            .get("spring.data.mongodb.port")
+            .unwrap_or(&mongo_port);
+        let mongo_db = "test".to_string();
+        let mongo_db = all_entries
+            .get("spring.data.mongodb.database")
+            .unwrap_or(&mongo_db);
+        let ssl = "false".to_string();
+        let ssl = all_entries
+            .get("spring.data.mongodb.ssl.enabled")
+            .unwrap_or(&ssl);
+        let mongo_user = all_entries.get("spring.data.mongodb.username");
+        let mongo_password = all_entries.get("spring.data.mongodb.password");
+        let mongo_url = if let Some(mongo_user) = mongo_user {
+            if let Some(mongo_password) = mongo_password {
+                format!(
+                    "mongodb://{mongo_user}:{mongo_password}@{mongo_host}:{mongo_port}/{mongo_db}?ssl={ssl}"
+                )
+            } else {
+                format!("mongodb://{mongo_user}@{mongo_host}:{mongo_port}/{mongo_db}?ssl={ssl}")
+            }
+        } else {
+            format!("mongodb://{mongo_host}:{mongo_port}/{mongo_db}?ssl={ssl}")
+        };
+        unsafe {
+            env::set_var("MONGODB_URL", mongo_url);
+        }
+    }
 }
 
 fn get_mysql_args() -> Vec<String> {
@@ -275,6 +313,16 @@ fn get_redis_args() -> Vec<String> {
                     args.push(db_index);
                 }
             }
+        }
+    }
+    args
+}
+
+fn get_mongodb_args() -> Vec<String> {
+    let mut args: Vec<String> = vec![];
+    if let Ok(mongodb_url) = env::var("MONGODB_URL") {
+        if mongodb_url.starts_with("mongodb:") || mongodb_url.starts_with("mongodbs:") {
+            args.push(mongodb_url.to_string());
         }
     }
     args
