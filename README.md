@@ -187,19 +187,22 @@ to the `.envrc` file to automatically load .env as the environment variables whe
 You can integrate dotenvx CLI with any language SDK by using `dotenvx decrypt --stdout --format shell` command to load
 `.env` into the environment variables.
 
-For example, if you use uv to manage Python virtual environments, you can create a shell script as following to replace
-`.venv/bin/python` file:
+For example, Node.js, Bun and Deno, you can create a wrapper script to integrate Dotenvx support, 
+such as `node`, `denow`, `bunw`, and example as following:
 
 ```shell
 #!/bin/bash
 
 # load .env by dotenvx
 eval $( dotenvx decrypt --stdout --format shell )
-# Execute python3 command with arguments
-$HOME/.local/share/uv/python/cpython-3.13.7-macos-x86_64-none/bin/python3.13 "$@"
+# Execute bun command with arguments
+$HOME/.bun/bin/bun "$@"
 ```
 
-Then you can use new `.venv/bin/python` as the python interpreter, and it will load the `.env` file automatically.
+In VS Code or WebStorm, then choose `nodew`, `denow`, `bunw` as the interpreter.
+
+Dotenvx has built-in support for Python virtual environment, you can use `dotenvx link .venv/bin/python` 
+to create wrapper script as python interpreter. 
 
 **Tips**: you can use `luaw`, `phpw`, `perlw` etc. to manage other language SDKs.
 
