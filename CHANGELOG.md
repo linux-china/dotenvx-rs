@@ -8,6 +8,13 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.14] - 2025-08-30
+
+### Add
+
+- Add shim command for `mongosh`: get connection info from `MONGODB_URL`
+- Add shim command for `python`: `dotenvx link .venv/bin/python`
+
 ## [0.4.13] - 2025-08-29
 
 ### Add
