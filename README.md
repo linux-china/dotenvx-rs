@@ -196,13 +196,13 @@ such as `node`, `denow`, `bunw`, and example as following:
 # load .env by dotenvx
 eval $( dotenvx decrypt --stdout --format shell )
 # Execute bun command with arguments
-$HOME/.bun/bin/bun "$@"
+exec $HOME/.bun/bin/bun "$@"
 ```
 
 In VS Code or WebStorm, then choose `nodew`, `denow`, `bunw` as the interpreter.
 
 Dotenvx has built-in support for Python virtual environment, you can use `dotenvx link .venv/bin/python`
-to create wrapper script as python interpreter.
+to create a wrapper script as python interpreter.
 
 **Tips**: you can use `luaw`, `phpw`, `perlw` etc. to manage other language SDKs.
 
@@ -314,7 +314,7 @@ For oh-my-zsh, please follow the steps to install the completion script:
 
 ```shell
 $ mkdir ~/.oh-my-zsh/custom/plugins/dotenvx
-$ envx completion --shell zsh > ~/.oh-my-zsh/custom/plugins/dotenvx/_dotenvx
+$ dotenvx completion --shell zsh > ~/.oh-my-zsh/custom/plugins/dotenvx/_dotenvx
 ```
 
 Then add `dotenvx` to the plugin list in your `.zshrc` file:
