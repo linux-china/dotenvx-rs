@@ -8,6 +8,12 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.15] - 2025-09-02
+
+### Add
+
+- Add completion command `dotenvx completion --shell <bash|zsh|fish|powershell>`
+
 ## [0.4.14] - 2025-08-30
 
 ### Add
