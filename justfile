@@ -48,6 +48,9 @@ set-from-stdin:
 rotate-example:
     cargo run --bin dotenvx -- rotate -f .env.example
 
+zsh-completion:
+    cargo run --bin dotenvx -- completion --shell=zsh
+
 demo-sh: build
     ./target/debug/dotenvx run -- ./demo.sh
 
