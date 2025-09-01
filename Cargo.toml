@@ -61,7 +61,6 @@ reqwest = { version = "0.12.23", features = ["blocking"] }
 which = "8.0.0"
 symlink = "0.1.0"
 url = "2.5"
-sysinfo = "0.37.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
