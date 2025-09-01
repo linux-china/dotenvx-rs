@@ -1,5 +1,6 @@
 use crate::clap_app::build_dotenvx_app;
 use crate::commands::cloud::cloud_command;
+use crate::commands::completion::completion_command;
 use crate::commands::crypt_util::{decrypt_file, encrypt_file};
 use crate::commands::decrypt::decrypt_command;
 use crate::commands::diff::diff_command;
@@ -26,7 +27,7 @@ pub mod commands;
 pub mod shims;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let app = build_dotenvx_app();
+    let mut app = build_dotenvx_app();
     let mut raw_args: Vec<OsString> = env::args_os().collect();
     // get the command name
     let mut command_name = raw_args[0].clone().to_str().unwrap().to_owned();
@@ -106,6 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "lint" => linter_command(command_matches),
             "doctor" => doctor_command(command_matches),
             "cloud" => cloud_command(command_matches),
+            "completion" => completion_command(command_matches),
             &_ => println!("Unknown command"),
         }
     }
