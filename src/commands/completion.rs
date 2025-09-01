@@ -19,13 +19,13 @@ pub fn completion_command(command_matches: &ArgMatches) {
         })
         .to_lowercase();
     let mut cmd = build_dotenvx_app();
-    if shell_name.ends_with("bash") {
+    if shell_name.contains("bash") {
         generate(Bash, &mut cmd, "dotenvx", &mut stdout());
-    } else if shell_name.ends_with("zsh") {
+    } else if shell_name.contains("zsh") {
         generate(Zsh, &mut cmd, "dotenvx", &mut stdout());
-    } else if shell_name.ends_with("fish") {
+    } else if shell_name.contains("fish") {
         generate(Fish, &mut cmd, "dotenvx", &mut stdout());
-    } else if shell_name.ends_with("powershell") || shell_name.ends_with("pwsh") {
+    } else if shell_name.contains("powershell") || shell_name.contains("pwsh") {
         generate(PowerShell, &mut cmd, "dotenvx", &mut stdout());
     } else {
         eprintln!("Unsupported shell: {shell_name}. Supported shells are bash and zsh.");
