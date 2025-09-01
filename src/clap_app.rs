@@ -312,11 +312,12 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         );
     let completion_command = Command::new("completion")
-        .about("Output auto-completion script for bash/zsh/fish/powershell.")
+        .about("Output auto-completion script for bash/zsh/fish/powershell")
         .arg(
             Arg::new("shell")
                 .long("shell")
                 .help("shell name: bash, zsh, fish, powershell")
+                .value_parser(["bash", "zsh", "first", "powershell"])
                 .num_args(1)
                 .required(false),
         );
