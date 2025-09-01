@@ -46,7 +46,7 @@ fn link_uv_python(command_name: &str) {
 # load .env by dotenvx
 eval $( dotenvx decrypt --stdout --format shell )
 # Execute python3 command with arguments
-{real_path} "$@"
+exec "{real_path}" "$@"
 "#
     );
     std::fs::write(command_name, python3_script).unwrap();
