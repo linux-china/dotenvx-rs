@@ -311,6 +311,15 @@ pub fn build_dotenvx_app() -> Command {
                 .num_args(1)
                 .required(false),
         );
+    let completion_command = Command::new("completion")
+        .about("Output auto-completion script for bash/zsh/fish/powershell.")
+        .arg(
+            Arg::new("shell")
+                .long("shell")
+                .help("shell name: bash, zsh, fish, powershell")
+                .num_args(1)
+                .required(false),
+        );
     let cloud_command = Command::new("cloud")
         .about("Dotenv cloud operations, such as registration, send, sync etc.")
         .subcommand(Command::new("signup").about("Sign up an account on Dotenvx cloud"))
@@ -383,5 +392,6 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(diff_command)
         //.subcommand(linter_command)
         .subcommand(doctor_command)
+        .subcommand(completion_command)
     // .subcommand(cloud_command)
 }
