@@ -314,7 +314,7 @@ For oh-my-zsh, please follow the steps to install the completion script:
 
 ```shell
 $ mkdir ~/.oh-my-zsh/custom/plugins/dotenvx
-$ envx completion --shell zsh ~/.oh-my-zsh/custom/plugins/dotenvx/_dotenvx
+$ envx completion --shell zsh > ~/.oh-my-zsh/custom/plugins/dotenvx/_dotenvx
 ```
 
 Then add `dotenvx` to the plugin list in your `.zshrc` file:
