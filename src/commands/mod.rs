@@ -36,6 +36,7 @@ pub mod doctor;
 pub mod framework;
 pub mod link;
 pub mod linter;
+pub mod completion;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
