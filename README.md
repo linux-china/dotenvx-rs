@@ -187,7 +187,7 @@ to the `.envrc` file to automatically load .env as the environment variables whe
 You can integrate dotenvx CLI with any language SDK by using `dotenvx decrypt --stdout --format shell` command to load
 `.env` into the environment variables.
 
-For example, Node.js, Bun and Deno, you can create a wrapper script to integrate Dotenvx support, 
+For example, Node.js, Bun and Deno, you can create a wrapper script to integrate Dotenvx support,
 such as `node`, `denow`, `bunw`, and example as following:
 
 ```shell
@@ -201,8 +201,8 @@ $HOME/.bun/bin/bun "$@"
 
 In VS Code or WebStorm, then choose `nodew`, `denow`, `bunw` as the interpreter.
 
-Dotenvx has built-in support for Python virtual environment, you can use `dotenvx link .venv/bin/python` 
-to create wrapper script as python interpreter. 
+Dotenvx has built-in support for Python virtual environment, you can use `dotenvx link .venv/bin/python`
+to create wrapper script as python interpreter.
 
 **Tips**: you can use `luaw`, `phpw`, `perlw` etc. to manage other language SDKs.
 
@@ -305,6 +305,23 @@ jobs:
 
 If you use [act](https://github.com/nektos/act) for local GitHub Actions test, please use
 `act -j dotenvx-demo --secret-file .env.keys`.
+
+### How to generate shell completion
+
+Please use `dotenvx completion --shell bash|zsh|fish|powershell` to generate shell completion script.
+
+For oh-my-zsh, please follow the steps to install the completion script:
+
+```shell
+$ mkdir ~/.oh-my-zsh/custom/plugins/dotenvx
+$ envx completion --shell zsh ~/.oh-my-zsh/custom/plugins/dotenvx/_dotenvx
+```
+
+Then add `dotenvx` to the plugin list in your `.zshrc` file:
+
+```shell
+plugins=(dotenvx ...)
+```
 
 # Credits
 
