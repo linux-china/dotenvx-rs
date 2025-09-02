@@ -25,7 +25,7 @@ pub fn dotenv() -> dotenvy::Result<()> {
     };
     let env_file_path = find_env_file_path(&env::current_dir().unwrap(), &env_file);
     if let Some(path) = env_file_path {
-        return from_path_with_dotenvx(&path, false);
+        return from_path_with_dotenvx(&path, true);
     }
     Ok(())
 }
