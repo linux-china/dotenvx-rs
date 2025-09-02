@@ -30,6 +30,26 @@ pub fn dotenv() -> dotenvy::Result<()> {
     Ok(())
 }
 
+pub fn dotenv_entries() -> dotenvy::Result<HashMap<String, String>> {
+    // load profile env
+    let profile_name = get_profile_name_from_env();
+    let env_file = if let Some(name) = &profile_name {
+        format!(".env.{name}")
+    } else {
+        ".env".to_owned()
+    };
+    let mut entries = HashMap::new();
+    let env_file_path = find_env_file_path(&env::current_dir().unwrap(), &env_file);
+    if let Some(path) = env_file_path {
+        if let Ok(items) = from_path_iter(path) {
+            for (key, value) in items {
+                entries.insert(key, value);
+            }
+        }
+    }
+    Ok(entries)
+}
+
 pub fn dotenv_override() -> dotenvy::Result<()> {
     // load profile env
     let profile_name = get_profile_name_from_env();
