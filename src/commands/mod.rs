@@ -32,11 +32,11 @@ pub mod set_cmd;
 pub mod verify;
 
 pub mod cloud;
+pub mod completion;
 pub mod doctor;
 pub mod framework;
 pub mod link;
 pub mod linter;
-pub mod completion;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
@@ -331,7 +331,9 @@ pub fn create_env_file<P: AsRef<Path>>(
 
 pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &str) {
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
-    if file_name.ends_with(".properties") && !content.contains("dotenv.public.key") {
+    if (file_name.ends_with(".properties") && !content.contains("dotenv.public.key"))
+        || (file_name.starts_with(".env") && !content.contains("DOTENV_PUBLIC_KEY"))
+    {
         let header = construct_env_file_header(
             &get_public_key_name_for_file(file_name),
             public_key,
