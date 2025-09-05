@@ -8,6 +8,17 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.16] - 2025-09-06
+
+### Added
+
+- Add `STELA_ENV` environment variable to specify the profile name: `NODE_ENV`, `RUN_ENV`, `APP_ENV`,
+  `SPRING_PROFILES_ACTIVE`, `STELA_ENV`
+
+### Fixed
+
+- Add dotenvx header for `.env` if absent
+
 ## [0.4.15] - 2025-09-02
 
 ### Add
