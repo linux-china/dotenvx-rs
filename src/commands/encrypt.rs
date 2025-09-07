@@ -126,7 +126,14 @@ pub fn encrypt_env_entries(
     let public_key = get_public_key_for_file(env_file)?;
     let mut entries: HashMap<String, String> = HashMap::new();
     if env_file.ends_with(".properties") {
-        let encrypted_patterns = ["password", "secret", "key", "token", "credential"];
+        let encrypted_patterns = [
+            "password",
+            "secret",
+            "private",
+            "key",
+            "token",
+            "credential",
+        ];
         let f = File::open(env_file)?;
         let reader = BufReader::new(f);
         PropertiesIter::new(reader)
