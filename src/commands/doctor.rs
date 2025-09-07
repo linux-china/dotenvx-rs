@@ -51,7 +51,7 @@ pub fn doctor_command(_: &ArgMatches) {
         } else {
             eprintln!(
                 "{}",
-                format!("Warning: No public key found in {file_name}").red()
+                format!("Warning: no public key found in {file_name}").red()
             );
         }
     }
