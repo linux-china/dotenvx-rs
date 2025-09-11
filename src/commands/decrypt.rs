@@ -1,4 +1,5 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
+use crate::commands::model::EnvFile;
 use crate::commands::{
     adjust_env_key, escape_shell_value, get_env_file_arg, get_private_key_for_file,
     is_remote_env_file, read_content_from_dotenv_url, read_dotenv_url, std_output,
@@ -18,6 +19,10 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         return;
     }
     let env_file = get_env_file_arg(command_matches, profile);
+    if command_matches.get_flag("verify") {
+        verify_signature(&env_file);
+        return;
+    }
     let is_remote_env = is_remote_env_file(&env_file);
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !is_remote_env && !std::path::PathBuf::from(&env_file).exists() {
@@ -133,6 +138,34 @@ pub fn decrypt_env_entries(
         }
     }
     Ok(entries)
+}
+
+fn verify_signature(env_file_path: &str) {
+    if let Ok(env_file) = EnvFile::from(env_file_path) {
+        if env_file.is_signed() {
+            if env_file.is_verified() {
+                println!(
+                    "{}",
+                    format!(
+                        "✔ The env file is signed, and the signature is valid ({env_file_path})",
+                    )
+                    .green()
+                );
+            } else {
+                eprintln!(
+                    "{}",
+                    format!(
+                        "✘ The env file is signed, but the signature is invalid ({env_file_path})"
+                    )
+                    .red()
+                );
+            }
+        } else {
+            eprintln!("The env file is not signed");
+        }
+    } else {
+        eprintln!("Failed to parse the env file: {env_file_path}");
+    }
 }
 
 #[cfg(test)]
