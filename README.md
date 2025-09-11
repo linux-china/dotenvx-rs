@@ -332,3 +332,4 @@ plugins=(dotenvx ...)
 # References
 
 * Practical Cryptography for Developers: https://cryptobook.nakov.com/
+* Command Line Interface Guidelines: https://clig.dev/
