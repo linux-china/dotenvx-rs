@@ -8,6 +8,13 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.18] - 2025-09-11
+
+### Added
+
+- Add `group`,`name` and `profile` for `dotenvx kp --import` command
+- Add `dotenvx decrypt --verify` to verify the signature of the .env file after decryption
+
 ## [0.4.17] - 2025-09-06
 
 ### Added
