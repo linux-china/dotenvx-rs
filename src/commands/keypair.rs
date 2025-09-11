@@ -80,10 +80,14 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
 
 fn import_private_key() {
     let private_key = rpassword::prompt_password("Private key: ").unwrap();
+    let group = rprompt::prompt_reply("Group: ").unwrap();
+    let name = rprompt::prompt_reply("Name: ").unwrap();
     let comment = rprompt::prompt_reply("Note: ").unwrap();
     if let Ok(pair) = EcKeyPair::from_input(&private_key) {
         let public_key = pair.get_pk_hex();
         let mut key_pair = KeyPair::new(&public_key, &private_key, &None);
+        key_pair.group = Some(group);
+        key_pair.name = Some(name);
         if !comment.is_empty() {
             key_pair.comment = Some(comment);
         }
