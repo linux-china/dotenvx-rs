@@ -48,6 +48,27 @@ pub fn doctor_command(_: &ArgMatches) {
                 std::fs::write(file_path, new_content).unwrap();
                 println!("Metadata added to {file_name} with id: {env_file_uuid}");
             }
+            // check sensitive key name with plain value
+            for line in file_content.lines() {
+                if line.starts_with('#')
+                    || line.starts_with("DOTENV_PUBLIC_KEY")
+                    || line.trim().is_empty()
+                    || !line.contains('=')
+                    || line.contains("=encrypted:")
+                {
+                    continue;
+                }
+                let key_name = line.split('=').next().unwrap().trim().to_uppercase();
+                if is_sensitive_key(&key_name) {
+                    eprintln!(
+                        "{}",
+                        format!(
+                            "Warning: Sensitive key '{key_name}' in {file_name} has a plain value.",
+                        )
+                        .red()
+                    );
+                }
+            }
         } else {
             eprintln!(
                 "{}",
@@ -58,4 +79,21 @@ pub fn doctor_command(_: &ArgMatches) {
     println!();
     println!("Run linter now...");
     //lint().unwrap();
+}
+
+fn is_sensitive_key(key_name: &str) -> bool {
+    let encrypted_patterns = [
+        "PASSWORD",
+        "SECRET",
+        "TOKEN",
+        "KEY",
+        "PRIVATE",
+        "CREDENTIAL",
+    ];
+    for encrypted_pattern in encrypted_patterns {
+        if key_name.contains(encrypted_pattern) {
+            return true;
+        }
+    }
+    false
 }
