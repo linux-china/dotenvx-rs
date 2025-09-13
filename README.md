@@ -182,6 +182,20 @@ You can use the `dotenvx decrypt --export` command to decrypt the dotenv file an
 **Tips**: if you use [direnv](https://direnv.net/), and you can add `eval $( dotenvx decrypt --stdout --format shell )`
 to the `.envrc` file to automatically load .env as the environment variables when you enter the directory.
 
+If you use [mise](https://mise.jdx.dev/), and you can use dotenvx as environment provider by adding the following to the
+`mise.toml` file:
+
+```toml
+[env]
+_.source = "scripts/env.sh"
+```
+
+And create a `scripts/env.sh` file as following:
+
+```shell
+eval $( dotenvx decrypt --stdout --format shell )
+```
+
 ### How to integrate dotenvx with Language SDK?
 
 You can integrate dotenvx CLI with any language SDK by using `dotenvx decrypt --stdout --format shell` command to load
