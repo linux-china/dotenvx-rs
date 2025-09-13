@@ -8,6 +8,13 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.19] - 2025-09-13
+
+### Added
+
+- Add inspection for sensitive keys with plain value in `dotenvx doctor`
+- Add mise integration with dotenvx in README.md
+
 ## [0.4.18] - 2025-09-11
 
 ### Added
