@@ -284,7 +284,7 @@ mod tests {
             "kid": "b895c58f944855010fa88f7a76642e2005d51705cb27597c7a85347628ac5dcf",
             "exp": now + 60*60*24*365, // Expiration time (e.g., 2026-01-01T00:00:00Z)
             "iat": now, // now (e.g., 2021-06-01T00:00:00Z)
-            "iss": "example-issuer"
+            "iss": "dotenvx"
         });
         let jwt_token = generate_jwt_token(private_key, claims).unwrap();
         println!("JWT: {jwt_token}");
