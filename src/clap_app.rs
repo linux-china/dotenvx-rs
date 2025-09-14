@@ -324,6 +324,7 @@ pub fn build_dotenvx_app() -> Command {
     let cloud_command = Command::new("cloud")
         .about("Dotenv cloud operations, such as registration, send, sync etc.")
         .subcommand(Command::new("signup").about("Sign up an account on Dotenvx cloud"))
+        .subcommand(Command::new("me").about("Display current user info on Dotenvx cloud"))
         .subcommand(Command::new("send").about("Send secret to a user on Dotenvx cloud"))
         .subcommand(
             Command::new("sync")
@@ -394,5 +395,5 @@ pub fn build_dotenvx_app() -> Command {
         //.subcommand(linter_command)
         .subcommand(doctor_command)
         .subcommand(completion_command)
-    // .subcommand(cloud_command)
+        .subcommand(cloud_command)
 }
