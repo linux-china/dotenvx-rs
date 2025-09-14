@@ -57,7 +57,7 @@ chrono = { version = "0.4.42", features = ["serde"] }
 regex = "1.11.2"
 lazy_static = "1.5.0"
 anyhow = "1.0.99"
-reqwest = { version = "0.12", features = ["blocking"] }
+reqwest = { version = "0.12", features = ["blocking", "json"] }
 which = "8.0.0"
 symlink = "0.1.0"
 url = "2.5"
