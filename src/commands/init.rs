@@ -104,7 +104,7 @@ fn create_global_env_keys(profile: &Option<String>) {
                 &kp.get_pk_hex(),
                 &private_key,
                 &Some("global".to_owned()),
-                &Some("default".to_owned()),
+                &Some("app".to_owned()),
                 profile,
             );
             write_key_pair(&key_pair).unwrap();
@@ -136,7 +136,7 @@ fn create_global_env_keys(profile: &Option<String>) {
                 &kp.get_pk_hex(),
                 &private_key,
                 &Some("global".to_owned()),
-                &Some("default".to_owned()),
+                &Some("app".to_owned()),
                 &Some(profile.to_string()),
             );
             key_pairs.push(key_pair);
