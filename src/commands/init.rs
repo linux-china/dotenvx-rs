@@ -103,7 +103,7 @@ fn create_global_env_keys(profile: &Option<String>) {
             let key_pair = KeyPair::from(
                 &kp.get_pk_hex(),
                 &private_key,
-                &Some("default".to_owned()),
+                &Some("global".to_owned()),
                 &Some("default".to_owned()),
                 profile,
             );
@@ -135,7 +135,7 @@ fn create_global_env_keys(profile: &Option<String>) {
             let key_pair = KeyPair::from(
                 &kp.get_pk_hex(),
                 &private_key,
-                &Some("default".to_owned()),
+                &Some("global".to_owned()),
                 &Some("default".to_owned()),
                 &Some(profile.to_string()),
             );
