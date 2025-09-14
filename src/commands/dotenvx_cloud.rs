@@ -19,6 +19,21 @@ pub struct SelfInfo {
     pub email: Option<String>,
     pub phone: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistrationResponse {
+    pub status: u32,
+    pub data: Option<RegistrationResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistrationResult {
+    pub nick: String,
+    pub password: String,
+    #[serde(rename = "totpUrl")]
+    pub totp_url: String,
+}
+
 pub fn fetch_self_info(private_key: &str) -> anyhow::Result<SelfInfo> {
     let jwt_token = generate_request_token(private_key)?;
     let client = Client::new();
@@ -33,6 +48,36 @@ pub fn fetch_self_info(private_key: &str) -> anyhow::Result<SelfInfo> {
         .send()?;
     if response.status() == 200 {
         let self_response: SelfResponse = response.json()?;
+        Ok(self_response.data.unwrap())
+    } else {
+        Err(anyhow::anyhow!(
+            "status: {}, msg: {}",
+            response.status(),
+            response.text()?,
+        ))
+    }
+}
+
+pub fn register(
+    public_key: &str,
+    private_key_sha256: &str,
+    nick: &str,
+    email: &str,
+    phone: &str,
+) -> anyhow::Result<RegistrationResult> {
+    let client = Client::new();
+    let response = client
+        .post("https://dotenvx-api.microservices.club/registration")
+        .json(&json!({
+            "nick": nick,
+            "email": email,
+            "phone": phone,
+            "publicKey": public_key,
+            "privateKeySha256": private_key_sha256,
+        }))
+        .send()?;
+    if response.status() == 200 {
+        let self_response: RegistrationResponse = response.json()?;
         Ok(self_response.data.unwrap())
     } else {
         Err(anyhow::anyhow!(
