@@ -13,7 +13,7 @@
 ### Added
 
 - Add inspection for sensitive keys with plain value in `dotenvx doctor`
-- Add mise integration with dotenvx in README.md
+- Add [mise](https://mise.jdx.dev/) integration with dotenvx in README.md
 
 ## [0.4.18] - 2025-09-11
 
