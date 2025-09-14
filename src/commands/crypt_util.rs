@@ -113,6 +113,13 @@ pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
     }
 }
 
+pub fn sha256(input: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(input);
+    let result = hasher.finalize();
+    hex::encode(result)
+}
+
 /// trim the message and sign it using the private key and return the signature in base64 format
 pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> {
     // Step 1: Hash the message using SHA-256
