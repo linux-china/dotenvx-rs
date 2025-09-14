@@ -14,6 +14,7 @@
 
 - Add inspection for sensitive keys with plain value in `dotenvx doctor`
 - Add [mise](https://mise.jdx.dev/) integration with dotenvx in README.md
+- Add default value for group(`global`) and name(`app`) with `dotenvx init --global` command
 
 ## [0.4.18] - 2025-09-11
 
