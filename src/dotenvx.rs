@@ -76,6 +76,7 @@ pub fn dotenv_iter<P: AsRef<Path>>() -> dotenvy::Result<Vec<(String, String)>> {
     Ok(items)
 }
 
+/// load/decrypt env_file from a given path
 pub fn from_path<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<()> {
     from_path_with_dotenvx(&env_file, true)
 }
