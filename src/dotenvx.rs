@@ -15,6 +15,7 @@ use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 /// load/decrypt .env file recursively from current directory to root directory
+/// if profile name detected in environment, such as `NODE_ENV`, `RUN_ENV`, `APP_ENV` is set in env, it will load .env.{profile} file
 pub fn dotenv() -> dotenvy::Result<()> {
     // load profile env
     let profile_name = get_profile_name_from_env();
@@ -30,6 +31,7 @@ pub fn dotenv() -> dotenvy::Result<()> {
     Ok(())
 }
 
+/// load/decrypt .env file recursively from current directory to root directory as a HashMap
 pub fn dotenv_entries() -> dotenvy::Result<HashMap<String, String>> {
     // load profile env
     let profile_name = get_profile_name_from_env();
