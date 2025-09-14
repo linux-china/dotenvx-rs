@@ -2,7 +2,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 pub fn get_profile_name_from_env() -> Option<String> {
-    let env_vars = ["NODE_ENV", "RUN_ENV", "APP_ENV", "SPRING_PROFILES_ACTIVE", "STELA_ENV"];
+    let env_vars = ["NODE_ENV", "RUN_ENV", "APP_ENV", "SPRING_PROFILES_ACTIVE", "MISE_ENV","STELA_ENV"];
     for var in env_vars.iter() {
         if let Ok(value) = env::var(var) {
             if !value.is_empty() {
