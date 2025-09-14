@@ -100,7 +100,13 @@ fn create_global_env_keys(profile: &Option<String>) {
             let new_line = format!("{private_key_name}={private_key}");
             let new_file_content = format!("{}\n{}\n", file_content.trim_end(), new_line);
             fs::write(&keys_file_path, new_file_content.as_bytes()).unwrap();
-            let key_pair = KeyPair::new(&kp.get_pk_hex(), &private_key, profile);
+            let key_pair = KeyPair::from(
+                &kp.get_pk_hex(),
+                &private_key,
+                &Some("default".to_owned()),
+                &Some("default".to_owned()),
+                profile,
+            );
             write_key_pair(&key_pair).unwrap();
             eprintln!(
                 "{}",
@@ -126,7 +132,13 @@ fn create_global_env_keys(profile: &Option<String>) {
                 profile.to_uppercase(),
                 private_key
             ));
-            let key_pair = KeyPair::new(&kp.get_pk_hex(), &private_key, &Some(profile.to_string()));
+            let key_pair = KeyPair::from(
+                &kp.get_pk_hex(),
+                &private_key,
+                &Some("default".to_owned()),
+                &Some("default".to_owned()),
+                &Some(profile.to_string()),
+            );
             key_pairs.push(key_pair);
         }
         // dotenvx cloud key pair
