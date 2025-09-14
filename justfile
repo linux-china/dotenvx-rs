@@ -5,7 +5,7 @@ dist-build:
     dist build --target x86_64-apple-darwin
 
 release:
-    cargo build --bins --release
+    RUSTFLAGS="-C target-cpu=native" cargo build --bins --release
     ls -ls target/release/dotenvx
     ls -ls target/release/mkey
     cp target/release/dotenvx ~/bin/dotenvx
