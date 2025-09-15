@@ -9,10 +9,10 @@ use dirs::home_dir;
 use env::set_var;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::env;
 use std::env::VarError;
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 /// load/decrypt .env file recursively from current directory to root directory
 /// if profile name detected in environment, such as `NODE_ENV`, `RUN_ENV`, `APP_ENV` is set in env, it will load .env.{profile} file
@@ -251,9 +251,7 @@ struct KeyPair {
 
 impl DotenvxKeyStore {
     pub fn load_global() -> anyhow::Result<DotenvxKeyStore> {
-        let dotenvx_home = home_dir().unwrap().join(".dotenvx");
-        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
-        if env_keys_json_file.exists() {
+        if let Some(env_keys_json_file) = Self::get_global_key_store_path() {
             let file_content = std::fs::read_to_string(env_keys_json_file)?;
             return if file_content.contains("\"version\"") {
                 Ok(serde_json::from_str(&file_content)?)
@@ -268,7 +266,58 @@ impl DotenvxKeyStore {
                 })
             };
         }
-        Err(anyhow!("$HOME/.dotenvx/.env.keys.json not foud"))
+        Err(anyhow!("Global key store(.env.keys.json) not found!"))
+    }
+
+    fn get_global_key_store_path() -> Option<PathBuf> {
+        let dotenvx_home = home_dir().unwrap().join(".dotenvx");
+        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+        if env_keys_json_file.exists() {
+            return Some(env_keys_json_file);
+        } else if let Some(env_keys_json_file_from_usb) = Self::find_key_store_from_usb_disk() {
+            return Some(env_keys_json_file_from_usb);
+        }
+        None
+    }
+
+    // The function is only included in the build when compiling for macOS
+    #[cfg(target_os = "macos")]
+    fn find_key_store_from_usb_disk() -> Option<PathBuf> {
+        let key_store_path = PathBuf::from("/Volumes/Dotenvx/.dotenv.keys.json");
+        if key_store_path.exists() {
+            return Some(key_store_path);
+        }
+        None
+    }
+
+    #[cfg(target_os = "windows")]
+    fn find_key_store_from_usb_disk() -> Option<PathBuf> {
+        None
+    }
+
+    #[cfg(target_os = "linux")]
+    fn find_key_store_from_usb_disk() -> Option<PathBuf> {
+        let file = PathBuf::from("/proc/mounts");
+        if !file.exists() {
+            return None;
+        }
+        if let Ok(file_content) = fs::read_to_string(&file) {
+            for line in file_content.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let device = parts[0];
+                    let mount_point = parts[1];
+                    // Check for USB devices (common patterns)
+                    if device.contains("/dev/sd") || device.contains("/dev/disk/by-id/usb") {
+                        let file = PathBuf::from(&format!("{mount_point}/.dotenv/.env.keys.json"));
+                        if file.exists() {
+                            return Some(file);
+                        }
+                    }
+                }
+            }
+        }
+        None
     }
 
     pub fn find_private_key(&self, public_key: &str) -> Option<String> {
