@@ -98,7 +98,7 @@ pub fn me_command(command_matches: &ArgMatches) {
             }
         }
     } else {
-        println!("No dotenvx-cloud key pair found. Please sign up first.");
+        println!("No Dotenvx Cloud key pair found. Please sign up first.");
     }
 }
 
