@@ -4,7 +4,7 @@ Dotenvx Rust SDK/CLI
 What is Dotenvx? [Dotenvx](https://dotenvx.com/) encrypts your .env files—limiting their attack vector while retaining
 their benefits.
 
-![Dotenvx Architecture](./dotenvx-architecture.jpg)
+![Dotenvx Architecture](https://github.com/linux-china/dotenvx-rs/raw/main/dotenvx-architecture.jpg)
 
 dotenvx-rs is a Rust command-line toolchain for [dotenvx]() to make .env files secure and easy to use,
 and it's also a crate to load encrypted .env files in your Rust applications.
