@@ -8,6 +8,22 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.20] - 2025-09-17
+
+### Added
+
+Add duckdb shim support: env variables alike: `DUCKDB__<KEY_NAME>__TYPE=xx`, and `DUCKDB__<KEY_NAME>__VAR_NAME=xxxxx`
+
+```shell
+DUCKDB__S3_SECRET__TYPE=s3
+DUCKDB__S3_SECRET__KEY_ID=encrypted:...
+DUCKDB__S3_SECRET__SECRET=encrypted:...
+```
+
+**Attention**: Please use double underscore `__` to separate the parts.
+
+- DuckDB shim creation: `dotenvx link bin/duckdb`
+
 ## [0.4.19] - 2025-09-14
 
 ### Added
