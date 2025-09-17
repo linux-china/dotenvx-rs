@@ -1,7 +1,7 @@
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::framework::detect_framework;
 use dotenvx_rs::common::get_profile_name_from_env;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::process::{Command, Stdio};
 
@@ -29,6 +29,8 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
             new_command_args.extend(get_redis_args());
         } else if command_name == "mongosh" || command_name == "mongosh.exe" {
             new_command_args.extend(get_mongodb_args());
+        } else if command_name == "duckdb" || command_name == "duckdb.exe" {
+            new_command_args.extend(get_duckdb_args());
         }
         if !command_args.is_empty() {
             new_command_args.extend(command_args.to_owned());
@@ -328,6 +330,69 @@ fn get_mongodb_args() -> Vec<String> {
     args
 }
 
+pub struct DuckSecret {
+    pub name: String,
+    pub secret_type: String,
+    pub variables: HashMap<String, String>,
+}
+
+impl DuckSecret {
+    fn from_env(name: String) -> Option<Self> {
+        let secret_prefix = format!("DUCKDB__{name}__");
+        let secret_type_key = format!("{secret_prefix}TYPE");
+        if let Ok(secret_type) = env::var(&secret_type_key) {
+            let mut secret = DuckSecret {
+                name: name.to_lowercase(),
+                secret_type,
+                variables: HashMap::new(),
+            };
+            for (key, value) in env::vars() {
+                if key.starts_with(&secret_prefix) && key != secret_type_key {
+                    let var_key = key.trim_start_matches(&secret_prefix).to_string();
+                    secret.variables.insert(var_key.to_lowercase(), value);
+                }
+            }
+            if !secret.variables.is_empty() {
+                return Some(secret);
+            }
+        }
+        None
+    }
+
+    fn to_sql(&self) -> String {
+        let variables = self
+            .variables
+            .iter()
+            .map(|(k, v)| format!("{} '{}'", k, v.replace('\'', "''")))
+            .collect::<Vec<String>>()
+            .join(", ");
+        format!(
+            "CREATE SECRET {} ( TYPE {}, {});",
+            self.name, self.secret_type, variables
+        )
+    }
+}
+fn get_duckdb_args() -> Vec<String> {
+    let mut args: Vec<String> = vec![];
+    let mut secret_names: HashSet<String> = HashSet::new();
+    for (key, value) in env::vars() {
+        if key.starts_with("DUCKDB__") {
+            if let Some(secret_name) = key.split("__").nth(1) {
+                secret_names.insert(secret_name.to_string());
+            }
+        }
+    }
+    if !secret_names.is_empty() {
+        for secret_name in secret_names {
+            if let Some(duck_secret) = DuckSecret::from_env(secret_name) {
+                args.push("--cmd".to_string());
+                args.push(duck_secret.to_sql());
+            }
+        }
+    }
+    args
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -356,5 +421,20 @@ mod tests {
         let url = "redis://password1@localhost:4392/2";
         let parsed = url::Url::parse(url).unwrap();
         assert_eq!(parsed.username(), "password1");
+    }
+
+    #[test]
+    fn test_duckdb() {
+        unsafe {
+            env::set_var("DUCKDB__S3_SECRET__TYPE", "s3");
+            env::set_var("DUCKDB__S3_SECRET__KEY_ID", "1111");
+            env::set_var("DUCKDB__S3_SECRET__SECRET", "password");
+            env::set_var("DUCKDB__HTTP_SECRET__TYPE", "http");
+            env::set_var("DUCKDB__HTTP_SECRET__BEARER_TOKEN", "xxxx");
+        }
+        let args = get_duckdb_args();
+        for arg in args {
+            println!("{arg}");
+        }
     }
 }
