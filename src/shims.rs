@@ -491,10 +491,15 @@ mod tests {
             env::set_var("DUCKDB__HTTP_SECRET", "secret");
             env::set_var("DUCKDB__HTTP_SECRET__TYPE", "http");
             env::set_var("DUCKDB__HTTP_SECRET__BEARER_TOKEN", "xxxx");
+            // encryption database
             env::set_var("DUCKDB__SAKILA", "attach");
             env::set_var("DUCKDB__SAKILA__TYPE", "sqlite");
             env::set_var("DUCKDB__SAKILA__URL", "sakila.sqlite3");
             env::set_var("DUCKDB__SAKILA__ENCRYPTION_KEY", "123456");
+            // datalake
+            env::set_var("DUCKDB__LAKE1", "attach");
+            env::set_var("DUCKDB__LAKE1__URL", "ducklake:postgres:dbname=ducklake host=127.0.0.1 port=5432 user=postgres password=123456");
+            env::set_var("DUCKDB__LAKE1__DATA_PATH", "s3://lake1");
         }
         let args = get_duckdb_args();
         for arg in args {
