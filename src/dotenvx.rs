@@ -301,7 +301,7 @@ impl DotenvxKeyStore {
         if !file.exists() {
             return None;
         }
-        if let Ok(file_content) = fs::read_to_string(&file) {
+        if let Ok(file_content) = std::fs::read_to_string(&file) {
             for line in file_content.lines() {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 2 {
