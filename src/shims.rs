@@ -396,8 +396,7 @@ impl DuckSecret {
                     ))
                 };
             } else {
-                let other_variables = self
-                    .variables
+                let other_variables = db_variables
                     .iter()
                     .map(|(k, v)| {
                         if v == "true" || v == "false" {
@@ -495,6 +494,7 @@ mod tests {
             env::set_var("DUCKDB__SAKILA", "attach");
             env::set_var("DUCKDB__SAKILA__TYPE", "sqlite");
             env::set_var("DUCKDB__SAKILA__URL", "sakila.sqlite3");
+            env::set_var("DUCKDB__SAKILA__ENCRYPTION_KEY", "123456");
         }
         let args = get_duckdb_args();
         for arg in args {
