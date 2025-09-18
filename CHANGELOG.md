@@ -21,6 +21,15 @@ DUCKDB__S3_SECRET__KEY_ID=encrypted:...
 DUCKDB__S3_SECRET__SECRET=encrypted:...
 ```
 
+Or you can attach encryption-database with:
+
+```shell
+DUCKDB__SECRET_DB=attach
+DUCKDB__SECRET_DB__TYPE=duckdb
+DUCKDB__SECRET_DB__URL=encrypted.db
+DUCKDB__SECRET_DB__ENCRYPTION_KEY=123456
+```
+
 **Attention**: Please use double underscore `__` to separate the parts.
 
 - DuckDB shim creation: `dotenvx link bin/duckdb`
