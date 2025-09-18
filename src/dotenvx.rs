@@ -387,6 +387,8 @@ fn check_and_decrypt(
     }
 }
 
+/// decrypt dotenvx encrypted item with the given private key
+/// the encrypted text can be with or without the "encrypted:" prefix
 pub fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Result<String> {
     let encrypted_bytes = if let Some(stripped_value) = encrypted_text.strip_prefix("encrypted:") {
         Base64::decode_vec(stripped_value).unwrap()
@@ -398,6 +400,8 @@ pub fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy:
     Ok(String::from_utf8(decrypted_bytes).unwrap())
 }
 
+/// encrypt dotenvx item with the given public key
+/// the returned encrypted text is with the "encrypted:" prefix
 pub fn encrypt_dotenvx_item(public_key: &str, plain_text: &str) -> dotenvy::Result<String> {
     let pk = hex::decode(public_key).unwrap();
     let encrypted_bytes = ecies::encrypt(&pk, plain_text.as_bytes()).unwrap();
