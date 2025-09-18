@@ -333,7 +333,7 @@ fn get_mongodb_args() -> Vec<String> {
 pub struct DuckSecret {
     pub name: String,
     pub obj_type: String,
-    pub child_type: String,
+    pub child_type: Option<String>,
     pub variables: HashMap<String, String>,
 }
 
@@ -341,9 +341,8 @@ impl DuckSecret {
     fn from_env(name: String) -> Option<Self> {
         let obj_prefix = format!("DUCKDB__{name}__");
         let child_type_key = format!("{obj_prefix}TYPE");
-        if let Ok(child_type) = env::var(&child_type_key)
-            && let Ok(obj_type) = env::var(format!("DUCKDB__{name}"))
-        {
+        if let Ok(obj_type) = env::var(format!("DUCKDB__{name}")) {
+            let child_type = env::var(&child_type_key).ok();
             let mut db_obj = DuckSecret {
                 name: name.to_lowercase(),
                 obj_type,
@@ -364,6 +363,7 @@ impl DuckSecret {
     }
 
     fn to_sql(&self) -> Option<String> {
+        let child_type = self.child_type.as_deref();
         if self.obj_type == "secret" && !self.variables.is_empty() {
             let variables = self
                 .variables
@@ -373,18 +373,28 @@ impl DuckSecret {
                 .join(", ");
             return Some(format!(
                 "CREATE SECRET {} ( TYPE {}, {});",
-                self.name, self.child_type, variables
+                self.name,
+                child_type.unwrap(),
+                variables
             ));
         } else if self.obj_type == "attach" && !self.variables.is_empty() {
             let mut db_variables = self.variables.clone();
             let db_url = db_variables.remove("URL").unwrap_or_default();
             if db_variables.is_empty() {
-                return Some(format!(
-                    "ATTACH '{}' AS {} (TYPE {});",
-                    db_url.trim_matches('\''),
-                    self.name,
-                    self.child_type
-                ));
+                return if let Some(child_type_text) = child_type {
+                    Some(format!(
+                        "ATTACH '{}' AS {} (TYPE {});",
+                        db_url.trim_matches('\''),
+                        self.name,
+                        child_type_text
+                    ))
+                } else {
+                    Some(format!(
+                        "ATTACH '{}' AS {};",
+                        db_url.trim_matches('\''),
+                        self.name,
+                    ))
+                };
             } else {
                 let other_variables = self
                     .variables
@@ -398,13 +408,22 @@ impl DuckSecret {
                     })
                     .collect::<Vec<String>>()
                     .join(", ");
-                return Some(format!(
-                    "ATTACH '{}' AS {} (TYPE {}, {});",
-                    db_url.trim_matches('\''),
-                    self.name,
-                    self.child_type,
-                    other_variables
-                ));
+                return if let Some(child_type_text) = child_type {
+                    Some(format!(
+                        "ATTACH '{}' AS {} (TYPE {}, {});",
+                        db_url.trim_matches('\''),
+                        self.name,
+                        child_type_text,
+                        other_variables
+                    ))
+                } else {
+                    Some(format!(
+                        "ATTACH '{}' AS {} ({});",
+                        db_url.trim_matches('\''),
+                        self.name,
+                        other_variables
+                    ))
+                };
             }
         }
         None
