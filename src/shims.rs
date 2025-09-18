@@ -1,7 +1,7 @@
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::framework::detect_framework;
 use dotenvx_rs::common::get_profile_name_from_env;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::env;
 use std::process::{Command, Stdio};
 
@@ -430,11 +430,14 @@ impl DuckSecret {
 }
 fn get_duckdb_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
-    let mut secret_names: HashSet<String> = HashSet::new();
+    let mut secret_names: Vec<String> = Vec::new();
     for (key, value) in env::vars() {
         if key.starts_with("DUCKDB__") {
             if let Some(secret_name) = key.split("__").nth(1) {
-                secret_names.insert(secret_name.to_string());
+                let name = secret_name.to_string();
+                if !secret_names.contains(&name) {
+                    secret_names.push(name);
+                }
             }
         }
     }
@@ -498,7 +501,10 @@ mod tests {
             env::set_var("DUCKDB__SAKILA__ENCRYPTION_KEY", "123456");
             // datalake
             env::set_var("DUCKDB__LAKE1", "attach");
-            env::set_var("DUCKDB__LAKE1__URL", "ducklake:postgres:dbname=ducklake host=127.0.0.1 port=5432 user=postgres password=123456");
+            env::set_var(
+                "DUCKDB__LAKE1__URL",
+                "ducklake:postgres:dbname=ducklake host=127.0.0.1 port=5432 user=postgres password=123456",
+            );
             env::set_var("DUCKDB__LAKE1__DATA_PATH", "s3://lake1");
         }
         let args = get_duckdb_args();
