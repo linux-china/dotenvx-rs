@@ -12,9 +12,10 @@
 
 ### Added
 
-Add duckdb shim support: env variables alike: `DUCKDB__<KEY_NAME>__TYPE=xx`, and `DUCKDB__<KEY_NAME>__VAR_NAME=xxxxx`
+Add duckdb shim support: env variables alike: `DUCKDB__<OBJ_NAME>__TYPE=xx`, and `DUCKDB__<OBJ_NAME>__VAR_NAME=xxxxx`
 
 ```shell
+DUCKDB__S3_SECRET=secret
 DUCKDB__S3_SECRET__TYPE=s3
 DUCKDB__S3_SECRET__KEY_ID=encrypted:...
 DUCKDB__S3_SECRET__SECRET=encrypted:...
