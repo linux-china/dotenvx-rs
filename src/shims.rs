@@ -389,7 +389,13 @@ impl DuckSecret {
                 let other_variables = self
                     .variables
                     .iter()
-                    .map(|(k, v)| format!("{k} '{v}'"))
+                    .map(|(k, v)| {
+                        if v == "true" || v == "false" {
+                            format!("{k} {v}")
+                        } else {
+                            format!("{k} '{v}'")
+                        }
+                    })
                     .collect::<Vec<String>>()
                     .join(", ");
                 return Some(format!(
