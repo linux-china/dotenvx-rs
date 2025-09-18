@@ -3,6 +3,7 @@ use crate::commands::framework::detect_framework;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::collections::HashMap;
 use std::env;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 pub fn is_shim_command(command_name: &str) -> bool {
@@ -30,6 +31,12 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
         } else if command_name == "mongosh" || command_name == "mongosh.exe" {
             new_command_args.extend(get_mongodb_args());
         } else if command_name == "duckdb" || command_name == "duckdb.exe" {
+            // load .env.duckdb file if exists
+            if let Ok(current_dir) = env::current_dir() {
+                if let Some(dotenv_duck_file) = find_dotenv_duckdb_file_by_path(&current_dir) {
+                    dotenvx_rs::from_path(dotenv_duck_file).ok();
+                }
+            }
             new_command_args.extend(get_duckdb_args());
         }
         if !command_args.is_empty() {
@@ -452,6 +459,15 @@ fn get_duckdb_args() -> Vec<String> {
         }
     }
     args
+}
+
+pub fn find_dotenv_duckdb_file_by_path(dir: &Path) -> Option<PathBuf> {
+    if dir.join(".env.duckdb").exists() {
+        return Some(dir.join(".env.duckdb"));
+    } else if let Some(parent) = dir.parent() {
+        return find_dotenv_duckdb_file_by_path(parent);
+    }
+    None
 }
 
 #[cfg(test)]
