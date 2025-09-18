@@ -333,31 +333,31 @@ fn get_mongodb_args() -> Vec<String> {
 pub struct DuckSecret {
     pub name: String,
     pub obj_type: String,
-    pub secret_type: String,
+    pub child_type: String,
     pub variables: HashMap<String, String>,
 }
 
 impl DuckSecret {
     fn from_env(name: String) -> Option<Self> {
-        let secret_prefix = format!("DUCKDB__{name}__");
-        let secret_type_key = format!("{secret_prefix}TYPE");
-        if let Ok(secret_type) = env::var(&secret_type_key)
+        let obj_prefix = format!("DUCKDB__{name}__");
+        let child_type_key = format!("{obj_prefix}TYPE");
+        if let Ok(child_type) = env::var(&child_type_key)
             && let Ok(obj_type) = env::var(format!("DUCKDB__{name}"))
         {
-            let mut secret = DuckSecret {
+            let mut db_obj = DuckSecret {
                 name: name.to_lowercase(),
                 obj_type,
-                secret_type,
+                child_type,
                 variables: HashMap::new(),
             };
             for (key, value) in env::vars() {
-                if key.starts_with(&secret_prefix) && key != secret_type_key {
-                    let var_key = key.trim_start_matches(&secret_prefix).to_string();
-                    secret.variables.insert(var_key.to_lowercase(), value);
+                if key.starts_with(&obj_prefix) && key != child_type_key {
+                    let var_key = key.trim_start_matches(&obj_prefix).to_string();
+                    db_obj.variables.insert(var_key, value);
                 }
             }
-            if !secret.variables.is_empty() {
-                return Some(secret);
+            if !db_obj.variables.is_empty() {
+                return Some(db_obj);
             }
         }
         None
@@ -373,8 +373,33 @@ impl DuckSecret {
                 .join(", ");
             return Some(format!(
                 "CREATE SECRET {} ( TYPE {}, {});",
-                self.name, self.secret_type, variables
+                self.name, self.child_type, variables
             ));
+        } else if self.obj_type == "attach" && !self.variables.is_empty() {
+            let mut db_variables = self.variables.clone();
+            let db_url = db_variables.remove("URL").unwrap_or_default();
+            if db_variables.is_empty() {
+                return Some(format!(
+                    "ATTACH '{}' AS {} (TYPE {});",
+                    db_url.trim_matches('\''),
+                    self.name,
+                    self.child_type
+                ));
+            } else {
+                let other_variables = self
+                    .variables
+                    .iter()
+                    .map(|(k, v)| format!("{k} '{v}'"))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                return Some(format!(
+                    "ATTACH '{}' AS {} (TYPE {}, {});",
+                    db_url.trim_matches('\''),
+                    self.name,
+                    self.child_type,
+                    other_variables
+                ));
+            }
         }
         None
     }
@@ -442,6 +467,9 @@ mod tests {
             env::set_var("DUCKDB__HTTP_SECRET", "secret");
             env::set_var("DUCKDB__HTTP_SECRET__TYPE", "http");
             env::set_var("DUCKDB__HTTP_SECRET__BEARER_TOKEN", "xxxx");
+            env::set_var("DUCKDB__SECRET_DB", "attach");
+            env::set_var("DUCKDB__SECRET_DB__TYPE", "sqlite");
+            env::set_var("DUCKDB__SECRET_DB__URL", "sakila.db");
         }
         let args = get_duckdb_args();
         for arg in args {
