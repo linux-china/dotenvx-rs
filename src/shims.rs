@@ -492,9 +492,9 @@ mod tests {
             env::set_var("DUCKDB__HTTP_SECRET", "secret");
             env::set_var("DUCKDB__HTTP_SECRET__TYPE", "http");
             env::set_var("DUCKDB__HTTP_SECRET__BEARER_TOKEN", "xxxx");
-            env::set_var("DUCKDB__SECRET_DB", "attach");
-            env::set_var("DUCKDB__SECRET_DB__TYPE", "sqlite");
-            env::set_var("DUCKDB__SECRET_DB__URL", "sakila.db");
+            env::set_var("DUCKDB__SAKILA", "attach");
+            env::set_var("DUCKDB__SAKILA__TYPE", "sqlite");
+            env::set_var("DUCKDB__SAKILA__URL", "sakila.sqlite3");
         }
         let args = get_duckdb_args();
         for arg in args {
