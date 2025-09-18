@@ -332,6 +332,7 @@ fn get_mongodb_args() -> Vec<String> {
 
 pub struct DuckSecret {
     pub name: String,
+    pub obj_type: String,
     pub secret_type: String,
     pub variables: HashMap<String, String>,
 }
@@ -340,9 +341,12 @@ impl DuckSecret {
     fn from_env(name: String) -> Option<Self> {
         let secret_prefix = format!("DUCKDB__{name}__");
         let secret_type_key = format!("{secret_prefix}TYPE");
-        if let Ok(secret_type) = env::var(&secret_type_key) {
+        if let Ok(secret_type) = env::var(&secret_type_key)
+            && let Ok(obj_type) = env::var(format!("DUCKDB__{name}"))
+        {
             let mut secret = DuckSecret {
                 name: name.to_lowercase(),
+                obj_type,
                 secret_type,
                 variables: HashMap::new(),
             };
@@ -359,17 +363,20 @@ impl DuckSecret {
         None
     }
 
-    fn to_sql(&self) -> String {
-        let variables = self
-            .variables
-            .iter()
-            .map(|(k, v)| format!("{} '{}'", k, v.replace('\'', "''")))
-            .collect::<Vec<String>>()
-            .join(", ");
-        format!(
-            "CREATE SECRET {} ( TYPE {}, {});",
-            self.name, self.secret_type, variables
-        )
+    fn to_sql(&self) -> Option<String> {
+        if self.obj_type == "secret" && !self.variables.is_empty() {
+            let variables = self
+                .variables
+                .iter()
+                .map(|(k, v)| format!("{} '{}'", k, v.replace('\'', "''")))
+                .collect::<Vec<String>>()
+                .join(", ");
+            return Some(format!(
+                "CREATE SECRET {} ( TYPE {}, {});",
+                self.name, self.secret_type, variables
+            ));
+        }
+        None
     }
 }
 fn get_duckdb_args() -> Vec<String> {
@@ -385,8 +392,10 @@ fn get_duckdb_args() -> Vec<String> {
     if !secret_names.is_empty() {
         for secret_name in secret_names {
             if let Some(duck_secret) = DuckSecret::from_env(secret_name) {
-                args.push("--cmd".to_string());
-                args.push(duck_secret.to_sql());
+                if let Some(sql) = duck_secret.to_sql() {
+                    args.push("--cmd".to_string());
+                    args.push(sql);
+                }
             }
         }
     }
@@ -426,9 +435,11 @@ mod tests {
     #[test]
     fn test_duckdb() {
         unsafe {
+            env::set_var("DUCKDB__S3_SECRET", "secret");
             env::set_var("DUCKDB__S3_SECRET__TYPE", "s3");
             env::set_var("DUCKDB__S3_SECRET__KEY_ID", "1111");
             env::set_var("DUCKDB__S3_SECRET__SECRET", "password");
+            env::set_var("DUCKDB__HTTP_SECRET", "secret");
             env::set_var("DUCKDB__HTTP_SECRET__TYPE", "http");
             env::set_var("DUCKDB__HTTP_SECRET__BEARER_TOKEN", "xxxx");
         }
