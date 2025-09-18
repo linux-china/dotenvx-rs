@@ -238,6 +238,33 @@ You can create a symbolic link `dotenvx link bin/mysql`, and then run `./bin/mys
 
 **Attention**: symbolic link name should be the same as the command name. Now only `mysql` and `psql` are supported.
 
+### Dotenvx for DuckDB secret management?
+
+DuckDB has [built-in Secrets Manager](https://duckdb.org/docs/stable/configuration/secrets_manager),
+but you can use dotenvx to manage the secrets for DuckDB as well.
+
+In `.env` file, you can add the following key-value pairs:
+
+```shell
+DUCKDB__HTTP_SECRET=secret
+DUCKDB__HTTP_SECRET__TYPE=http
+DUCKDB__HTTP_SECRET__BEARER_TOKEN=xxxx
+```
+
+The above env variables will be detected and convert to `CREATE SECRET http_secret ( TYPE http, BEARER_TOKEN 'xxx');`.
+Use `dotenvx link bin/duckdb` to create a symbolic link for `duckdb` command, and then run `./bin/duckdb` to start
+duckdb with secrets support.
+
+You can attach [encrypt-database introduced by DuckDB 1.4.0](https://duckdb.org/2025/09/16/announcing-duckdb-140.html#database-encryption)
+with the following env variables:
+
+```shell
+DUCKDB__SECRET_DB=attach
+DUCKDB__SECRET_DB__TYPE=duckdb
+DUCKDB__SECRET_DB__URL=encrypted.db
+DUCKDB__SECRET_DB__ENCRYPTION_KEY=123456
+```
+
 ### How to add encrypted key-value from CLI?
 
 You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to the `.env` file.
@@ -341,7 +368,8 @@ plugins=(dotenvx ...)
 
 # Credits
 
-* [Dotenvx](https://dotenvx.com/): encrypts your .env files – limiting their attack vector while retaining their benefits.
+* [Dotenvx](https://dotenvx.com/): encrypts your .env files – limiting their attack vector while retaining their
+  benefits.
 * [ecies-rs](https://github.com/ecies/rs): Elliptic Curve Integrated Encryption Scheme for secp256k1/curve25519 in Rust
 * [dotenvy](https://github.com/allan2/dotenvy): a well-maintained fork of the dotenv crate
 
