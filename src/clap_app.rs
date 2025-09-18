@@ -230,7 +230,7 @@ pub fn build_dotenvx_app() -> Command {
                 .required(true),
         );
     let rotate_command = Command::new("rotate")
-        .about("rotate keypair and re-encrypt .env file in the current directory")
+        .about("Rotate keypair and re-encrypt .env file in the current directory")
         .arg(
             Arg::new("env-file")
                 .short('f')
