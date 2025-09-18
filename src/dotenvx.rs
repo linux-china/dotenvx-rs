@@ -9,10 +9,10 @@ use dirs::home_dir;
 use env::set_var;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
 use std::env::VarError;
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
-use std::{env, fs};
 
 /// load/decrypt .env file recursively from current directory to root directory
 /// if profile name detected in environment, such as `NODE_ENV`, `RUN_ENV`, `APP_ENV` is set in env, it will load .env.{profile} file
@@ -387,7 +387,7 @@ fn check_and_decrypt(
     }
 }
 
-fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Result<String> {
+pub fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Result<String> {
     let encrypted_bytes = if let Some(stripped_value) = encrypted_text.strip_prefix("encrypted:") {
         Base64::decode_vec(stripped_value).unwrap()
     } else {
@@ -396,6 +396,13 @@ fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Res
     let sk = hex::decode(private_key).unwrap();
     let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();
     Ok(String::from_utf8(decrypted_bytes).unwrap())
+}
+
+pub fn encrypt_dotenvx_item(public_key: &str, plain_text: &str) -> dotenvy::Result<String> {
+    let pk = hex::decode(public_key).unwrap();
+    let encrypted_bytes = ecies::encrypt(&pk, plain_text.as_bytes()).unwrap();
+    let base64_text = Base64::encode_string(&encrypted_bytes);
+    Ok(format!("encrypted:{base64_text}"))
 }
 
 fn set_env_var(key: &str, env_value: String, is_override: bool) {
