@@ -8,6 +8,13 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.22] - 2025-09-19
+
+### Added
+
+- Add `.env.duckdb` support for `duckdb` shim: from current directory or its parent directories
+- Add hints output for `duckdb` shim.
+
 ## [0.4.21] - 2025-09-17
 
 ### Added
