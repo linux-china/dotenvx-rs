@@ -454,7 +454,7 @@ fn get_duckdb_args() -> Vec<String> {
             if let Some(duck_obj) = DuckSecret::from_env(secret_name) {
                 if duck_obj.obj_type == "secret" {
                     println!("{} secret of '{}' created.", "✔ ".green(), duck_obj.name);
-                } else if (duck_obj.obj_type == "attach") {
+                } else if duck_obj.obj_type == "attach" {
                     println!("{} database of '{}' attached.", "✔ ".green(), duck_obj.name);
                 }
                 if let Some(sql) = duck_obj.to_sql() {
