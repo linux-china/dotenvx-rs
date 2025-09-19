@@ -1,5 +1,6 @@
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::framework::detect_framework;
+use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::collections::HashMap;
 use std::env;
@@ -437,21 +438,26 @@ impl DuckSecret {
 }
 fn get_duckdb_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
-    let mut secret_names: Vec<String> = Vec::new();
+    let mut obj_names: Vec<String> = Vec::new();
     for (key, value) in env::vars() {
         if key.starts_with("DUCKDB__") {
             if let Some(secret_name) = key.split("__").nth(1) {
                 let name = secret_name.to_string();
-                if !secret_names.contains(&name) {
-                    secret_names.push(name);
+                if !obj_names.contains(&name) {
+                    obj_names.push(name);
                 }
             }
         }
     }
-    if !secret_names.is_empty() {
-        for secret_name in secret_names {
-            if let Some(duck_secret) = DuckSecret::from_env(secret_name) {
-                if let Some(sql) = duck_secret.to_sql() {
+    if !obj_names.is_empty() {
+        for secret_name in obj_names {
+            if let Some(duck_obj) = DuckSecret::from_env(secret_name) {
+                if duck_obj.obj_type == "secret" {
+                    println!("{} secret of '{}' created.", "✔ ".green(), duck_obj.name);
+                } else if (duck_obj.obj_type == "attach") {
+                    println!("{} database of '{}' attached.", "✔ ".green(), duck_obj.name);
+                }
+                if let Some(sql) = duck_obj.to_sql() {
                     args.push("--cmd".to_string());
                     args.push(sql);
                 }
