@@ -36,7 +36,7 @@ jobs:
         run: cargo build --verbose
 
   build-mac-x64:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v5
       - name: Build
