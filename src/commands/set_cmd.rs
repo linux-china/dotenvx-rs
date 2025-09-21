@@ -83,6 +83,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     } else {
         format!("{}={}", key, escape_shell_value(&value))
     };
+    let pair = adjust_pair_for_file(&env_file, pair);
     if command_matches.get_flag("stdout") {
         println!("export {pair}");
         return;
@@ -129,6 +130,16 @@ pub fn validate_key_name(key: &str, env_file: &str) -> bool {
         REGEX_KEY_NAME.is_match(key)
     } else {
         true
+    }
+}
+
+fn adjust_pair_for_file(env_file: &str, pair: String) -> String {
+    if env_file.ends_with(".xml") {
+        format!("<!-- {pair} -->")
+    } else if env_file.ends_with(".sh") || env_file.ends_with(".toml") {
+        format!("# {pair}")
+    } else {
+        pair
     }
 }
 
