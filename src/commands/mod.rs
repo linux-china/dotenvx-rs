@@ -268,7 +268,6 @@ pub fn get_public_key_from_text_file(file_path: &str) -> Option<String> {
             return content.lines().find_map(|line| {
                 let line = line.trim();
                 if line.contains("dotenv.public.key") || line.contains("DOTENV_PUBLIC_KEY") {
-                    println!("line: {line}");
                     line.split('=')
                         .nth(1)
                         .map(|s| s.trim().to_string())
@@ -794,7 +793,7 @@ mod tests {
 
     #[test]
     fn test_get_public_key_from_xml() {
-        let file_path = "demo.xml";
+        let file_path = "tests/demo.xml";
         let public_key = get_public_key_from_text_file(file_path).unwrap();
         println!("public key: {public_key}");
     }
