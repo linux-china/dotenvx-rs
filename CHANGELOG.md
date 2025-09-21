@@ -8,6 +8,19 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.23] - 2025-09-23
+
+### Added
+
+- Add decrypt for any text file, such as XML, Toml, JSON etc.
+
+```xml
+<!-- dotenv.public.key: 02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0 -->
+<config>
+  <password>encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEF</password>
+</config>
+```
+
 ## [0.4.22] - 2025-09-19
 
 ### Added
