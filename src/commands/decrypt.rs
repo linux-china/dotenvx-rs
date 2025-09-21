@@ -2,10 +2,12 @@ use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::model::EnvFile;
 use crate::commands::{
     adjust_env_key, escape_shell_value, get_env_file_arg, get_private_key_for_file,
-    is_remote_env_file, read_content_from_dotenv_url, read_dotenv_url, std_output,
+    get_public_key_from_text_file, is_remote_env_file, read_content_from_dotenv_url,
+    read_dotenv_url, std_output,
 };
 use clap::ArgMatches;
 use colored::Colorize;
+use dotenvx_rs::dotenvx::get_private_key;
 use glob::Pattern;
 use java_properties::PropertiesIter;
 use std::collections::HashMap;
@@ -27,6 +29,12 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !is_remote_env && !std::path::PathBuf::from(&env_file).exists() {
         //eprintln!("Error: The specified env file '{env_file}' does not exist.");
+        return;
+    }
+    let file_name = env_file_path.file_name().unwrap().to_str().unwrap();
+    // decrypt normal text file if not .env or .properties file
+    if !file_name.starts_with(".env") && !file_name.ends_with(".properties") {
+        decrypt_normal_text_file(&env_file);
         return;
     }
     let env_keys = command_matches.get_many::<String>("keys");
@@ -168,11 +176,53 @@ fn verify_signature(env_file_path: &str) {
     }
 }
 
+fn decrypt_normal_text_file(text_file_path: &str) {
+    if let Some(public_key) = get_public_key_from_text_file(text_file_path) {
+        if let Ok(private_key) = get_private_key(&Some(public_key.clone()), &None) {
+            if let Ok(file_content) = fs::read_to_string(text_file_path) {
+                file_content.lines().for_each(|line| {
+                    if line.contains("encrypted:") {
+                        let parts: Vec<&str> = line.splitn(2, "encrypted:").collect();
+                        let parts2 = parts[1];
+                        let values: Vec<&str> = parts2
+                            .splitn(2, [' ', '\'', '"', '<', '>'].as_slice())
+                            .collect();
+                        print!("{}", parts[0]);
+                        let encrypted_value = values[0];
+                        if let Ok(decrypted_value) =
+                            decrypt_env_item(&private_key, &format!("{encrypted_value}"))
+                        {
+                            print!("{decrypted_value}");
+                        }
+                        if values.len() > 1 {
+                            eprint!("{}", values[1]);
+                        }
+                        println!();
+                    } else {
+                        println!("{line}");
+                    }
+                })
+            } else {
+                eprintln!("Failed to read the text file: {text_file_path}");
+            }
+        } else {
+            eprintln!("Failed to get private key for the public key: {public_key}");
+        }
+    } else {
+        eprintln!("Failed to get public key from the text file: {text_file_path}");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn test_decrypt_dotenv() {
         let entries = super::decrypt_env_entries(".env").unwrap();
         println!("{entries:?}");
+    }
+
+    #[test]
+    fn decrypt_text_file() {
+        super::decrypt_normal_text_file("tests/demo.xml");
     }
 }
