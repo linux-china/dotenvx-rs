@@ -34,10 +34,10 @@ pub mod verify;
 pub mod cloud;
 pub mod completion;
 pub mod doctor;
+pub mod dotenvx_cloud;
 pub mod framework;
 pub mod link;
 pub mod linter;
-pub mod dotenvx_cloud;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
@@ -260,6 +260,34 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
     let private_key_hex = get_private_key(profile_name)?;
     let kp = EcKeyPair::from_secret_key(&private_key_hex);
     Ok(kp.get_pk_hex())
+}
+
+pub fn get_public_key_from_text_file(file_path: &str) -> Option<String> {
+    if Path::new(file_path).exists() {
+        if let Ok(content) = fs::read_to_string(file_path) {
+            return content.lines().find_map(|line| {
+                let line = line.trim();
+                if line.contains("dotenv.public.key") || line.contains("DOTENV_PUBLIC_KEY") {
+                    println!("line: {line}");
+                    line.split('=')
+                        .nth(1)
+                        .map(|s| s.trim().to_string())
+                        .map(|s| {
+                            if s.contains(' ') {
+                                s.split(' ').next().unwrap().trim().to_string()
+                            } else if s.contains('-') {
+                                s.split('-').next().unwrap().trim().to_string()
+                            } else {
+                                s.to_string()
+                            }
+                        })
+                } else {
+                    None
+                }
+            });
+        }
+    }
+    None
 }
 
 pub fn create_env_file<P: AsRef<Path>>(
@@ -762,5 +790,12 @@ mod tests {
         let env_file = "/Users/linux_china/.dotenvx/.env.g_default";
         let public_key = get_public_key_for_file(env_file);
         println!("public key: {}", public_key.unwrap());
+    }
+
+    #[test]
+    fn test_get_public_key_from_xml() {
+        let file_path = "demo.xml";
+        let public_key = get_public_key_from_text_file(file_path).unwrap();
+        println!("public key: {public_key}");
     }
 }
