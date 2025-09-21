@@ -187,17 +187,15 @@ fn decrypt_normal_text_file(text_file_path: &str) {
                         let values: Vec<&str> = parts2
                             .splitn(2, [' ', '\'', '"', '<', '>'].as_slice())
                             .collect();
-                        print!("{}", parts[0]);
                         let encrypted_value = values[0];
-                        if let Ok(decrypted_value) =
-                            decrypt_env_item(&private_key, &format!("{encrypted_value}"))
-                        {
-                            print!("{decrypted_value}");
+                        if let Ok(plain_value) = decrypt_env_item(&private_key, encrypted_value) {
+                            println!(
+                                "{}",
+                                line.replace(&format!("encrypted:{encrypted_value}"), &plain_value)
+                            );
+                        } else {
+                            println!("{line}")
                         }
-                        if values.len() > 1 {
-                            eprint!("{}", values[1]);
-                        }
-                        println!();
                     } else {
                         println!("{line}");
                     }
