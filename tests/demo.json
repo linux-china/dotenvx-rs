@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "metadata": {
+    "id": "demo",
+    "dotenv.public.key": "02e8d78f0da7fc3b529d503edd933ed8cdc79dbe5fd5d9bd480f1e63a09905f3b3",
+    "demo": true
+  },
+  "data": {
+    "password": "encrypted:BODKXo7WSG+NZsaRnZULGhPjud7iZNMowVUpKvnsftpUW8C81YhvhM1MWIOX8stEXfJHFV19GB2oM7KOpSJTkpxDlNpwvRCyHCp+r5DmD/uUe3n3ZpGm2BnUUxWGgXpbTML7BLRFYg=="
+  }
+}
