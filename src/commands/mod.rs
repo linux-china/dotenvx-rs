@@ -265,25 +265,57 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
 pub fn get_public_key_from_text_file(file_path: &str) -> Option<String> {
     if Path::new(file_path).exists() {
         if let Ok(content) = fs::read_to_string(file_path) {
-            return content.lines().find_map(|line| {
+            // extract the public key by text parsing
+            for line in content.lines() {
                 let line = line.trim();
                 if line.contains("dotenv.public.key") || line.contains("DOTENV_PUBLIC_KEY") {
-                    line.split(['=', ':', '：'])
+                    let result = line
+                        .split(['=', ':', '：'])
                         .nth(1)
                         .map(|s| s.trim().to_string())
                         .map(|s| {
-                            if s.contains(' ') {
-                                s.split(' ').next().unwrap().trim().to_string()
-                            } else if s.contains('-') {
-                                s.split('-').next().unwrap().trim().to_string()
-                            } else {
-                                s.to_string()
-                            }
+                            s.split([',', ';', '}', ']', ')', ' ', '-', '_'])
+                                .next()
+                                .unwrap()
+                                .trim()
+                                .to_string()
                         })
-                } else {
-                    None
+                        .map(|s| s.trim_matches(['"', '\'']).to_string())
+                        .filter(|s| s.len() == 66);
+                    if result.is_some() {
+                        return result;
+                    }
                 }
-            });
+            }
+            if file_path.ends_with(".json") {
+                if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Ok(pretty_json_text) = serde_json::to_string_pretty(&json_value) {
+                        for line in pretty_json_text.lines() {
+                            let line = line.trim();
+                            if line.contains("dotenv.public.key")
+                                || line.contains("DOTENV_PUBLIC_KEY")
+                            {
+                                let result = line
+                                    .split([':'])
+                                    .nth(1)
+                                    .map(|s| s.trim().to_string())
+                                    .map(|s| {
+                                        s.split([',', ';', '}', ']', ')', ' ', '-', '_'])
+                                            .next()
+                                            .unwrap()
+                                            .trim()
+                                            .to_string()
+                                    })
+                                    .map(|s| s.trim_matches(['"', '\'']).to_string())
+                                    .filter(|s| s.len() == 66);
+                                if result.is_some() {
+                                    return result;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     None
@@ -794,6 +826,13 @@ mod tests {
     #[test]
     fn test_get_public_key_from_xml() {
         let file_path = "tests/demo.xml";
+        let public_key = get_public_key_from_text_file(file_path).unwrap();
+        println!("public key: {public_key}");
+    }
+
+    #[test]
+    fn test_get_public_key_from_json() {
+        let file_path = "tests/demo.json";
         let public_key = get_public_key_from_text_file(file_path).unwrap();
         println!("public key: {public_key}");
     }
