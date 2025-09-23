@@ -8,6 +8,25 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.24] - 2025-09-24
+
+### Added
+
+- Enhance json support:
+    * jsonc: `// dotenv.public.key: xxxxx`
+    * json: a key named `dotenv.public.key` with string value, no matter where it is.
+
+```json
+{
+  "metadata": {
+    "dotenv.public.key": "02e8d78f0da7fc3b529d503edd933ed8cd"
+  },
+  "data": {
+    "password": "encrypted:BODKXo7WSG++r5DmD/uUe3n3ZpGm2BnUUxWGgXpbTML7BLRFYg=="
+  }
+}
+```
+
 ## [0.4.23] - 2025-09-23
 
 ### Added
@@ -17,7 +36,7 @@
 ```xml
 <!-- dotenv.public.key: 02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0 -->
 <config>
-  <password>encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEF</password>
+    <password>encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEF</password>
 </config>
 ```
 
