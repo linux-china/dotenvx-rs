@@ -53,11 +53,20 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
         let mut child = command
             .spawn()
             .expect("DOTENV-CMD-500: failed to run command");
-        child
-            .wait()
-            .expect("DOTENV-CMD-500: failed to run command")
-            .code()
-            .unwrap()
+        let status = child.wait().expect("DOTENV-CMD-500: failed to run command");
+        if let Some(code) = status.code() {
+            code
+        } else {
+            // On Unix, process was terminated by signal
+            #[cfg(unix)]
+            {
+                use std::os::unix::process::ExitStatusExt;
+                if let Some(signal) = status.signal() {
+                    std::process::exit(128 + signal);
+                }
+            }
+            1
+        }
     } else {
         eprintln!("Command not found: {command_name}");
         127
