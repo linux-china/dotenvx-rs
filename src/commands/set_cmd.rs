@@ -1,9 +1,6 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::framework::detect_framework;
-use crate::commands::{
-    adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file,
-    update_env_file,
-};
+use crate::commands::{adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file, is_sensitive_key, update_env_file};
 use arboard::Clipboard;
 use clap::ArgMatches;
 use lazy_static::lazy_static;
@@ -61,7 +58,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
     let env_file_exists = Path::new(&env_file).exists();
     // encrypt the value or not based on the existing .env file content
-    let mut encrypt_mode = true;
+    let mut encrypt_mode = is_sensitive_key(&key);
     let mut env_file_content = String::new();
     if env_file_exists {
         if let Ok(file_content) = fs::read_to_string(&env_file) {
