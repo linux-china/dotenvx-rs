@@ -8,6 +8,15 @@
 
 - Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
 
+## [0.4.25] - 2025-10-07
+
+### Added
+
+- Add key-value from stdin for set sub command: `dotenvx set`
+- Auto encrypt value by key name pattern:  `PASSWORD`, `SECRET`, `TOKEN`, `KEY`, `PRIVATE`, `CREDENTIAL`
+- Add `dotenvx sync` to sync variables between .env files: for example to create `.env` file from example
+  `dotenvx sync .env.example .env`
+
 ## [0.4.24] - 2025-09-24
 
 ### Added
