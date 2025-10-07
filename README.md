@@ -255,7 +255,8 @@ The above env variables will be detected and convert to `CREATE SECRET http_secr
 Use `dotenvx link bin/duckdb` to create a symbolic link for `duckdb` command, and then run `./bin/duckdb` to start
 duckdb with secrets support.
 
-You can attach [encrypt-database introduced by DuckDB 1.4.0](https://duckdb.org/2025/09/16/announcing-duckdb-140.html#database-encryption)
+You can
+attach [encrypt-database introduced by DuckDB 1.4.0](https://duckdb.org/2025/09/16/announcing-duckdb-140.html#database-encryption)
 with the following env variables:
 
 ```shell
@@ -348,6 +349,14 @@ jobs:
 
 If you use [act](https://github.com/nektos/act) for local GitHub Actions test, please use
 `act -j dotenvx-demo --secret-file .env.keys`.
+
+### How to create new `.env` file from `.env.example` file?
+
+Some applications use `.env.example` file to describe the environment variables, and you should create a new
+`.env` file from `.env.example` file for local development.
+
+Now you can use `dotenvx sync .env.example .env` command will create a new `.env` file from `.env.example` file,
+and the new `.env` file will have the same keys as `.env.example` file with new public key and metadata section.
 
 ### How to generate shell completion
 
