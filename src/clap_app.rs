@@ -312,7 +312,7 @@ pub fn build_dotenvx_app() -> Command {
                 .required(false),
         );
     let sync_command = Command::new("sync")
-        .about("Sync variables between two .env files")
+        .about("Sync variables between .env files")
         .arg(
             Arg::new("source")
                 .help("source .env file")
