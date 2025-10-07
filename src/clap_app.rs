@@ -300,7 +300,7 @@ pub fn build_dotenvx_app() -> Command {
         .about("Display keys' values between all .env files")
         .arg(
             Arg::new("keys")
-                .help("key names, seperated by comma, such as 'key1,key2'")
+                .help("key names, separated by comma, such as 'key1,key2'")
                 .index(1)
                 .required(true),
         )
@@ -310,6 +310,20 @@ pub fn build_dotenvx_app() -> Command {
                 .help("format of the output (text, csv) (default: text)")
                 .num_args(1)
                 .required(false),
+        );
+    let sync_command = Command::new("sync")
+        .about("Sync variables between two .env files")
+        .arg(
+            Arg::new("source")
+                .help("source .env file")
+                .index(1)
+                .required(true),
+        )
+        .arg(
+            Arg::new("target")
+                .help("target .env file")
+                .index(2)
+                .required(true),
         );
     let completion_command = Command::new("completion")
         .about("Output auto-completion script for bash/zsh/fish/powershell")
@@ -391,6 +405,7 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(ls_command)
         .subcommand(link_command)
         .subcommand(rotate_command)
+        .subcommand(sync_command)
         .subcommand(diff_command)
         //.subcommand(linter_command)
         .subcommand(doctor_command)
