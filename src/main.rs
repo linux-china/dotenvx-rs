@@ -15,6 +15,7 @@ use crate::commands::list::ls_command;
 use crate::commands::rotate::rotate_command;
 use crate::commands::run::{run_command, run_command_line};
 use crate::commands::set_cmd::set_command;
+use crate::commands::sync::sync_command;
 use crate::commands::verify::verify_command;
 use crate::shims::{is_shim_command, run_shim};
 use clap::ArgMatches;
@@ -102,6 +103,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "link" => link_command(command_matches, &command_name),
             "get" => get_command(command_matches, &profile),
             "set" => set_command(command_matches, &profile),
+            "sync" => sync_command(command_matches),
             "diff" => diff_command(command_matches),
             "rotate" => rotate_command(command_matches, &profile),
             "lint" => linter_command(command_matches),

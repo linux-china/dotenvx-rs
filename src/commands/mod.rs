@@ -38,6 +38,7 @@ pub mod dotenvx_cloud;
 pub mod framework;
 pub mod link;
 pub mod linter;
+pub mod sync;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
