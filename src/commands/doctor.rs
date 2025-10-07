@@ -1,4 +1,4 @@
-use crate::commands::list_env_files;
+use crate::commands::{is_sensitive_key, list_env_files};
 use clap::ArgMatches;
 use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_file;
@@ -79,21 +79,4 @@ pub fn doctor_command(_: &ArgMatches) {
     println!();
     println!("Run linter now...");
     //lint().unwrap();
-}
-
-fn is_sensitive_key(key_name: &str) -> bool {
-    let encrypted_patterns = [
-        "PASSWORD",
-        "SECRET",
-        "TOKEN",
-        "KEY",
-        "PRIVATE",
-        "CREDENTIAL",
-    ];
-    for encrypted_pattern in encrypted_patterns {
-        if key_name.contains(encrypted_pattern) {
-            return true;
-        }
-    }
-    false
 }

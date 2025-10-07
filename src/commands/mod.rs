@@ -45,6 +45,23 @@ pub fn get_dotenvx_home() -> PathBuf {
     dirs::home_dir().unwrap().join(".dotenvx")
 }
 
+pub fn is_sensitive_key(key_name: &str) -> bool {
+    let encrypted_patterns = [
+        "PASSWORD",
+        "SECRET",
+        "TOKEN",
+        "KEY",
+        "PRIVATE",
+        "CREDENTIAL",
+    ];
+    for encrypted_pattern in encrypted_patterns {
+        if key_name.contains(encrypted_pattern) {
+            return true;
+        }
+    }
+    false
+}
+
 pub fn find_private_key_from_home(public_key_hex: &str) -> Option<String> {
     if let Ok(key_store) = DotenvxKeyStore::load_global() {
         key_store.find_private_key(public_key_hex);
