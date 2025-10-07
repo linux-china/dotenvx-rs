@@ -1,6 +1,9 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::framework::detect_framework;
-use crate::commands::{adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file, is_sensitive_key, update_env_file};
+use crate::commands::{
+    adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file,
+    is_sensitive_key, update_env_file,
+};
 use arboard::Clipboard;
 use clap::ArgMatches;
 use lazy_static::lazy_static;
@@ -14,48 +17,65 @@ lazy_static! {
 }
 
 pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
-    let key_arg = command_matches.get_one::<String>("key").map(|s| s.as_str());
     let mut env_file = get_env_file_arg(command_matches, profile);
-    let value_arg = command_matches
-        .get_one::<String>("value")
-        .map(|s| s.as_str());
-    let key = adjust_env_key(key_arg.unwrap(), &env_file);
+    let mut key_arg = command_matches
+        .get_one::<String>("key")
+        .map(|s| s.to_string());
+    let mut key_value: Option<String> = None;
+    if key_arg.is_none() {
+        // read key and value from prompt
+        println!("Please provide the key and value to set.");
+        key_arg = rprompt::prompt_reply("Key: ").ok();
+        let value = rpassword::prompt_password("Value: ").unwrap();
+        if value.is_empty() {
+            eprintln!("Error: Value cannot be empty, please provide a value.");
+            return;
+        }
+        key_value = Some(value);
+    } else {
+        let value_arg = command_matches
+            .get_one::<String>("value")
+            .map(|s| s.as_str());
+        let mut value = value_arg.unwrap_or_default().to_string();
+        // read from stdin if value is "-"
+        if value == "-" {
+            // Create a new String to store the piped input
+            let mut input = String::new();
+            // Read all data from stdin
+            io::stdin()
+                .read_to_string(&mut input)
+                .expect("Failed to read from stdin");
+            // Trim the input to remove any leading/trailing whitespace
+            value = input.trim_end().to_string();
+            if value.is_empty() {
+                eprintln!("Error: value cannot be empty when reading from stdin.");
+                return;
+            }
+        } else if command_matches.get_flag("clipboard") {
+            if let Ok(mut clipboard) = Clipboard::new() {
+                if let Ok(clipboard_text) = clipboard.get_text() {
+                    value = clipboard_text.trim().to_string();
+                    clipboard.clear().unwrap();
+                } else {
+                    eprintln!("Failed to read from clipboard.");
+                    std::process::exit(1);
+                }
+            }
+        }
+        if value.is_empty() {
+            eprintln!("Error: Value cannot be empty, please provide a value.");
+            return;
+        }
+        key_value = Some(value);
+    }
+    let key = adjust_env_key(&key_arg.unwrap(), &env_file);
     if !validate_key_name(&key, &env_file) {
         eprintln!(
             "Invalid key name: '{key}'. Key names must start with a letter or underscore and can only contain letters, numbers, and underscores."
         );
         return;
     }
-    let mut value = value_arg.unwrap_or_default().to_string();
-    // read from stdin if value is "-"
-    if value == "-" {
-        // Create a new String to store the piped input
-        let mut input = String::new();
-        // Read all data from stdin
-        io::stdin()
-            .read_to_string(&mut input)
-            .expect("Failed to read from stdin");
-        // Trim the input to remove any leading/trailing whitespace
-        value = input.trim_end().to_string();
-        if value.is_empty() {
-            eprintln!("Error: value cannot be empty when reading from stdin.");
-            return;
-        }
-    } else if command_matches.get_flag("clipboard") {
-        if let Ok(mut clipboard) = Clipboard::new() {
-            if let Ok(clipboard_text) = clipboard.get_text() {
-                value = clipboard_text.trim().to_string();
-                clipboard.clear().unwrap();
-            } else {
-                eprintln!("Failed to read from clipboard.");
-                std::process::exit(1);
-            }
-        }
-    }
-    if value.is_empty() {
-        eprintln!("Error: Value cannot be empty, please provide a value.");
-        return;
-    }
+    let value = key_value.unwrap();
     let env_file_exists = Path::new(&env_file).exists();
     // encrypt the value or not based on the existing .env file content
     let mut encrypt_mode = is_sensitive_key(&key);
