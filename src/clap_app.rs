@@ -85,7 +85,7 @@ pub fn build_dotenvx_app() -> Command {
                 .help("Send encrypted value to stdout")
                 .action(ArgAction::SetTrue),
         )
-        .arg(Arg::new("key").help("key's name").index(1).required(true))
+        .arg(Arg::new("key").help("key's name").index(1).required(false))
         .arg(
             Arg::new("value")
                 .help("Value")
