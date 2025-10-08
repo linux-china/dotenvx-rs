@@ -446,7 +446,7 @@ pub fn construct_env_file_header(
 # Environment variables. MAKE SURE to ENCRYPT them before committing to source control
 "#,
         &env_file_uuid,
-        name.clone().unwrap_or("project_ame".to_owned()),
+        name.clone().unwrap_or("project_name".to_owned()),
         group.clone().unwrap_or("group_name".to_owned()),
         &env_pub_key_name,
         public_key
