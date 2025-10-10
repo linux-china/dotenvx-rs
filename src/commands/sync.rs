@@ -24,7 +24,7 @@ pub fn sync_command(command_matches: &ArgMatches) {
     let profile = get_profile_name_from_file(&target);
     let target_file_path = Path::new(&target);
     let source_file_exists = Path::new(&source).exists();
-    if (!source_file_exists) {
+    if !source_file_exists {
         // create source file if it does not exist
         eprintln!("Source file '{source}' does not exist.");
         std::process::exit(1);
