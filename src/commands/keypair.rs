@@ -22,6 +22,7 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     } else if let Some(public_key) = command_matches.get_one::<String>("public-key") {
         let all_pairs = find_all_keys();
         if let Some(key_pair) = all_pairs.get(public_key) {
+            println!("export DOTENV_PUBLIC_KEY={}", key_pair.public_key);
             println!("export DOTENV_PRIVATE_KEY={}", key_pair.private_key);
         } else {
             eprintln!("No key pair found for public key: {public_key}");
