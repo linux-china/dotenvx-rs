@@ -212,6 +212,12 @@ pub fn build_dotenvx_app() -> Command {
                 .long("dump")
                 .help("Dump public key to .env file and private key to .env.keys in current directory")
                 .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("public-key")
+                .help("Display the key pair for the given public key")
+                .index(1)
+                .required(false),
         );
     let ls_command = Command::new("ls")
         .about("print all .env files in a tree structure")
