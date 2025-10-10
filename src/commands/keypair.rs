@@ -19,7 +19,17 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     } else if command_matches.get_flag("all") {
         list_all_pairs();
         return;
+    } else if let Some(public_key) = command_matches.get_one::<String>("public-key") {
+        let all_pairs = find_all_keys();
+        if let Some(key_pair) = all_pairs.get(public_key) {
+            println!("export DOTENV_PRIVATE_KEY={}", key_pair.private_key);
+        } else {
+            eprintln!("No key pair found for public key: {public_key}");
+            std::process::exit(1);
+        }
+        return;
     }
+    // list key pair based on public key
     let env_file = get_env_file_arg(command_matches, profile);
     let format = if let Some(arg_value) = command_matches.get_one::<String>("format") {
         arg_value.clone()
