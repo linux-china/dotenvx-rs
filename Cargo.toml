@@ -54,7 +54,7 @@ colored_json = "5"
 #dotenv-linter = { git = "https://github.com/dotenv-linter/dotenv-linter.git", package = "dotenv-linter" }
 # misc
 chrono = { version = "0.4.42", features = ["serde"] }
-regex = "1.11.3"
+regex = "1.12"
 lazy_static = "1.5.0"
 anyhow = "1.0.100"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
