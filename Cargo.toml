@@ -20,7 +20,7 @@ path = "src/main.rs"
 [dependencies]
 ## core and encryption
 dotenvy = "0.15.7"
-ecies = { version = "0.2", default-features = false, features = ["std", "aes-rust"] }
+ecies = { version = "0.2.10", default-features = false, features = ["std", "aes-rust"] }
 libsecp256k1 = { version = "0.7.2", default-features = false, features = ["static-context", "hmac", "sha2"] }
 sha2 = "0.10"
 aes-gcm = "0.10.3"
