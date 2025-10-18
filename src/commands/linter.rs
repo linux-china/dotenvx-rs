@@ -1,22 +1,28 @@
 use clap::ArgMatches;
+use std::path::PathBuf;
 
 pub fn linter_command(_: &ArgMatches) {
     lint().unwrap();
 }
 
 pub fn lint() -> anyhow::Result<()> {
-    // use dotenv_linter::cli::options::CheckOptions;
-    // use dotenv_linter::{check, cli};
-    // let args_vec = vec![
-    //     "dotenv-linter",
-    //     "--skip",
-    //     "UnorderedKey",
-    //     "--exclude",
-    //     ".env.keys",
-    // ];
-    // let current_dir = std::env::current_dir()?;
-    // let matches = cli::command().try_get_matches_from(args_vec)?;
-    // let options = CheckOptions::new(&matches);
-    // check(&options, &current_dir).unwrap();
+    use dotenv_analyzer::LintKind;
+    use dotenv_linter::CheckOptions;
+    use dotenv_linter::check;
+    let current_dir = std::env::current_dir()?;
+    let mut excludes: Vec<&PathBuf> = vec![];
+    let env_keys_file = current_dir.join(".env.keys");
+    if env_keys_file.exists() {
+        excludes.push(&env_keys_file);
+    }
+    let options = CheckOptions {
+        files: vec![&current_dir],
+        ignore_checks: vec![LintKind::UnorderedKey],
+        exclude: excludes,
+        quiet: false,
+        recursive: false,
+        schema: None,
+    };
+    check(&options, &current_dir).unwrap();
     Ok(())
 }
