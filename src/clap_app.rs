@@ -1,6 +1,6 @@
 use clap::{Arg, ArgAction, Command};
 
-pub const VERSION: &str = "0.4.25";
+pub const VERSION: &str = "0.4.26";
 
 pub fn build_dotenvx_app() -> Command {
     let run_command = Command::new("run")
@@ -413,7 +413,7 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(rotate_command)
         .subcommand(sync_command)
         .subcommand(diff_command)
-        //.subcommand(linter_command)
+        .subcommand(linter_command)
         .subcommand(doctor_command)
         .subcommand(completion_command)
     //.subcommand(cloud_command)
