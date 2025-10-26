@@ -46,14 +46,13 @@ with some differences:
   directory.
 - Spring Boot support: dotenvx CLI can read `application.properties` and spring profile.
 - Global `--profile` as first citizen to make it easy to manage different environments
-- More smaller features
+- More smaller features: lint, diff etc.
 - No ext sub command
 
 ### Migrated to dotenvx CLI
 
 If you have .env files already, you just run `dotenvx init`, and dotenvx CLI will create `.env` file with Dotenvx
-format,
-and save the private key to `$HOME/.dotenvx/.env.keys.json` file.
+format, and save the private key to `$HOME/.dotenvx/.env.keys.json` file.
 
 # .env file specification
 
@@ -71,7 +70,8 @@ Example as following:
 DOTENV_PUBLIC_KEY="02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0"
 
 # Environment variables. MAKE SURE to ENCRYPT them before committing to source control
-HELLO=encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7
+# @example="jdbc:mysql://localhost:3306/test"
+JDBC_URL=encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7
 ```
 
 Explanation:
@@ -80,7 +80,8 @@ Explanation:
 - .env file UUID: a unique identifier for the .env file, used to track changes and versions
 - sign: a signature for the .env file, used to verify the integrity of the file and make sure the file is not tampered
 - DOTENV_PUBLIC_KEY: the public key used to encrypt data and verify the signature
-- Environment variables: the encrypted environment variables, starts with `encrypted:` prefix
+- Environment variables: the encrypted environment variables, starts with `encrypted:` prefix. 
+- [env.spec](https://github.com/dmno-dev/varlock/discussions/17): you can add comments and annotations for variables alike JSDOC.
 
 In metadata section, you can add any key-value pairs to describe the .env file, such as `name`, `group`, etc.
 
