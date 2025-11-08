@@ -33,6 +33,7 @@ fn run_command_with_dotenvx(
     env_file: &str,
 ) -> i32 {
     dotenvx::from_path(env_file).unwrap();
+    add_env_alias();
     command_args.iter_mut().for_each(|arg| {
         if arg.starts_with('$') {
             let env_var_name = if arg.starts_with("${") {
@@ -77,4 +78,12 @@ pub fn construct_command(command_name: &str, args: &[String]) -> Command {
         command.arg(arg);
     }
     command
+}
+
+pub fn add_env_alias() {
+    if let Ok(nats_url) = env::var("NATS_SERVER") {
+        unsafe {
+            env::set_var("NATS_URL", nats_url);
+        }
+    }
 }
