@@ -387,3 +387,4 @@ plugins=(dotenvx ...)
 
 * Practical Cryptography for Developers: https://cryptobook.nakov.com/
 * Command Line Interface Guidelines: https://clig.dev/
+* [GoFr Config](https://gofr.dev/docs/references/configs): GoFr Configuration Options
