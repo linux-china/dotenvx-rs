@@ -9,6 +9,7 @@ release:
     ls -ls target/release/dotenvx
     ls -ls target/release/mkey
     cp target/release/dotenvx ~/bin/dotenvx
+    cp target/release/dotenvx ~/.cargo/bin/dotenvx
     cp target/release/mkey ~/bin/mkey
 
 cli-help:
