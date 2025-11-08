@@ -4,16 +4,18 @@
 
 ## [Unreleased]
 
-### Added
+## [0.4.27] - 2025-11-08
 
-- Add dotenv linter `dotenvx lint` to check the .env files in the current directory.
+### Fixed
+
+- Use `PGPASSWORD` environment variable for `psql` shim to avoid password prompt
 
 ## [0.4.26] - 2025-10-19
 
 ### Added
 
 - Add lint support by dotenv-linter 4.0: `dotenvx lint`
-- Display key pair by public key: `dotenvx kp <public_key>` 
+- Display key pair by public key: `dotenvx kp <public_key>`
 
 ## [0.4.25] - 2025-10-07
 
