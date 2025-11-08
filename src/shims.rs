@@ -175,6 +175,13 @@ fn inject_spring_boot(profile: &Option<String>) {
             }
         }
     }
+    if let Some(nats_url) = all_entries.get("nats.spring.server") {
+        if !nats_url.is_empty() {
+            unsafe {
+                env::set_var("NATS_URL", nats_url);
+            }
+        }
+    }
     if let Some(mongo_uri) = all_entries.get("spring.data.mongodb.uri") {
         if !mongo_uri.is_empty() {
             unsafe {
