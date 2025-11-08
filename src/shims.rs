@@ -286,7 +286,7 @@ fn get_psql_args() -> Vec<String> {
                 } else if let Ok(db_password) = env::var("DB_PASSWORD") {
                     // args.push(format!("--password={db_password}"));
                     unsafe {
-                        env::set_var("PGPASSWORD", password);
+                        env::set_var("PGPASSWORD", db_password);
                     }
                 }
                 let db_name = parsed_url.path().trim_start_matches('/');
