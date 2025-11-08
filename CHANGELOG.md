@@ -9,6 +9,7 @@
 ### Fixed
 
 - Use `PGPASSWORD` environment variable for `psql` shim to avoid password prompt
+- Add `nats.spring.server` support for `nats` shim
 
 ## [0.4.26] - 2025-10-19
 
