@@ -182,6 +182,48 @@ fn inject_spring_boot(profile: &Option<String>) {
             }
         }
     }
+    if let Some(redis_url) = all_entries.get("spring.data.redis_url") {
+        if !redis_url.is_empty() {
+            unsafe {
+                env::set_var("REDIS_URL", redis_url);
+            }
+        }
+    }else if let Some(redis_host) = all_entries.get("spring.data.redis_host") {
+        let redis_port = "6379".to_string();
+        let redis_port = all_entries
+            .get("spring.data.redis_port")
+            .unwrap_or(&redis_port);
+        let redis_db = "0".to_string();
+        let redis_db = all_entries
+            .get("spring.data.redis_database")
+            .unwrap_or(&redis_db);
+        let schema = "redis".to_string();
+        let schema = if let Some(redis_ssl) = all_entries.get("spring.data.redis.ssl.enabled") {
+            if redis_ssl == "true" {
+                "rediss".to_string()
+            } else {
+                schema
+            }
+        } else {
+            schema
+        };
+        let redis_user = all_entries.get("spring.data.redis.username");
+        let redis_password = all_entries.get("spring.data.redis.password");
+        let redis_url = if let Some(redis_user) = redis_user {
+            if let Some(redis_password) = redis_password {
+                format!(
+                    "{schema}://{redis_user}:{redis_password}@{redis_host}:{redis_port}/{redis_db}"
+                )
+            } else {
+                format!("{schema}://{redis_user}@{redis_host}:{redis_port}/{redis_db}")
+            }
+        } else {
+            format!("{schema}://{redis_host}:{redis_port}/{redis_db}")
+        };
+        unsafe {
+            env::set_var("REDIS_URL", redis_url);
+        }
+    }
     if let Some(mongo_uri) = all_entries.get("spring.data.mongodb.uri") {
         if !mongo_uri.is_empty() {
             unsafe {
