@@ -11,8 +11,14 @@ pub fn detect_framework() -> Option<String> {
                 None
             };
         }
-    } else if current_dir.join("build.gradle").exists() {
-        if let Ok(file_content) = fs::read_to_string("build.gradle") {
+    } else if current_dir.join("build.gradle").exists() || current_dir.join("build.gradle.kts").exists() {
+        let gradle_file = if current_dir.join("build.gradle").exists() {
+            "build.gradle"
+        } else {
+            "build.gradle.kts"
+        };
+
+        if let Ok(file_content) = fs::read_to_string(gradle_file) {
             return if file_content.contains("org.springframework.boot") {
                 Some("spring-boot".to_string())
             } else {
