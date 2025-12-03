@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.4.28] - 2025-12-05
+
+### Added
+
+- Add metadata support for private key: `12a457f{metadata}`
+
 ## [0.4.27] - 2025-11-08
 
 ### Fixed
