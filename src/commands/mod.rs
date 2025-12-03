@@ -204,12 +204,12 @@ pub fn get_private_key(
         HashMap::new()
     };
     // read from .env.keys file
-    if let Some(val) = key_entries.get(&env_key_name) {
-        return Ok(val.trim_matches('"').to_owned());
+    if let Some(private_key) = key_entries.get(&env_key_name) {
+        return Ok(trim_private_key(private_key.trim_matches('"').to_owned()));
     }
     // read from environment variables
     if let Ok(private_key) = env::var(&env_key_name) {
-        return Ok(private_key);
+        return Ok(trim_private_key(private_key));
     }
     // create a new private key if not found
     let key_pair = EcKeyPair::generate();
@@ -223,7 +223,15 @@ pub fn get_private_key(
         let file_path = PathBuf::from(KEYS_FILE_NAME);
         write_private_key_to_file(&file_path, &env_key_name, &key_pair)?;
     }
-    Ok(private_key_hex)
+    Ok(trim_private_key(private_key_hex))
+}
+
+fn trim_private_key(private_key_hex: String) -> String {
+    if private_key_hex.contains("{") {
+        private_key_hex[0..private_key_hex.find('{').unwrap()].to_string()
+    } else {
+        private_key_hex
+    }
 }
 
 pub fn get_public_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
