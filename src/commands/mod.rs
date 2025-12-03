@@ -65,7 +65,7 @@ pub fn is_sensitive_key(key_name: &str) -> bool {
 
 pub fn find_private_key_from_home(public_key_hex: &str) -> Option<String> {
     if let Ok(key_store) = DotenvxKeyStore::load_global() {
-        key_store.find_private_key(public_key_hex);
+        return key_store.find_private_key(public_key_hex);
     }
     None
 }
@@ -181,7 +181,7 @@ pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::e
     if !public_key.is_empty()
         && let Some(private_key) = find_private_key_from_home(&public_key)
     {
-        return Ok(private_key);
+        return Ok(trim_private_key(private_key));
     }
     let profile_name = get_profile_name_from_file(env_file);
     get_private_key(&profile_name)
@@ -861,5 +861,13 @@ mod tests {
         let file_path = "tests/demo.json";
         let public_key = get_public_key_from_text_file(file_path).unwrap();
         println!("public key: {public_key}");
+    }
+
+    #[test]
+    fn tes_find_private_key() {
+        let private_key = find_private_key_from_home(
+            "028d59ff8bc98e7bfb7d7a0a6f511a653907cd3135db9ead01f293bcb7beb3ecd3",
+        );
+        println!("private key: {private_key:?}")
     }
 }
