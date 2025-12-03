@@ -322,7 +322,7 @@ impl DotenvxKeyStore {
 
     pub fn find_private_key(&self, public_key: &str) -> Option<String> {
         if let Some(key_pair) = self.keys.get(public_key) {
-            return Some(key_pair.private_key.clone());
+            return Some(trim_private_key(key_pair.private_key.clone()));
         }
         None
     }
@@ -335,7 +335,7 @@ pub fn get_private_key(
     if let Some(public_key_hex) = public_key {
         if let Ok(global_store) = DotenvxKeyStore::load_global() {
             if let Some(private_key) = global_store.find_private_key(public_key_hex) {
-                return Ok(private_key);
+                return Ok(trim_private_key(private_key));
             }
         }
     }
@@ -345,7 +345,7 @@ pub fn get_private_key(
         "DOTENV_PRIVATE_KEY".to_string()
     };
     if let Ok(private_key) = env::var(&env_key_name) {
-        return Ok(private_key);
+        return Ok(trim_private_key(private_key));
     }
     let env_key_prefix = format!("{env_key_name}=");
     let dotenv_keys_file = if let Some(profile) = profile_name
@@ -363,12 +363,21 @@ pub fn get_private_key(
             .lines()
             .find(|line| line.starts_with(&env_key_prefix))
         {
-            return Ok(dotenv_vault[env_key_prefix.len()..]
+            let private_key = dotenv_vault[env_key_prefix.len()..]
                 .trim_matches('"')
-                .to_owned());
+                .to_owned();
+            return Ok(trim_private_key(private_key));
         }
     }
     Err("Private key not found".into())
+}
+
+fn trim_private_key(private_key_hex: String) -> String {
+    if private_key_hex.contains("{") {
+        private_key_hex[0..private_key_hex.find('{').unwrap()].to_string()
+    } else {
+        private_key_hex
+    }
 }
 
 // if the encrypted text starts with "encrypted:", it will decrypt it
