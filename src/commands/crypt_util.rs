@@ -1,3 +1,4 @@
+use crate::commands::trim_private_key;
 use aes_gcm::aead::OsRng;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
@@ -34,7 +35,7 @@ impl EcKeyPair {
     }
 
     pub fn from_secret_key(sk_hex: &str) -> Self {
-        let sk_bytes = hex::decode(check_sk_hex(sk_hex)).unwrap();
+        let sk_bytes = hex::decode(check_sk_hex(&trim_private_key(sk_hex.to_string()))).unwrap();
         let sk = SecretKey::parse_slice(&sk_bytes).unwrap();
         let pk = PublicKey::from_secret_key(&sk);
         EcKeyPair {
@@ -44,7 +45,7 @@ impl EcKeyPair {
     }
 
     pub fn from_input(sk_hex: &str) -> anyhow::Result<Self> {
-        let sk_bytes = hex::decode(sk_hex)?;
+        let sk_bytes = hex::decode(trim_private_key(sk_hex.to_string()))?;
         let sk =
             SecretKey::parse_slice(&sk_bytes).map_err(|_| anyhow::anyhow!("Invalid secret key"))?;
         let pk = PublicKey::from_secret_key(&sk);
