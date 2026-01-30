@@ -188,7 +188,7 @@ fn inject_spring_boot(profile: &Option<String>) {
                 env::set_var("REDIS_URL", redis_url);
             }
         }
-    }else if let Some(redis_host) = all_entries.get("spring.data.redis_host") {
+    } else if let Some(redis_host) = all_entries.get("spring.data.redis_host") {
         let redis_port = "6379".to_string();
         let redis_port = all_entries
             .get("spring.data.redis_port")
@@ -421,7 +421,7 @@ impl DuckSecret {
                 child_type,
                 variables: HashMap::new(),
             };
-            for (key, value) in env::vars() {
+            for (key, _value) in env::vars() {
                 if key.starts_with(&obj_prefix) && key != child_type_key {
                     let var_key = key.trim_start_matches(&obj_prefix).to_string();
                     db_obj.variables.insert(var_key, value);
@@ -503,7 +503,7 @@ impl DuckSecret {
 fn get_duckdb_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
     let mut obj_names: Vec<String> = Vec::new();
-    for (key, value) in env::vars() {
+    for (key, _value) in env::vars() {
         if key.starts_with("DUCKDB__") {
             if let Some(secret_name) = key.split("__").nth(1) {
                 let name = secret_name.to_string();

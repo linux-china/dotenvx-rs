@@ -341,7 +341,7 @@ pub fn build_dotenvx_app() -> Command {
                 .num_args(1)
                 .required(false),
         );
-    let cloud_command = Command::new("cloud")
+    let _cloud_command = Command::new("cloud")
         .about("Dotenv cloud operations, such as registration, send, sync etc.")
         .subcommand(Command::new("signup").about("Sign up an account on Dotenvx cloud"))
         .subcommand(Command::new("me").about("Display current user info on Dotenvx cloud"))

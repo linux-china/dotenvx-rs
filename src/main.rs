@@ -28,7 +28,7 @@ pub mod commands;
 pub mod shims;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut app = build_dotenvx_app();
+    let app = build_dotenvx_app();
     let mut raw_args: Vec<OsString> = env::args_os().collect();
     // get the command name
     let mut command_name = raw_args[0].clone().to_str().unwrap().to_owned();

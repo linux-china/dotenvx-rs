@@ -114,6 +114,7 @@ impl KeyPair {
     }
 }
 
+#[allow(dead_code)]
 pub struct EnvKeys {
     pub metadata: Option<HashMap<String, String>>,
     pub keys: Option<Vec<String>>,
@@ -175,6 +176,7 @@ impl EnvKeys {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct EnvFile {
     pub name: String,
     pub source: Option<String>,
@@ -264,6 +266,7 @@ impl EnvFile {
     }
 }
 
+#[allow(dead_code)]
 struct ApplicationProperties {
     pub profile: Option<String>,
     pub metadata: HashMap<String, String>,
@@ -326,6 +329,7 @@ fn extract_front_matter(content: &str) -> HashMap<String, String> {
     metadata
 }
 
+#[allow(dead_code)]
 pub fn sign_available(env_file_content: &str) -> bool {
     env_file_content
         .lines()
@@ -342,6 +346,7 @@ pub fn get_signature(env_file_content: &str) -> Option<String> {
     None
 }
 
+#[allow(dead_code)]
 pub fn is_sign_legal(env_file_content: &str, public_key: &str) -> anyhow::Result<bool> {
     if let Some(signature) = get_signature(env_file_content) {
         let message = remove_signature(env_file_content);
@@ -410,6 +415,7 @@ pub fn update_signature(env_file_content: &str, signature: &str) -> String {
 }
 
 impl EnvFile {
+    #[allow(dead_code)]
     pub fn encrypt(
         &self,
         public_key: &str,
@@ -426,6 +432,7 @@ impl EnvFile {
         Ok(encrypted_entries)
     }
 
+    #[allow(dead_code)]
     pub fn decrypt(
         &self,
         private_key: &str,
