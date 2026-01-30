@@ -29,7 +29,7 @@ pub fn cloud_command(command_matches: &ArgMatches) {
     }
 }
 
-pub fn signup_command(command_matches: &ArgMatches) {
+pub fn signup_command(_command_matches: &ArgMatches) {
     let nick = rprompt::prompt_reply("Nick: ").unwrap();
     let email = rprompt::prompt_reply("Email: ").unwrap();
     let phone = rprompt::prompt_reply("Phone: ").unwrap();
@@ -85,7 +85,7 @@ pub fn signup_command(command_matches: &ArgMatches) {
     }
 }
 
-pub fn me_command(command_matches: &ArgMatches) {
+pub fn me_command(_command_matches: &ArgMatches) {
     if let Some(pair) = find_dotenvx_cloud_key_pair() {
         if let Ok(self_info) = dotenvx_cloud::fetch_self_info(&pair.private_key) {
             println!("id: {}", self_info.id);
@@ -102,17 +102,17 @@ pub fn me_command(command_matches: &ArgMatches) {
     }
 }
 
-pub fn send_command(command_matches: &ArgMatches) {
+pub fn send_command(_command_matches: &ArgMatches) {
     // Placeholder for send command logic
     println!("Sending data... (this feature is not implemented yet)");
 }
 
-pub fn sync_command(command_matches: &ArgMatches) {
+pub fn sync_command(_command_matches: &ArgMatches) {
     // Placeholder for sync command logic
     println!("Syncing data... (this feature is not implemented yet)");
 }
 
-pub fn backup_command(command_matches: &ArgMatches) {
+pub fn backup_command(_command_matches: &ArgMatches) {
     // Placeholder for backup command logic
     println!("Backing up data... (this feature is not implemented yet)");
 }

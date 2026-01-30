@@ -21,7 +21,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let mut key_arg = command_matches
         .get_one::<String>("key")
         .map(|s| s.to_string());
-    let mut key_value: Option<String> = None;
+    let key_value: Option<String>;
     if key_arg.is_none() {
         // read key and value from prompt
         println!("Please provide the key and value to set.");

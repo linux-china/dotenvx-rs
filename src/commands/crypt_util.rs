@@ -123,6 +123,7 @@ pub fn sha256(input: &[u8]) -> String {
     hex::encode(result)
 }
 
+#[allow(dead_code)]
 fn get_https_cert_sha256(host: &str, port: u16) -> anyhow::Result<String> {
     let connector = TlsConnector::new()?;
     let stream = TcpStream::connect(format!("{host}:{port}"))?;
@@ -137,7 +138,7 @@ fn get_https_cert_sha256(host: &str, port: u16) -> anyhow::Result<String> {
         Err(HandshakeError::Failure(e)) => {
             return Err(anyhow::anyhow!(e.to_string()));
         }
-        Err(HandshakeError::WouldBlock(e)) => {
+        Err(HandshakeError::WouldBlock(_)) => {
             return Err(anyhow::anyhow!("Failed to get certificate"));
         }
     }
