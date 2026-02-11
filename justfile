@@ -12,6 +12,10 @@ release:
     cp target/release/dotenvx ~/.cargo/bin/dotenvx
     cp target/release/mkey ~/bin/mkey
 
+# use alpine/git container to push the repo
+push:
+   docker run --rm -it -v "$(pwd)":/repo -v "$HOME/.ssh":/root/.ssh:ro -w /repo alpine/git push origin main
+
 cli-help:
     cargo run --bin dotenvx -- --help
 
