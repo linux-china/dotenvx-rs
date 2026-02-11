@@ -421,7 +421,7 @@ impl DuckSecret {
                 child_type,
                 variables: HashMap::new(),
             };
-            for (key, _value) in env::vars() {
+            for (key, value) in env::vars() {
                 if key.starts_with(&obj_prefix) && key != child_type_key {
                     let var_key = key.trim_start_matches(&obj_prefix).to_string();
                     db_obj.variables.insert(var_key, value);
