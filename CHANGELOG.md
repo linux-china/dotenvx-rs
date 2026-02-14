@@ -10,6 +10,7 @@
 ### Added
 
 - Add `DUCKDB__PARQUET__KEYNAME=xxx` for [Parquet Encryption](https://duckdb.org/docs/stable/data/parquet/encryption)
+- Fix rotate command with the correct private key
 
 ## [0.4.28] - 2025-12-05
 
