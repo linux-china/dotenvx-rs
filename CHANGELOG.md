@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+
+## [0.4.29] - 2026-02-14
+
+### Added
+
+- Add `DUCKDB__PARQUET__KEYNAME=xxx` for [Parquet Encryption](https://duckdb.org/docs/stable/data/parquet/encryption)
+
 ## [0.4.28] - 2025-12-05
 
 ### Added
