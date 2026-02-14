@@ -504,6 +504,7 @@ fn get_duckdb_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
     let mut obj_names: Vec<String> = Vec::new();
     let mut misc_sql_sentences: Vec<String> = Vec::new();
+    let mut encrypt_db_included = false;
     for (key, value) in env::vars() {
         if key.starts_with("DUCKDB__PARQUET__") { // https://duckdb.org/docs/stable/data/parquet/encryption
             let parquet_key_name = key
@@ -522,6 +523,7 @@ fn get_duckdb_args() -> Vec<String> {
             misc_sql_sentences.push(format!(
                 "ATTACH '{db_path}' AS '{db_name}' (ENCRYPTION_KEY '{aes_key}');"
             ));
+            encrypt_db_included = true;
         }
         else if key.starts_with("DUCKDB__") {
             if let Some(secret_name) = key.split("__").nth(1) {
@@ -531,6 +533,10 @@ fn get_duckdb_args() -> Vec<String> {
                 }
             }
         }
+    }
+    if encrypt_db_included {
+        // OpenSSL versions are much faster due to hardware acceleration
+        misc_sql_sentences.push("LOAD httpfs;".to_string());
     }
     if !misc_sql_sentences.is_empty() {
         args.push("--cmd".to_string());
