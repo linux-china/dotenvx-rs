@@ -4,6 +4,7 @@ use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::collections::HashMap;
 use std::env;
+use std::ops::Index;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -506,7 +507,8 @@ fn get_duckdb_args() -> Vec<String> {
     let mut misc_sql_sentences: Vec<String> = Vec::new();
     let mut encrypt_db_included = false;
     for (key, value) in env::vars() {
-        if key.starts_with("DUCKDB__PARQUET__") { // https://duckdb.org/docs/stable/data/parquet/encryption
+        if key.starts_with("DUCKDB__PARQUET__") {
+            // https://duckdb.org/docs/stable/data/parquet/encryption
             let parquet_key_name = key
                 .strip_prefix("DUCKDB__PARQUET__")
                 .unwrap()
@@ -514,18 +516,41 @@ fn get_duckdb_args() -> Vec<String> {
             misc_sql_sentences.push(format!(
                 "PRAGMA add_parquet_key('{parquet_key_name}', '{value}');"
             ));
-        } else if key.starts_with("DUCKDB__ENCRYPTED__") { // https://duckdb.org/docs/stable/sql/statements/attach#database-encryption
-            let db_name = key.strip_prefix("DUCKDB__ENCRYPTED__").unwrap().to_lowercase();
+        } else if key.starts_with("DUCKDB__ENCRYPTED__") {
+            // https://duckdb.org/docs/stable/sql/statements/attach#database-encryption
+            let db_name = key
+                .strip_prefix("DUCKDB__ENCRYPTED__")
+                .unwrap()
+                .to_lowercase();
             let parts = value.split('@').collect::<Vec<&str>>();
             let aes_key = parts.first().unwrap();
             let db_path = parts.get(1).unwrap();
-              // SQL example: "ATTACH 'encrypted.db' AS enc_db (ENCRYPTION_KEY 'quack_quack');"
+            // SQL example: "ATTACH 'encrypted.db' AS enc_db (ENCRYPTION_KEY 'quack_quack');"
             misc_sql_sentences.push(format!(
                 "ATTACH '{db_path}' AS {db_name} (ENCRYPTION_KEY '{aes_key}');"
             ));
             encrypt_db_included = true;
-        }
-        else if key.starts_with("DUCKDB__") {
+        } else if key.starts_with("DUCKDB__DUCKLAKE__") {
+            // https://duckdb.org/docs/stable/sql/statements/attach#database-encryption
+            let db_name = key
+                .strip_prefix("DUCKDB__DUCKLAKE__")
+                .unwrap()
+                .to_lowercase();
+            let mut ducklake_options = "".to_owned();
+            let mut catalog_db_url = if let Some(pos) = value.find('(') {
+                ducklake_options = value[pos + 1..value.len() - 1].to_owned();
+                value[pos + 1..].to_owned()
+            } else {
+                value.clone()
+            };
+            if !catalog_db_url.starts_with("'") {
+                catalog_db_url = format!("'{catalog_db_url}'");
+            }
+            // SQL example: "ATTACH 'encrypted.db' AS enc_db (ENCRYPTION_KEY 'quack_quack');"
+            misc_sql_sentences.push(format!(
+                "ATTACH {catalog_db_url} AS {db_name} {ducklake_options};"
+            ));
+        } else if key.starts_with("DUCKDB__") {
             if let Some(secret_name) = key.split("__").nth(1) {
                 let name = secret_name.to_string();
                 if !obj_names.contains(&name) {
