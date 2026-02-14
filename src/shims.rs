@@ -503,17 +503,27 @@ impl DuckSecret {
 fn get_duckdb_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
     let mut obj_names: Vec<String> = Vec::new();
-    let mut pragma_parquet_keys: Vec<String> = Vec::new();
+    let mut misc_sql_sentences: Vec<String> = Vec::new();
     for (key, value) in env::vars() {
-        if key.starts_with("DUCKDB__PARQUET__") {
+        if key.starts_with("DUCKDB__PARQUET__") { // https://duckdb.org/docs/stable/data/parquet/encryption
             let parquet_key_name = key
                 .strip_prefix("DUCKDB__PARQUET__")
                 .unwrap()
                 .to_lowercase();
-            pragma_parquet_keys.push(format!(
+            misc_sql_sentences.push(format!(
                 "PRAGMA add_parquet_key('{parquet_key_name}', '{value}');"
             ));
-        } else if key.starts_with("DUCKDB__") {
+        } else if key.starts_with("DUCKDB__ENCRYPTED__") { // https://duckdb.org/docs/stable/sql/statements/attach#database-encryption
+            let db_name = key.strip_prefix("DUCKDB__ENCRYPTED__s").unwrap().to_lowercase();
+            let parts = value.split('@').collect::<Vec<&str>>();
+            let aes_key = parts.get(0).unwrap();
+            let db_path = parts.get(1).unwrap();
+              // SQL example: "ATTACH 'encrypted.db' AS enc_db (ENCRYPTION_KEY 'quack_quack');"
+            misc_sql_sentences.push(format!(
+                "ATTACH '{db_path}' AS '{db_name}' (ENCRYPTION_KEY '{aes_key}');"
+            ));
+        }
+        else if key.starts_with("DUCKDB__") {
             if let Some(secret_name) = key.split("__").nth(1) {
                 let name = secret_name.to_string();
                 if !obj_names.contains(&name) {
@@ -522,9 +532,9 @@ fn get_duckdb_args() -> Vec<String> {
             }
         }
     }
-    if !pragma_parquet_keys.is_empty() {
+    if !misc_sql_sentences.is_empty() {
         args.push("--cmd".to_string());
-        args.push(pragma_parquet_keys.join(" "));
+        args.push(misc_sql_sentences.join(" "));
     }
     if !obj_names.is_empty() {
         for secret_name in obj_names {
