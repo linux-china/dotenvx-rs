@@ -503,8 +503,17 @@ impl DuckSecret {
 fn get_duckdb_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
     let mut obj_names: Vec<String> = Vec::new();
-    for (key, _value) in env::vars() {
-        if key.starts_with("DUCKDB__") {
+    let mut pragma_parquet_keys: Vec<String> = Vec::new();
+    for (key, value) in env::vars() {
+        if key.starts_with("DUCKDB__PARQUET__") {
+            let parquet_key_name = key
+                .strip_prefix("DUCKDB__PARQUET__")
+                .unwrap()
+                .to_lowercase();
+            pragma_parquet_keys.push(format!(
+                "PRAGMA add_parquet_key('{parquet_key_name}', '{value}');"
+            ));
+        } else if key.starts_with("DUCKDB__") {
             if let Some(secret_name) = key.split("__").nth(1) {
                 let name = secret_name.to_string();
                 if !obj_names.contains(&name) {
@@ -512,6 +521,10 @@ fn get_duckdb_args() -> Vec<String> {
                 }
             }
         }
+    }
+    if !pragma_parquet_keys.is_empty() {
+        args.push("--cmd".to_string());
+        args.push(pragma_parquet_keys.join(" "));
     }
     if !obj_names.is_empty() {
         for secret_name in obj_names {
