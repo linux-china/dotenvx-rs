@@ -515,13 +515,13 @@ fn get_duckdb_args() -> Vec<String> {
                 "PRAGMA add_parquet_key('{parquet_key_name}', '{value}');"
             ));
         } else if key.starts_with("DUCKDB__ENCRYPTED__") { // https://duckdb.org/docs/stable/sql/statements/attach#database-encryption
-            let db_name = key.strip_prefix("DUCKDB__ENCRYPTED__s").unwrap().to_lowercase();
+            let db_name = key.strip_prefix("DUCKDB__ENCRYPTED__").unwrap().to_lowercase();
             let parts = value.split('@').collect::<Vec<&str>>();
-            let aes_key = parts.get(0).unwrap();
+            let aes_key = parts.first().unwrap();
             let db_path = parts.get(1).unwrap();
               // SQL example: "ATTACH 'encrypted.db' AS enc_db (ENCRYPTION_KEY 'quack_quack');"
             misc_sql_sentences.push(format!(
-                "ATTACH '{db_path}' AS '{db_name}' (ENCRYPTION_KEY '{aes_key}');"
+                "ATTACH '{db_path}' AS {db_name} (ENCRYPTION_KEY '{aes_key}');"
             ));
             encrypt_db_included = true;
         }
