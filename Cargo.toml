@@ -27,8 +27,8 @@ aes-gcm = "0.10.3"
 argon2 = { version = "0.5" }
 totp-rs = { version = "5.7", features = ["otpauth", "gen_secret"] }
 rand = "0.10"
-uuid = { version = "1.20", features = ["v4", "v7"] }
-base64ct = "1.8.1"
+uuid = { version = "1.21", features = ["v4", "v7"] }
+base64ct = "1.8.3"
 keyring = { version = "3.6.3", features = ["apple-native", "windows-native", "linux-native", "sync-secret-service"] }
 hex = "0.4.3"
 # cli
@@ -46,7 +46,7 @@ arboard = "3.6"
 # file format
 java-properties = "2"
 csv = "1.4"
-toml = "1.0.1+spec-1.1.0"
+toml = "1.0.3+spec-1.1.0"
 yaml-rust2 = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -57,9 +57,9 @@ dotenv-analyzer = "0.1"
 chrono = { version = "0.4.43", features = ["serde"] }
 regex = "1.12"
 lazy_static = "1.5.0"
-anyhow = "1.0.100"
+anyhow = "1.0.102"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
-native-tls = "0.2.14"
+native-tls = "0.2.18"
 which = "8.0.0"
 symlink = "0.1.0"
 url = "2.5"
