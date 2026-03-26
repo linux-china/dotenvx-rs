@@ -22,7 +22,7 @@ path = "src/main.rs"
 dotenvy = "0.15.7"
 ecies = { version = "0.2.10", default-features = false, features = ["std", "aes-rust"] }
 libsecp256k1 = { version = "0.7.2", default-features = false, features = ["static-context", "hmac", "sha2"] }
-sha2 = "0.10"
+sha2 = "0.11"
 aes-gcm = "0.10.3"
 argon2 = { version = "0.5" }
 totp-rs = { version = "5.7", features = ["otpauth", "gen_secret"] }
@@ -46,7 +46,7 @@ arboard = "3.6"
 # file format
 java-properties = "2"
 csv = "1.4"
-toml = "1.0.3+spec-1.1.0"
+toml = "1.1.0+spec-1.1.0"
 yaml-rust2 = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -54,19 +54,19 @@ colored_json = "5"
 dotenv-linter = "4.0"
 dotenv-analyzer = "0.1"
 # misc
-chrono = { version = "0.4.43", features = ["serde"] }
+chrono = { version = "0.4.44", features = ["serde"] }
 regex = "1.12"
 lazy_static = "1.5.0"
 anyhow = "1.0.102"
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+reqwest = { version = "0.13", features = ["blocking", "json"] }
 native-tls = "0.2.18"
-which = "8.0.0"
+which = "8.0.2"
 symlink = "0.1.0"
 url = "2.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
-libdbus-sys = { version = "0.2.6", features = ["vendored"] }
+libdbus-sys = { version = "0.2.7", features = ["vendored"] }
 
 [[bin]]
 name = "mkey"
@@ -93,4 +93,4 @@ lto = "thin"
 
 [dev-dependencies]
 testresult = "0.4.1"
-tempfile = "3.25"
+tempfile = "3.27"
