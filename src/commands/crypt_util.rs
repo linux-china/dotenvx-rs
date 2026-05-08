@@ -9,7 +9,7 @@ use colored::Colorize;
 use dotenvx_rs::dotenvx::get_private_key;
 use ecies::utils::generate_keypair;
 use ecies::{PublicKey, SecretKey};
-use libsecp256k1::{sign, Message};
+use k256::ecdsa::{SigningKey, VerifyingKey, Signature as EcdsaSignature, signature::hazmat::PrehashVerifier};
 use native_tls::{HandshakeError, TlsConnector};
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -151,15 +151,13 @@ pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> 
     let mut hasher = Sha256::new();
     hasher.update(message.trim());
     let message_hash = hasher.finalize();
-    let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Sign the message hash with the private key
     let sk_bytes = hex::decode(check_sk_hex(private_key))?;
-    if let Ok(sk) = SecretKey::parse_slice(&sk_bytes) {
-        let signature = sign(&msg, &sk).0;
-        Ok(Base64::encode_string(&signature.serialize()))
-    } else {
-        Err(anyhow::anyhow!("Invalid private key format"))
-    }
+    let signing_key = SigningKey::from_slice(&sk_bytes)
+        .map_err(|_| anyhow::anyhow!("Invalid private key format"))?;
+    let (signature, _) = signing_key.sign_prehash_recoverable(&message_hash)
+        .map_err(|_| anyhow::anyhow!("Signing failed"))?;
+    Ok(Base64::encode_string(&signature.to_bytes()))
 }
 
 /// trim the message and sign it using the private key and return the signature in bytes format
@@ -168,15 +166,13 @@ pub fn sign_message_bytes(private_key: &str, message: &str) -> anyhow::Result<Ve
     let mut hasher = Sha256::new();
     hasher.update(message.trim());
     let message_hash = hasher.finalize();
-    let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Sign the message hash with the private key
     let sk_bytes = hex::decode(check_sk_hex(private_key))?;
-    if let Ok(sk) = SecretKey::parse_slice(&sk_bytes) {
-        let signature = sign(&msg, &sk).0;
-        Ok(signature.serialize().to_vec())
-    } else {
-        Err(anyhow::anyhow!("Invalid private key format"))
-    }
+    let signing_key = SigningKey::from_slice(&sk_bytes)
+        .map_err(|_| anyhow::anyhow!("Invalid private key format"))?;
+    let (signature, _) = signing_key.sign_prehash_recoverable(&message_hash)
+        .map_err(|_| anyhow::anyhow!("Signing failed"))?;
+    Ok(signature.to_bytes().to_vec())
 }
 
 /// trim the message and verify the signature using the public key
@@ -185,21 +181,16 @@ pub fn verify_signature(public_key: &str, message: &str, signature: &str) -> any
     let mut hasher = Sha256::new();
     hasher.update(message.trim());
     let message_hash = hasher.finalize();
-    let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
     // Step 2: Verify the signature with the public key
     let pk_bytes = hex::decode(public_key)?;
-    if let Ok(pk) = PublicKey::parse_slice(&pk_bytes, None) {
-        let signature_bytes = Base64::decode_vec(signature)?;
-        let signature = libsecp256k1::Signature::parse_standard_slice(&signature_bytes).unwrap();
-        let result = libsecp256k1::verify(&msg, &signature, &pk);
-        if result {
-            Ok(true)
-        } else {
-            Err(anyhow::anyhow!("Signature verification failed"))
-        }
-    } else {
-        Err(anyhow::anyhow!("Invalid public key format"))
-    }
+    let verifying_key = VerifyingKey::from_sec1_bytes(&pk_bytes)
+        .map_err(|_| anyhow::anyhow!("Invalid public key format"))?;
+    let signature_bytes = Base64::decode_vec(signature)?;
+    let sig = EcdsaSignature::from_slice(&signature_bytes)
+        .map_err(|_| anyhow::anyhow!("Invalid signature format"))?;
+    verifying_key.verify_prehash(&message_hash, &sig)
+        .map_err(|_| anyhow::anyhow!("Signature verification failed"))?;
+    Ok(true)
 }
 
 /// generate a JWT token using the private key and claims, and algorithm ES256K(secp256k1)

@@ -1,8 +1,7 @@
 use base64ct::{Base64, Encoding};
 use ecies::utils::generate_keypair;
 use ecies::{decrypt, encrypt, PublicKey, SecretKey};
-use libsecp256k1::{sign, verify, Message};
-use sha2::{Digest, Sha256};
+use k256::ecdsa::{signature::Signer, signature::Verifier, Signature, SigningKey, VerifyingKey};
 
 #[test]
 fn test_generate_key_pair() {
@@ -34,15 +33,14 @@ fn test_signature() {
     let (sk, pk) = generate_keypair();
     // The message to sign
     let message = "Hello, secp256k1!";
-    // Step 1: Hash the message using SHA-256
-    let mut hasher = Sha256::new();
-    hasher.update(message);
-    let message_hash = hasher.finalize();
-    let msg = Message::parse_slice(message_hash.as_slice()).unwrap();
-    let signature = sign(&msg, &sk).0;
-    let signature_hex = Base64::encode_string(&signature.serialize());
+    // Create signing key from secret key bytes
+    let signing_key = SigningKey::from_slice(&sk.serialize()).unwrap();
+    let verifying_key = VerifyingKey::from(&signing_key);
+    // Sign the message (k256 handles hashing internally)
+    let signature: Signature = signing_key.sign(message.as_bytes());
+    let signature_hex = Base64::encode_string(&signature.to_bytes());
     println!("signature: {signature_hex}");
-    let result = verify(&msg, &signature, &pk);
+    let result = verifying_key.verify(message.as_bytes(), &signature).is_ok();
     println!("verify result: {result}");
 }
 
