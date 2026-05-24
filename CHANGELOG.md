@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+
+## [0.4.31] - 2026-05-10
+
+### Added
+
+- Update ecies to 0.2.11 with k256
+
 ## [0.4.30] - 2026-02-14
 
 ### Added

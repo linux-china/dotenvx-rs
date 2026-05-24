@@ -4,7 +4,6 @@ use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::collections::HashMap;
 use std::env;
-use std::ops::Index;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
