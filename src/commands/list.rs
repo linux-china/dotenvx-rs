@@ -2,7 +2,7 @@ use crate::commands::list_env_files;
 use crate::commands::model::EnvFile;
 use clap::ArgMatches;
 use prettytable::format::Alignment;
-use prettytable::{row, Cell, Row, Table};
+use prettytable::{Cell, Row, Table, row};
 use walkdir::DirEntry;
 
 pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
@@ -49,7 +49,12 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
             } else {
                 "N/A".to_string()
             };
-            let entry_count = env_file.entries.len();
+            let mut entry_count = env_file.entries.len();
+            for (name, value) in &env_file.entries {
+                if name.starts_with("DOTENV_PUBLIC_KEY") {
+                    entry_count = entry_count - 1;
+                }
+            }
             let public_key_short = if let Some(public_key) = env_file.get_public_key() {
                 if public_key.len() > 8 {
                     format!("{}...", &public_key[0..8])
