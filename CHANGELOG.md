@@ -24,10 +24,14 @@
 DUCKDB__PARQUET__KEY256=01234567891123450123456789112345
 #  database encryption
 DUCKDB__ENCRYPTED__ACCOUNT=asdf@./data/encrypted.duckdb
-# secret example
+# secret example for http client
 DUCKDB__HTTP_SECRET=secret
 DUCKDB__HTTP_SECRET__TYPE=http
 DUCKDB__HTTP_SECRET__BEARER_TOKEN=xxxx
+# secret example for quack
+DUCKDB__QUACK01=secret
+DUCKDB__QUACK01__TYPE=quack
+DUCKDB__QUACK01__TOKEN=super_secret
 ```
 
 ## [0.4.29] - 2026-02-14
