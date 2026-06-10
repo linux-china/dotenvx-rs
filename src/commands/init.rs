@@ -100,6 +100,7 @@ fn create_global_env_keys(profile: &Option<String>) {
             let new_line = format!("{private_key_name}={private_key}");
             let new_file_content = format!("{}\n{}\n", file_content.trim_end(), new_line);
             fs::write(&keys_file_path, new_file_content.as_bytes()).unwrap();
+            crate::commands::restrict_file_permissions(&keys_file_path);
             let key_pair = KeyPair::from(
                 &kp.get_pk_hex(),
                 &private_key,
@@ -163,6 +164,7 @@ fn create_global_env_keys(profile: &Option<String>) {
 "#
         );
         fs::write(&keys_file_path, file_content.trim_start().as_bytes()).unwrap();
+        crate::commands::restrict_file_permissions(&keys_file_path);
         // write key pairs to global .env.keys.json file
         write_key_pairs(&key_pairs).unwrap();
         println!(

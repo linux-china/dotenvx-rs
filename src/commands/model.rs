@@ -64,7 +64,8 @@ impl DotenvxKeyStore {
         }
         let env_keys_json_file = dotenvx_home.join(".env.keys.json");
         let file_content = serde_json::to_string_pretty(self)?;
-        fs::write(env_keys_json_file, file_content)?;
+        fs::write(&env_keys_json_file, file_content)?;
+        crate::commands::restrict_file_permissions(&env_keys_json_file);
         Ok(())
     }
 }
@@ -171,6 +172,7 @@ impl EnvKeys {
             .as_ref()
             .ok_or_else(|| anyhow!("Source path is not set"))?;
         fs::write(file_path, content)?;
+        crate::commands::restrict_file_permissions(file_path);
         Ok(())
     }
 }

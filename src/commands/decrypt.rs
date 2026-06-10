@@ -103,6 +103,8 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     } else {
         let new_file_content = new_lines.join("\n");
         fs::write(&env_file_path, new_file_content.as_bytes()).unwrap();
+        // decrypted .env now holds plaintext secrets, restrict to owner-only on Unix
+        crate::commands::restrict_file_permissions(&env_file_path);
         println!("{}", format!("✔ {hint} decrypted ({env_file})").green());
     }
 }

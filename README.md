@@ -320,6 +320,25 @@ the password.
 **Attention**: You should remember the password, and it will be used by `dotenvx --unseal` to decrypt the
 `$HOME/.env.keys.aes` file.
 
+**File permissions**: On Unix, dotenvx writes every file that holds private keys or decrypted plaintext with `0600`
+(owner read/write only) permissions, so other users on the same machine cannot read them. This applies to
+`$HOME/.dotenvx/.env.keys.json`, `.env.keys` files, the sealed `.aes` files, and the plaintext output of
+`dotenvx decrypt` / `dotenvx --unseal`. Note that in-memory private keys and passwords are wrapped with `zeroize`
+and cleared from memory after use to limit exposure via swap or core dumps.
+
+### How to check my setup with `dotenvx doctor`?
+
+Run `dotenvx doctor` to check your `.env` files and key files for common issues:
+
+- Missing or malformed `DOTENV_PUBLIC_KEY` and metadata (front matter) in `.env` files.
+- Sensitive keys (e.g. `*_TOKEN`, `*_SECRET`, `PASSWORD`) that still hold a plain (unencrypted) value.
+- **Key file permissions**: on Unix it verifies that `$HOME/.dotenvx/.env.keys.json`, `$HOME/.env.keys`, and the
+  local `.env.keys` are `0600`. If group/other can access a key file, it prints a warning with the exact
+  `chmod 600 <file>` command to fix it.
+
+Files created by newer versions of dotenvx are already `0600`; the permission check mainly helps you fix key files
+that were created by older versions or copied with loose permissions.
+
 ### How to check the keys' difference between .env files?
 
 You can use the `dotenvx diff key1,key2` command to display the difference values from .env files,

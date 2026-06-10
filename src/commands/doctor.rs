@@ -3,8 +3,10 @@ use clap::ArgMatches;
 use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_file;
 use std::env::current_dir;
+use std::path::PathBuf;
 
 pub fn doctor_command(_: &ArgMatches) {
+    check_key_files_permissions();
     let current_dir = current_dir().unwrap();
     let env_files = list_env_files(current_dir, 1, &None);
     for env_file in env_files {
@@ -79,4 +81,53 @@ pub fn doctor_command(_: &ArgMatches) {
     println!();
     println!("Run linter now...");
     //lint().unwrap();
+}
+
+/// Collect the sensitive key/secret files that should be owner-only (0600).
+fn sensitive_key_files() -> Vec<PathBuf> {
+    let mut files = vec![];
+    if let Some(home) = dirs::home_dir() {
+        files.push(home.join(".dotenvx").join(".env.keys.json"));
+        files.push(home.join(".env.keys"));
+    }
+    if let Ok(dir) = current_dir() {
+        files.push(dir.join(".env.keys"));
+    }
+    files
+}
+
+/// Warn when a sensitive key file is readable/writable by group or others (Unix only).
+fn check_key_files_permissions() {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        println!("Checking key file permissions:");
+        for file in sensitive_key_files() {
+            if !file.exists() {
+                continue;
+            }
+            if let Ok(metadata) = std::fs::metadata(&file) {
+                let mode = metadata.permissions().mode() & 0o777;
+                if mode & 0o077 != 0 {
+                    eprintln!(
+                        "{}",
+                        format!(
+                            "Warning: {} has permissions {:o}, group/other can access it. Run `chmod 600 {}`.",
+                            file.display(),
+                            mode,
+                            file.display()
+                        )
+                        .red()
+                    );
+                } else {
+                    println!("✔ {} ({:o})", file.display(), mode);
+                }
+            }
+        }
+        println!();
+    }
+    #[cfg(not(unix))]
+    {
+        // File mode checks are not applicable on non-Unix platforms.
+    }
 }

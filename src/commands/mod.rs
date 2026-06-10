@@ -78,6 +78,24 @@ pub fn find_all_keys() -> HashMap<String, KeyPair> {
     }
 }
 
+/// Restrict a sensitive file (private keys, decrypted plaintext, sealed key store)
+/// to owner read/write only (0600) on Unix. No-op on other platforms.
+pub fn restrict_file_permissions<P: AsRef<Path>>(path: P) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let path = path.as_ref();
+        if let Err(e) = fs::set_permissions(path, fs::Permissions::from_mode(0o600)) {
+            eprintln!(
+                "Warning: failed to set 0600 permissions on {}: {e}",
+                path.display()
+            );
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+}
+
 pub fn write_key_pair(key_pair: &KeyPair) -> anyhow::Result<()> {
     let mut key_store = if let Ok(store) = DotenvxKeyStore::load_global() {
         store
@@ -597,6 +615,8 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             );
         }
     }
+    // .env.keys holds plaintext private keys, restrict to owner-only on Unix
+    restrict_file_permissions(&env_keys_file);
     // write the key pairs to global
     write_key_pair(key_pair)?;
     Ok(())
@@ -813,6 +833,20 @@ pub fn is_remote_env_file(env_file: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn test_restrict_file_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir();
+        let file = dir.join(format!("dotenvx_perm_test_{}", uuid::Uuid::now_v7()));
+        fs::write(&file, b"DOTENV_PRIVATE_KEY=secret").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+        restrict_file_permissions(&file);
+        let mode = fs::metadata(&file).unwrap().permissions().mode() & 0o777;
+        fs::remove_file(&file).ok();
+        assert_eq!(mode, 0o600, "file should be owner-only after restriction");
+    }
 
     #[test]
     fn test_get_private_key() {

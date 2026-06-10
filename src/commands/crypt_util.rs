@@ -232,12 +232,13 @@ pub fn encrypt_file<P: AsRef<Path>>(
         .expect("encryption failure!");
 
     // // Write the salt, nonce, and ciphertext to the output file
-    let mut output = File::create(output_file)?;
+    let mut output = File::create(&output_file)?;
     let mut salt_bytes: [u8; 16] = [0; 16];
     salt.decode_b64(&mut salt_bytes).unwrap();
     output.write_all(&salt_bytes)?; // First 16 bytes: salt
     output.write_all(&random_nonce)?; // Next 12 bytes: nonce
     output.write_all(&ciphertext)?; // Remaining bytes: ciphertext
+    crate::commands::restrict_file_permissions(&output_file);
     Ok(())
 }
 
@@ -270,7 +271,9 @@ pub fn decrypt_file<P: AsRef<Path>>(
         .expect("decryption failure!");
 
     // Write the decrypted bytes to the output file
-    fs::write(output_file, plain_bytes)?;
+    fs::write(&output_file, plain_bytes)?;
+    // decrypted key store holds plaintext private keys, restrict to owner-only on Unix
+    crate::commands::restrict_file_permissions(&output_file);
     Ok(())
 }
 
