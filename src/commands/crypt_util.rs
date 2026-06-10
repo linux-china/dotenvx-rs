@@ -89,10 +89,10 @@ pub fn decrypt_env_item(
     private_key: &str,
     encrypted_text: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let encrypted_bytes = if encrypted_text.starts_with("encrypted:") {
-        Base64::decode_vec(encrypted_text.strip_prefix("encrypted:").unwrap()).unwrap()
+    let encrypted_bytes = if let Some(stripped_value) = encrypted_text.strip_prefix("encrypted:") {
+        dotenvx_rs::common::decode_base64_lenient(stripped_value).unwrap()
     } else {
-        Base64::decode_vec(encrypted_text).unwrap()
+        dotenvx_rs::common::decode_base64_lenient(encrypted_text).unwrap()
     };
     let sk = hex::decode(check_sk_hex(private_key)).unwrap();
     let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();

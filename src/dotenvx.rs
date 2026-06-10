@@ -400,9 +400,9 @@ fn check_and_decrypt(
 /// the encrypted text can be with or without the "encrypted:" prefix
 pub fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Result<String> {
     let encrypted_bytes = if let Some(stripped_value) = encrypted_text.strip_prefix("encrypted:") {
-        Base64::decode_vec(stripped_value).unwrap()
+        crate::common::decode_base64_lenient(stripped_value).unwrap()
     } else {
-        Base64::decode_vec(encrypted_text).unwrap()
+        crate::common::decode_base64_lenient(encrypted_text).unwrap()
     };
     let sk = hex::decode(private_key).unwrap();
     let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();

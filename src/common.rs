@@ -1,5 +1,20 @@
+use base64ct::{Base64, Encoding};
 use std::env;
 use std::path::{Path, PathBuf};
+
+/// Base64-decode an encrypted value, tolerating ASCII whitespace.
+///
+/// Long `encrypted:` values can be wrapped onto multiple lines by editors or tooling.
+/// The standard base64 alphabet contains no whitespace, so stripping spaces, tabs,
+/// and newlines before decoding is safe and only repairs accidental line wrapping.
+pub fn decode_base64_lenient(value: &str) -> Result<Vec<u8>, base64ct::Error> {
+    if value.bytes().any(|b| b.is_ascii_whitespace()) {
+        let cleaned: String = value.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+        Base64::decode_vec(&cleaned)
+    } else {
+        Base64::decode_vec(value)
+    }
+}
 
 pub fn get_profile_name_from_env() -> Option<String> {
     let env_vars = ["NODE_ENV", "RUN_ENV", "APP_ENV", "SPRING_PROFILES_ACTIVE", "MISE_ENV","STELA_ENV"];
@@ -54,4 +69,21 @@ pub fn find_env_file_path(dir: &Path, env_file_name: &str) -> Option<PathBuf> {
         return find_env_file_path(parent, env_file_name);
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decode_base64_lenient() {
+        let raw = b"the quick brown fox jumps over the lazy dog 0123456789";
+        let encoded = Base64::encode_string(raw);
+        // clean input decodes as usual
+        assert_eq!(decode_base64_lenient(&encoded).unwrap(), raw);
+        // editor-wrapped input with newlines, CR and spaces still decodes
+        let mid = encoded.len() / 2;
+        let wrapped = format!("{}\n  {}\r\n", &encoded[..mid], &encoded[mid..]);
+        assert_eq!(decode_base64_lenient(&wrapped).unwrap(), raw);
+    }
 }
