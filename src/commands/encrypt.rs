@@ -128,11 +128,17 @@ pub fn encrypt_env_entries(
     if env_file.ends_with(".properties") {
         let encrypted_patterns = [
             "password",
+            "pwd",
+            "passwd",
             "secret",
             "private",
             "key",
             "token",
             "credential",
+            "auth",
+            "jwt",
+            "jaas",
+            "passphrase"
         ];
         let f = File::open(env_file)?;
         let reader = BufReader::new(f);
