@@ -268,7 +268,7 @@ pub fn decrypt_file<P: AsRef<Path>>(
     // Decrypt the ciphertext
     let plain_bytes = cipher
         .decrypt(Nonce::from_slice(nonce_bytes), ciphertext)
-        .expect("decryption failure!");
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
     // Write the decrypted bytes to the output file
     fs::write(&output_file, plain_bytes)?;
