@@ -29,11 +29,11 @@ totp-rs = { version = "5.7", features = ["otpauth", "gen_secret"] }
 rand = "0.10"
 uuid = { version = "1.23", features = ["v4", "v7"] }
 base64ct = "1.8.3"
-keyring = { version = "4.0" }
+keyring = { version = "4.1" }
 hex = "0.4.3"
 # cli
 shlex = "2.0"
-rpassword = "7.5.3"
+rpassword = "7.5.4"
 rprompt = "2.2.0"
 glob = "0.3"
 dirs = "6"
@@ -54,13 +54,13 @@ colored_json = "5"
 dotenv-linter = { version = "4.0",default-features = false}
 dotenv-analyzer = "0.1"
 # misc
-chrono = { version = "0.4.44", features = ["serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 regex = "1.12"
 lazy_static = "1.5.0"
 anyhow = "1.0"
 reqwest = { version = "0.13", features = ["blocking", "json"] }
 native-tls = "0.2.18"
-which = "8.0.2"
+which = "8.0"
 symlink = "0.1.0"
 url = "2.5"
 
