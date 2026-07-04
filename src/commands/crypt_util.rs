@@ -79,8 +79,8 @@ pub fn encrypt_env_item(
     public_key: &str,
     value_plain: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let pk_bytes = hex::decode(public_key).unwrap();
-    let encrypted_bytes = ecies::encrypt(&pk_bytes, value_plain.as_bytes()).unwrap();
+    let pk_bytes = hex::decode(public_key)?;
+    let encrypted_bytes = ecies::encrypt(&pk_bytes, value_plain.as_bytes())?;
     let base64_text = Base64::encode_string(&encrypted_bytes);
     Ok(format!("encrypted:{base64_text}"))
 }
@@ -90,12 +90,12 @@ pub fn decrypt_env_item(
     encrypted_text: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let encrypted_bytes = if let Some(stripped_value) = encrypted_text.strip_prefix("encrypted:") {
-        dotenvx_rs::common::decode_base64_lenient(stripped_value).unwrap()
+        dotenvx_rs::common::decode_base64_lenient(stripped_value)?
     } else {
-        dotenvx_rs::common::decode_base64_lenient(encrypted_text).unwrap()
+        dotenvx_rs::common::decode_base64_lenient(encrypted_text)?
     };
-    let sk = hex::decode(check_sk_hex(private_key)).unwrap();
-    let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();
+    let sk = hex::decode(check_sk_hex(private_key))?;
+    let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes)?;
     Ok(String::from_utf8(decrypted_bytes)?)
 }
 
@@ -323,7 +323,7 @@ mod tests {
         let output_file = "tests/example.txt.aes";
         let password = "your_secure_password";
         // Encrypt the file
-        encrypt_file(input_file, output_file, password).unwrap();
+        encrypt_file(input_file, output_file, password)?;
         Ok(())
     }
 
@@ -334,7 +334,7 @@ mod tests {
         let output_file = "tests/example.txt";
         let password = "your_secure_password";
         // Encrypt the file
-        decrypt_file(encrypted_file, output_file, password).unwrap();
+        decrypt_file(encrypted_file, output_file, password)?;
         Ok(())
     }
 

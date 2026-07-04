@@ -125,15 +125,14 @@ pub fn decrypt_env_entries(
                 } else {
                     entries.insert(key.clone(), value.clone());
                 }
-            })
-            .unwrap();
+            })?;
     } else {
         let items = if env_file.starts_with("http://") || env_file.starts_with("https://") {
             read_dotenv_url(env_file, None)?
         } else {
             let mut entries: HashMap<String, String> = HashMap::new();
             for item in dotenvy::from_filename_iter(env_file)? {
-                let (key, value) = &item.unwrap();
+                let (key, value) = &item?;
                 entries.insert(key.clone(), value.clone());
             }
             entries

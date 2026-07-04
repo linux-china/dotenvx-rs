@@ -50,7 +50,7 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 "N/A".to_string()
             };
             let mut entry_count = env_file.entries.len();
-            for (name, value) in &env_file.entries {
+            for (name, _) in &env_file.entries {
                 if name.starts_with("DOTENV_PUBLIC_KEY") {
                     entry_count = entry_count - 1;
                 }

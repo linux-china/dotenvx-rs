@@ -2,7 +2,7 @@ use crate::commands::get_env_file_arg;
 use clap::ArgMatches;
 use dotenvx_rs::dotenvx;
 use std::env;
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 
 pub fn run_command(
     command_and_args: &[String],
@@ -51,6 +51,10 @@ fn run_command_with_dotenvx(
         .spawn()
         .expect("DOTENV-CMD-500: failed to run command");
     let status = child.wait().expect("DOTENV-CMD-500: failed to run command");
+    get_exit_code(&status)
+}
+
+pub fn get_exit_code(status: &ExitStatus) -> i32 {
     if let Some(code) = status.code() {
         code
     } else {

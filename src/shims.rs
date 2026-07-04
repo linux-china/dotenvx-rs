@@ -1,5 +1,6 @@
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::framework::detect_framework;
+use crate::commands::run::get_exit_code;
 use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::collections::HashMap;
@@ -54,19 +55,7 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
             .spawn()
             .expect("DOTENV-CMD-500: failed to run command");
         let status = child.wait().expect("DOTENV-CMD-500: failed to run command");
-        if let Some(code) = status.code() {
-            code
-        } else {
-            // On Unix, process was terminated by signal
-            #[cfg(unix)]
-            {
-                use std::os::unix::process::ExitStatusExt;
-                if let Some(signal) = status.signal() {
-                    std::process::exit(128 + signal);
-                }
-            }
-            1
-        }
+        get_exit_code(&status)
     } else {
         eprintln!("Command not found: {command_name}");
         127

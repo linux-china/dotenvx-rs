@@ -116,7 +116,7 @@ pub fn add_or_replace_signature(
     profile: &Option<String>,
     env_file_content: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let private_key = get_private_key(profile).unwrap();
+    let private_key = get_private_key(profile)?;
     sign_and_update_env_file_content(&private_key, env_file_content)
 }
 
@@ -157,11 +157,10 @@ pub fn encrypt_env_entries(
                 } else {
                     entries.insert(key, value);
                 }
-            })
-            .unwrap();
+            })?;
     } else {
         for item in dotenvy::from_filename_iter(env_file)? {
-            let (key, value) = &item.unwrap();
+            let (key, value) = &item?;
             // encrypt the value if it is not already encrypted or key contains _PLAIN
             if !key.contains("_PLAIN") && !value.starts_with("encrypted:") {
                 let encrypted_text = encrypt_env_item(&public_key, value)?;
