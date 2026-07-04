@@ -138,7 +138,7 @@ pub fn encrypt_env_entries(
             "auth",
             "jwt",
             "jaas",
-            "passphrase"
+            "passphrase",
         ];
         let f = File::open(env_file)?;
         let reader = BufReader::new(f);
@@ -162,7 +162,8 @@ pub fn encrypt_env_entries(
     } else {
         for item in dotenvy::from_filename_iter(env_file)? {
             let (key, value) = &item.unwrap();
-            if !value.starts_with("encrypted:") {
+            // encrypt the value if it is not already encrypted or key contains _PLAIN
+            if !key.contains("_PLAIN") && !value.starts_with("encrypted:") {
                 let encrypted_text = encrypt_env_item(&public_key, value)?;
                 entries.insert(key.clone(), encrypted_text);
             } else {
