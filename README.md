@@ -80,8 +80,9 @@ Explanation:
 - .env file UUID: a unique identifier for the .env file, used to track changes and versions
 - sign: a signature for the .env file, used to verify the integrity of the file and make sure the file is not tampered
 - DOTENV_PUBLIC_KEY: the public key used to encrypt data and verify the signature
-- Environment variables: the encrypted environment variables, starts with `encrypted:` prefix. 
-- [env.spec](https://github.com/dmno-dev/varlock/discussions/17): you can add comments and annotations for variables alike JSDOC.
+- Environment variables: the encrypted environment variables, starts with `encrypted:` prefix.
+- [env.spec](https://github.com/dmno-dev/varlock/discussions/17): you can add comments and annotations for variables
+  alike JSDOC.
 
 In metadata section, you can add any key-value pairs to describe the .env file, such as `name`, `group`, etc.
 
@@ -407,3 +408,4 @@ plugins=(dotenvx ...)
 * Practical Cryptography for Developers: https://cryptobook.nakov.com/
 * Command Line Interface Guidelines: https://clig.dev/
 * [GoFr Config](https://gofr.dev/docs/references/configs): GoFr Configuration Options
+* [Yopass](https://github.com/jhaals/yopass): Secure sharing of secrets, passwords and files
