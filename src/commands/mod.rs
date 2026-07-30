@@ -196,10 +196,12 @@ pub fn read_content_from_dotenv_url(
 
 pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     let public_key = get_public_key_for_file(env_file)?;
-    if !public_key.is_empty()
-        && let Some(private_key) = find_private_key_from_home(&public_key)
-    {
-        return Ok(trim_private_key(private_key));
+    if !public_key.is_empty() {
+        return if let Some(private_key) = find_private_key_from_home(&public_key) {
+            Ok(trim_private_key(private_key))
+        } else {
+            Err(format!("Private key not found for public key: {}", public_key).into())
+        }
     }
     let profile_name = get_profile_name_from_file(env_file);
     get_private_key(&profile_name)
