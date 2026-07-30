@@ -469,7 +469,7 @@ pub fn construct_env_file_header(
 # name: {}
 # group: {}
 # ---
-{}={}
+{}="{}"
 
 # Environment variables. MAKE SURE to ENCRYPT them before committing to source control
 "#,
