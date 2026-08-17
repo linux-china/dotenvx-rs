@@ -71,7 +71,7 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
     println!(
         "{}",
-        format!("✔ Succeed, please check .env file({env_file}).").green()
+        format!("✔ Succeed, please check file({env_file}).").green()
     );
 }
 
