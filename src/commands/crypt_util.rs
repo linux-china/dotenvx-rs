@@ -9,7 +9,9 @@ use colored::Colorize;
 use dotenvx_rs::dotenvx::get_private_key;
 use ecies::utils::generate_keypair;
 use ecies::{PublicKey, SecretKey};
-use k256::ecdsa::{SigningKey, VerifyingKey, Signature as EcdsaSignature, signature::hazmat::PrehashVerifier};
+use k256::ecdsa::{
+    Signature as EcdsaSignature, SigningKey, VerifyingKey, signature::hazmat::PrehashVerifier,
+};
 use native_tls::{HandshakeError, TlsConnector};
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -18,7 +20,7 @@ use std::fs::File;
 use std::io::Write;
 use std::net::TcpStream;
 use std::path::Path;
-use totp_rs::TOTP;
+use totp_rs::Totp;
 
 pub struct EcKeyPair {
     pub public_key: PublicKey,
@@ -155,8 +157,7 @@ pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> 
     let sk_bytes = hex::decode(check_sk_hex(private_key))?;
     let signing_key = SigningKey::from_slice(&sk_bytes)
         .map_err(|_| anyhow::anyhow!("Invalid private key format"))?;
-    let (signature, _) = signing_key.sign_prehash_recoverable(&message_hash)
-        .map_err(|_| anyhow::anyhow!("Signing failed"))?;
+    let (signature, _) = signing_key.sign_prehash_recoverable(&message_hash);
     Ok(Base64::encode_string(&signature.to_bytes()))
 }
 
@@ -170,8 +171,7 @@ pub fn sign_message_bytes(private_key: &str, message: &str) -> anyhow::Result<Ve
     let sk_bytes = hex::decode(check_sk_hex(private_key))?;
     let signing_key = SigningKey::from_slice(&sk_bytes)
         .map_err(|_| anyhow::anyhow!("Invalid private key format"))?;
-    let (signature, _) = signing_key.sign_prehash_recoverable(&message_hash)
-        .map_err(|_| anyhow::anyhow!("Signing failed"))?;
+    let (signature, _) = signing_key.sign_prehash_recoverable(&message_hash);
     Ok(signature.to_bytes().to_vec())
 }
 
@@ -188,7 +188,8 @@ pub fn verify_signature(public_key: &str, message: &str, signature: &str) -> any
     let signature_bytes = Base64::decode_vec(signature)?;
     let sig = EcdsaSignature::from_slice(&signature_bytes)
         .map_err(|_| anyhow::anyhow!("Invalid signature format"))?;
-    verifying_key.verify_prehash(&message_hash, &sig)
+    verifying_key
+        .verify_prehash(&message_hash, &sig)
         .map_err(|_| anyhow::anyhow!("Signature verification failed"))?;
     Ok(true)
 }
@@ -278,9 +279,8 @@ pub fn decrypt_file<P: AsRef<Path>>(
 }
 
 pub fn generate_totp_password(totp_url: &str) -> anyhow::Result<String> {
-    let totp = TOTP::from_url(totp_url)?;
-    totp.generate_current()
-        .map_err(|e| anyhow::anyhow!(e.to_string()))
+    let totp = Totp::from_url(totp_url)?;
+    Ok(format!("{}", totp.generate_current()))
 }
 
 #[cfg(test)]
