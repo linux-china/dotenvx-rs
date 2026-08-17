@@ -1,8 +1,8 @@
 use crate::commands::trim_private_key;
-use aes_gcm::aead::OsRng;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use argon2::password_hash::SaltString;
+use argon2::password_hash::rand_core::OsRng;
 use argon2::{self, Argon2, PasswordHasher};
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
 use colored::Colorize;
@@ -214,7 +214,7 @@ pub fn encrypt_file<P: AsRef<Path>>(
     output_file: P,
     password: &str,
 ) -> anyhow::Result<()> {
-    let plain_bytes = std::fs::read(input_file)?;
+    let plain_bytes = fs::read(input_file)?;
     // password hashing with Argon2
     let argon2 = Argon2::default();
     let salt = SaltString::generate(&mut OsRng);
@@ -222,14 +222,15 @@ pub fn encrypt_file<P: AsRef<Path>>(
     let hash = password_hash.hash.unwrap();
 
     // Initialize AES-GCM with the derived key
-    let aes_key = Key::<Aes256Gcm>::from_slice(hash.as_bytes()); // Use the first 32 bytes of the hash
-    let cipher = Aes256Gcm::new(aes_key);
+    let aes_key = Key::<Aes256Gcm>::try_from(hash.as_bytes())?; // Use the first 32 bytes of the hash
+    let cipher = Aes256Gcm::new(&aes_key);
 
     // Generate a random nonce
     let random_nonce = rand::random::<[u8; 12]>();
     // Encrypt the plaintext
+    let nonce = Nonce::try_from(random_nonce)?;
     let ciphertext = cipher
-        .encrypt(Nonce::from_slice(&random_nonce), plain_bytes.as_ref())
+        .encrypt(&nonce, plain_bytes.as_ref())
         .expect("encryption failure!");
 
     // // Write the salt, nonce, and ciphertext to the output file
@@ -263,12 +264,13 @@ pub fn decrypt_file<P: AsRef<Path>>(
     let hash = password_hash.hash.unwrap();
 
     // Initialize AES-GCM with the derived key
-    let aes_key = Key::<Aes256Gcm>::from_slice(hash.as_bytes());
-    let cipher = Aes256Gcm::new(aes_key);
+    let aes_key = Key::<Aes256Gcm>::try_from(hash.as_bytes())?;
+    let cipher = Aes256Gcm::new(&aes_key);
 
     // Decrypt the ciphertext
+    let nonce = Nonce::try_from(nonce_bytes)?;
     let plain_bytes = cipher
-        .decrypt(Nonce::from_slice(nonce_bytes), ciphertext)
+        .decrypt(&nonce, ciphertext)
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
     // Write the decrypted bytes to the output file
