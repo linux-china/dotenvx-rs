@@ -48,15 +48,22 @@ pub fn get_dotenvx_home() -> PathBuf {
 
 pub fn is_sensitive_key(key_name: &str) -> bool {
     let encrypted_patterns = [
-        "PASSWORD",
-        "SECRET",
-        "TOKEN",
-        "KEY",
-        "PRIVATE",
-        "CREDENTIAL",
+        "password",
+        "pwd",
+        "passwd",
+        "passphrase",
+        "jwt",
+        "auth",
+        "secret",
+        "private",
+        "jaas",
+        "key",
+        "token",
+        "credential",
     ];
+    let key_name_lowercase = key_name.to_lowercase();
     for encrypted_pattern in encrypted_patterns {
-        if key_name.contains(encrypted_pattern) {
+        if key_name_lowercase.contains(encrypted_pattern) {
             return true;
         }
     }
@@ -201,7 +208,7 @@ pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::e
             Ok(trim_private_key(private_key))
         } else {
             Err(format!("Private key not found for public key: {}", public_key).into())
-        }
+        };
     }
     let profile_name = get_profile_name_from_file(env_file);
     get_private_key(&profile_name)
