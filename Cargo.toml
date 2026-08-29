@@ -24,10 +24,10 @@ ecies = { version = "0.2.11", default-features = false, features = ["std", "aes-
 k256 = { version = "0.14", default-features = false, features = ["arithmetic", "critical-section", "ecdsa", "ecdsa-core"] }
 sha2 = "0.11"
 aes-gcm = "0.11.0"
-argon2 = { version = "0.5" }
+argon2 = { version = "0.6" }
 totp-rs = { version = "6.0", features = ["otpauth", "gen_secret"] }
 rand = "0.10"
-uuid = { version = "1.24", features = ["v4", "v7"] }
+uuid = { version = "1.26", features = ["v4", "v7"] }
 base64ct = "1.8.3"
 keyring = { version = "4.1" }
 hex = "0.4.3"
@@ -47,7 +47,7 @@ arboard = "3.6"
 java-properties = "2"
 csv = "1.4"
 toml = "1.1.4+spec-1.1.0"
-yaml-rust2 = "0.11"
+yaml-rust2 = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 colored_json = "5"
