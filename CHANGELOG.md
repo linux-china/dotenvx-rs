@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.4.32] - 2026-08-29
+
+### Added
+
+- Update aes-gcm to 0.11.0
+- Add double quote for public key value
+- Adjust secret patterns for key name
+- Don't encrypt key with `_PLAIN`
 
 ## [0.4.31] - 2026-05-25
 
