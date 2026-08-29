@@ -1,8 +1,8 @@
 use crate::commands::trim_private_key;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
-use argon2::password_hash::SaltString;
-use argon2::password_hash::rand_core::OsRng;
+use argon2::password_hash::phc::{Salt};
+use argon2::password_hash::try_generate_salt;
 use argon2::{self, Argon2, PasswordHasher};
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
 use colored::Colorize;
@@ -217,8 +217,8 @@ pub fn encrypt_file<P: AsRef<Path>>(
     let plain_bytes = fs::read(input_file)?;
     // password hashing with Argon2
     let argon2 = Argon2::default();
-    let salt = SaltString::generate(&mut OsRng);
-    let password_hash = argon2.hash_password(password.as_bytes(), &salt).unwrap();
+    let salt = try_generate_salt()?;
+    let password_hash = argon2.hash_password_with_salt(password.as_bytes(), &salt)?;
     let hash = password_hash.hash.unwrap();
 
     // Initialize AES-GCM with the derived key
@@ -235,8 +235,7 @@ pub fn encrypt_file<P: AsRef<Path>>(
 
     // // Write the salt, nonce, and ciphertext to the output file
     let mut output = File::create(&output_file)?;
-    let mut salt_bytes: [u8; 16] = [0; 16];
-    salt.decode_b64(&mut salt_bytes).unwrap();
+    let salt_bytes: [u8; 16] = salt.clone();
     output.write_all(&salt_bytes)?; // First 16 bytes: salt
     output.write_all(&random_nonce)?; // Next 12 bytes: nonce
     output.write_all(&ciphertext)?; // Remaining bytes: ciphertext
@@ -254,13 +253,13 @@ pub fn decrypt_file<P: AsRef<Path>>(
 
     // Extract the salt, nonce, and ciphertext
     let salt_bytes = &encrypted_file_content[0..16]; // First 16 bytes: salt
-    let salt = SaltString::encode_b64(salt_bytes).unwrap();
+    let salt = Salt::new(salt_bytes).unwrap();
     let nonce_bytes = &encrypted_file_content[16..28]; // Next 12 bytes: nonce
     let ciphertext = &encrypted_file_content[28..]; // Remaining bytes: ciphertext
 
     // password hashing with Argon2
     let argon2 = Argon2::default();
-    let password_hash = argon2.hash_password(password.as_bytes(), &salt).unwrap();
+    let password_hash = argon2.hash_password_with_salt(password.as_bytes(), &salt).unwrap();
     let hash = password_hash.hash.unwrap();
 
     // Initialize AES-GCM with the derived key
