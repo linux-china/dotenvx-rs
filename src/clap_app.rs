@@ -210,7 +210,7 @@ pub fn build_dotenvx_app() -> Command {
         .arg(
             Arg::new("remove")
                 .long("remove")
-                .help("Remove private key and saved to $HOME/.dotenvx/.env.keys.json")
+                .help("Remove key pair from $HOME/.dotenvx/.env.keys.json")
                 .num_args(1)
                 .required(false),
         )
