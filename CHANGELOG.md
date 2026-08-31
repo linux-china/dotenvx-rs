@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Remove key pair: `dotenvx keypair --remove xxxxx`
+
 ## [0.4.32] - 2026-08-29
 
 ### Added
