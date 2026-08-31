@@ -7,6 +7,7 @@
 ### Added
 
 - Remove key pair: `dotenvx keypair --remove xxxxx`
+- Add `del` sub command to remove key from .env: `dotenvx del XXX`
 
 ## [0.4.32] - 2026-08-29
 
@@ -153,7 +154,7 @@ DUCKDB__SECRET_DB__ENCRYPTION_KEY=123456
 
 - Add inspection for sensitive keys with plain value in `dotenvx doctor`
 - Add [mise](https://mise.jdx.dev/) integration with dotenvx in README.md
-- Add default value for group(`global`) and name(`app`) with `dotenvx init --global` command
+- Add default value for group (`global`) and name (`app`) with `dotenvx init --global` command
 
 ## [0.4.18] - 2025-09-11
 
@@ -241,11 +242,11 @@ DUCKDB__SECRET_DB__ENCRYPTION_KEY=123456
 
 ## [0.4.3] - 2025-08-04
 
-dotenvx introduces `$HOME/.dotenvx/.env.keys.json` to manage key pairs globally,
-and avoids AI agents from accessing the private key directly.
+dotenvx introduces `$HOME/.dotenvx/.env.keys.json` to manage key pairs globally, and avoids AI agents from accessing the
+private key directly.
 
-`application.properties` is now the first citizen for Spring Boot applications,
-and you can use `dotenvx set --encrypt <Key> <Value>` to set the key-value pairs in the file.
+`application.properties` is now the first citizen for Spring Boot applications, and you can use
+`dotenvx set --encrypt <Key> <Value>` to set the key-value pairs in the file.
 
 ### Added
 
@@ -295,8 +296,8 @@ Commands:
 - Add `-pp` flags for `dotenvx get` sub command to be compatible with `python-dotenv` library
 - Add `dotenvx decrypt --dump` to decrypt the items from the .env file and output them to stdout as json format
 
-`dotenvx decrypt --dump` is useful for the languages that have no dotenvx library,
-and you can construct the command and execute it, and resolve the json output.
+`dotenvx decrypt --dump` is useful for the languages that have no dotenvx library, and you can construct the command and
+execute it, and resolve the json output.
 
 ## [0.3.1] - 2025-07-28
 
@@ -328,7 +329,7 @@ nick=encrypted:BPodujYSdjsczRV7O2nkPPqbS9Q==
 ### Fixed
 
 - Change `--encrypt`, `--plain` to flag for `dotenvx set` command
-- Remove double quotes for public/private key's value(hex encoded) in the files
+- Remove double quotes for public/private key's value (hex encoded) in the files
 
 ## [0.3.0] - 2025-07-27
 
@@ -396,8 +397,8 @@ jobs:
 - Add `dotenvx diff <keys>` to compare keys from all `.env.keys` files in the current directory
 - Add `dotenvx decrypt --export` to decrypt dotenv file and export variables as shell script
 - Add `.aiignore` file to ignore AI-generated files
-- Add `dotenvx set <key> <value> --stdout` to output the key-value(encrypted) pair to stdout
-- Add `dotenvx get <key> <encrypted_value>` to output the key-value(plain) pair to stdout
+- Add `dotenvx set <key> <value> --stdout` to output the key-value (encrypted) pair to stdout
+- Add `dotenvx get <key> <encrypted_value>` to output the key-value (plain) pair to stdout
 - Add validation for `dotenvx keypair` command to ensure the key pair is valid
 - Add dotenvx CLI cheat sheet: https://cheatography.com/linux-china/cheat-sheets/dotenvx/
 
