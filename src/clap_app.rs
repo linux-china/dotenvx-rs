@@ -208,6 +208,13 @@ pub fn build_dotenvx_app() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg(
+            Arg::new("remove")
+                .long("remove")
+                .help("Remove private key and saved to $HOME/.dotenvx/.env.keys.json")
+                .num_args(1)
+                .required(false),
+        )
+        .arg(
             Arg::new("dump")
                 .long("dump")
                 .help("Dump public key to .env file and private key to .env.keys in current directory")

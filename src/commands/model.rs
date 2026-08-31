@@ -57,6 +57,23 @@ impl DotenvxKeyStore {
         None
     }
 
+    pub fn remove_private_key(&mut self, key: &str) -> bool {
+        let mut target_pub_key = "".to_owned();
+        for (pub_key, pair) in &self.keys {
+            if pub_key == key || pair.private_key == key {
+                target_pub_key = pub_key.to_string();
+                break;
+            }
+        }
+        if target_pub_key != "" {
+            self.keys.remove(&target_pub_key);
+            true
+        } else {
+            eprintln!("Key not found: {}", key);
+            false
+        }
+    }
+
     pub fn write(&self) -> anyhow::Result<()> {
         let dotenvx_home = get_dotenvx_home();
         if !dotenvx_home.exists() {

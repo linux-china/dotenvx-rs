@@ -1,20 +1,23 @@
-use crate::commands::model::KeyPair;
+use crate::commands::model::{DotenvxKeyStore, KeyPair};
 use crate::commands::{
-    find_all_keys, find_private_key_from_home, get_env_file_arg, get_private_key, get_private_key_name,
-    get_public_key, get_public_key_name, write_key_pair, write_private_key_to_file, write_public_key_to_file,
-    EcKeyPair, KEYS_FILE_NAME,
+    EcKeyPair, KEYS_FILE_NAME, find_all_keys, find_private_key_from_home, get_env_file_arg,
+    get_private_key, get_private_key_name, get_public_key, get_public_key_name, write_key_pair,
+    write_private_key_to_file, write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
 use dotenvx_rs::common::get_profile_name_from_file;
 use prettytable::format::Alignment;
-use prettytable::{row, Cell, Row, Table};
+use prettytable::{Cell, Row, Table, row};
 
 pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     // import private key
     if command_matches.get_flag("import") {
         import_private_key();
+        return;
+    } else if let Some(key) = command_matches.get_one::<String>("remove") {
+        remove_private_key(key);
         return;
     } else if command_matches.get_flag("all") {
         list_all_pairs();
@@ -109,6 +112,21 @@ fn import_private_key() {
         eprintln!("Invalid private key.");
         std::process::exit(1);
     }
+}
+
+fn remove_private_key(key: &str) {
+    if let Ok(mut store) = DotenvxKeyStore::load_global() {
+        let removed = store.remove_private_key(key);
+        if removed {
+            store.write().unwrap();
+            println!("{}", "✔ Key removed successfully.".to_string().green());
+        } else {
+            std::process::exit(1);
+        }
+    } else {
+        eprintln!("Key store file not found");
+        std::process::exit(1);
+    };
 }
 
 fn list_all_pairs() {
