@@ -22,6 +22,7 @@ pub mod decrypt;
 pub mod diff;
 pub mod encrypt;
 pub mod get_cmd;
+pub mod del_cmd;
 pub mod init;
 pub mod keypair;
 pub mod list;

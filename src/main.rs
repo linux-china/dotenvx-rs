@@ -22,6 +22,7 @@ use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::env;
 use std::ffi::OsString;
+use crate::commands::del_cmd::del_command;
 
 mod clap_app;
 pub mod commands;
@@ -103,6 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "link" => link_command(command_matches, &command_name),
             "get" => get_command(command_matches, &profile),
             "set" => set_command(command_matches, &profile),
+            "del" => del_command(command_matches, &profile),
             "sync" => sync_command(command_matches),
             "diff" => diff_command(command_matches),
             "rotate" => rotate_command(command_matches, &profile),

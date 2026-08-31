@@ -99,7 +99,17 @@ pub fn build_dotenvx_app() -> Command {
                 .help("Set key's value from the clipboard")
                 .action(ArgAction::SetTrue),
         );
-
+    let del_command = Command::new("del")
+        .about("Delete environment variable")
+        .arg(
+            Arg::new("env-file")
+                .short('f')
+                .long("env-file")
+                .help("path to your env file (default: .env)")
+                .num_args(1)
+                .required(false),
+        )
+        .arg(Arg::new("key").help("key's name").index(1).required(true));
     let encrypt_command = Command::new("encrypt")
         .about("convert .env file(s) to encrypted .env file(s)")
         .arg(
@@ -411,6 +421,7 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(run_command)
         .subcommand(get_command)
         .subcommand(set_command)
+        .subcommand(del_command)
         .subcommand(encrypt_command)
         .subcommand(decrypt_command)
         .subcommand(verify_command)
