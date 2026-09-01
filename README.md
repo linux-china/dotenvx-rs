@@ -6,8 +6,8 @@ their benefits.
 
 ![Dotenvx Architecture](https://github.com/linux-china/dotenvx-rs/raw/main/dotenvx-architecture.jpg)
 
-dotenvx-rs is a Rust command-line toolchain for [dotenvx]() to make .env files secure and easy to use,
-and it's also a crate to load encrypted .env files in your Rust applications.
+dotenvx-rs is a Rust command-line toolchain for [dotenvx]() to make .env files secure and easy to use, and it's also a
+crate to load encrypted .env files in your Rust applications.
 
 Please read [dotenvx cheat sheet](https://cheatography.com/linux-china/cheat-sheets/dotenvx/) for quick overview.
 
@@ -38,8 +38,8 @@ fn test_dotenv_load() {
 - Encrypt .env file: Run `dotenvx encrypt` to encrypt the `.env` file.
 - Decrypt .env file: Run `dotenvx decrypt` to decrypt the `.env` file.
 
-dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/),
-with some differences:
+dotenvx Rust CLI is almost a drop-in replacement for the original [dotenvx CLI](https://dotenvx.com/), with some
+differences:
 
 - Smaller and faster and written in Rust: the `dotenvx` executable is only 4MB.
 - Global keys store: `$HOME/.dotenvx/.env.keys.json` to prevent AI Agent to scan `.env.keys` file in the project
@@ -111,9 +111,9 @@ ways:
 - Get profile from .env file, such as `.env.prod` for `prod` profile, `.env.test` for `test` profile, etc.
 - GEt profile from environment variables: `NODE_ENV`, `RUN_ENV`, `APP_ENV`, `SPRING_PROFILES_ACTIVE`.
 
-Different profiles have different `.env` files, such as `.env.prod`, `.env.test`, `.env.dev`, etc.,
-and different profiles have different private keys for encryption and decryption,
-such as `DOTENV_PRIVATE_KEY_PROD`, `DOTENV_PRIVATE_KEY_TEST`, etc.
+Different profiles have different `.env` files, such as `.env.prod`, `.env.test`, `.env.dev`, etc., and different
+profiles have different private keys for encryption and decryption, such as `DOTENV_PRIVATE_KEY_PROD`,
+`DOTENV_PRIVATE_KEY_TEST`, etc.
 
 If no profile is specified, the CLI will use the `.env` file and `DOTENV_PRIVATE_KEY` private key by default.
 
@@ -123,8 +123,7 @@ production profile.
 In dotenvx, three profile styles are supported:
 
 - project specific profile: such as `test`, `prod`, `dev`, etc., and you can use `.env.test`, `.env.prod`, `.env.dev`
-  files to manage different
-  environments.
+  files to manage different environments.
 - global profile: such as `g_github`, `g_ai`, etc., and profile name start with `g_` to indicate it's a global profile,
   and you can use `.env.g_github`, `.env.g_ai` files to manage different global environments.
 - namespace profile: such as `region1_dev`, `region2_prod`, etc., and profile name start with `region1` to indicate it's
@@ -151,26 +150,25 @@ variables:
 **Tips**: you can use `dotenvx init --stdout` to generate a key pair.
 
 **Attention**: Some AI agents read environment variables for code generation by default, so you should avoid using
-`DOTENV_PRIVATE_KEY`, and use global `$HOME/.dotenvx/.env.keys.json`. For CI/CD, production deployment,
-environment variable for a private key is still a good choice.
+`DOTENV_PRIVATE_KEY`, and use global `$HOME/.dotenvx/.env.keys.json`. For CI/CD, production deployment, environment
+variable for a private key is still a good choice.
 
 ### How to manage private keys?
 
 dotenvx CLI uses profile style to manage private keys, and you can use following practices to manage private keys:
 
 - Project specific private keys: use `dotenvx init` to create `.env` file in the project's directory and save the
-  private key
-  to the `$HOME/.dotenvx/.env.keys.json` file.
+  private key to the `$HOME/.dotenvx/.env.keys.json` file.
 - Global private: use `dotenvx init --global` to create a global `$HOME/.env.keys` file to manage unified private keys
-  for different projects. If you use `dotenvx set <key> <value>` in a directory, it will create a `.env` with public
-  key derived from  `DOTENV_PRIVATE_KEY` from `$HOME/.env.keys` file.
+  for different projects. If you use `dotenvx set <key> <value>` in a directory, it will create a `.env` with public key
+  derived from  `DOTENV_PRIVATE_KEY` from `$HOME/.env.keys` file.
 - Team/Production global private keys: use `ABC_TEST`, `REGION1_PROD` as profile names to manage private keys for
   different teams, products, or regions.
 
 ### How to rotate/reset key pairs for env files?
 
-If you don't want to use private key from environment variables, or you want to rotate your private key,
-you can use the `dotenvx rotate` command to generate a new key pair, examples:
+If you don't want to use private key from environment variables, or you want to rotate your private key, you can use the
+`dotenvx rotate` command to generate a new key pair, examples:
 
 - Rotate the private key for `.env` file: `dotenvx rotate`
 - Rotate the private key for `.env.prod` file: `dotenvx rotate -f .env.prod`
@@ -205,8 +203,8 @@ eval $( dotenvx decrypt --stdout --format shell )
 You can integrate dotenvx CLI with any language SDK by using `dotenvx decrypt --stdout --format shell` command to load
 `.env` into the environment variables.
 
-For example, Node.js, Bun and Deno, you can create a wrapper script to integrate Dotenvx support,
-such as `node`, `denow`, `bunw`, and example as following:
+For example, Node.js, Bun and Deno, you can create a wrapper script to integrate Dotenvx support, such as `node`,
+`denow`, `bunw`, and example as following:
 
 ```shell
 #!/bin/bash
@@ -228,13 +226,13 @@ to create a wrapper script as python interpreter.
 
 Dotenvx symbolic link is a way to run the command with injected environment variables by dotenvx.
 
-For example, you want to run a lua script with environment variables from `.env` file,
-you can create a symbolic link `dotenvx link bin/lua`, and then run `./bin/lua demo.lua` to run the lua script with
-environment variables from `.env` file.
+For example, you want to run a lua script with environment variables from `.env` file, you can create a symbolic link
+`dotenvx link bin/lua`, and then run `./bin/lua demo.lua` to run the lua script with environment variables from `.env`
+file.
 
-Another example is to  `mysql`, `psql` command. For example, you have database config in `.env` file already,
-and you want to log in mysql, and you should use `mysql -h host -u user -p db` and input password interactively.
-Why not read db config and help me log in mysql directly? I can't remember the long password for DB.
+Another example is to  `mysql`, `psql` command. For example, you have database config in `.env` file already, and you
+want to log in mysql, and you should use `mysql -h host -u user -p db` and input password interactively. Why not read db
+config and help me log in mysql directly? I can't remember the long password for DB.
 
 You can create a symbolic link `dotenvx link bin/mysql`, and then run `./bin/mysql` to log in mysql automatically.
 
@@ -242,8 +240,8 @@ You can create a symbolic link `dotenvx link bin/mysql`, and then run `./bin/mys
 
 ### Dotenvx for DuckDB secret management?
 
-DuckDB has [built-in Secrets Manager](https://duckdb.org/docs/stable/configuration/secrets_manager),
-but you can use dotenvx to manage the secrets for DuckDB as well.
+DuckDB has [built-in Secrets Manager](https://duckdb.org/docs/stable/configuration/secrets_manager), but you can use
+dotenvx to manage the secrets for DuckDB as well.
 
 In `.env` file, you can add the following key-value pairs:
 
@@ -270,10 +268,9 @@ DUCKDB__SECRET_DB__ENCRYPTION_KEY=123456
 
 ### How to add encrypted key-value from CLI?
 
-You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to the `.env` file.
-If you don't want to shell history to record the sensitive value,
-you can use `dotenvx set <key> -` to read the value from standard input (stdin),
-and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
+You can use `dotenvx set <key> <value>` to write an encrypted key-value pair to the `.env` file. If you don't want to
+shell history to record the sensitive value, you can use `dotenvx set <key> -` to read the value from standard input
+(stdin), and press Ctrl+D on Linux/macOS or Ctrl+Z on Windows to finish input.
 
 **Tips**: you can use `dotenvx set --encrypt my_private_pem - < ./xxx.pem` to encrypt any text file as a key-value pair
 in the `.env` file.
@@ -286,24 +283,24 @@ The `.env` file still text file, and other people or tools can modify it, and le
 For example, you have an email, which is a PayPal account to receive payments. Of course, you don't want others to
 change the email address to their own PayPal account, and then you will lose your money.
 
-To prevent this, the `.env` file is signed with a signature(secp256k1) and put in the metadata section of the file.
+To prevent this, the `.env` file is signed with a signature (secp256k1) and put in the metadata section of the file.
 When you load the `.env` file, the CLI will verify the signature with the public key in the `.env` file.
 
 How the signature works:
 
-- The author run `dotenvx encrypt --sign` to sign the `.env` file with the private key,
-  and the signature will be added to the metadata section of the file.
+- The author run `dotenvx encrypt --sign` to sign the `.env` file with the private key, and the signature will be added
+  to the metadata section of the file.
 - Signature: SHA256 hash of the `.env` trimmed .env file content (without sign line), and then sign the hash with the
   private key to get the signature, and signature is a base64 encoded string and added to the metadata section of the
   file.
-- Verification: Load the `.env` file, extract the public key and signature from the metadata section, SHA256 hash
-  the .env file-trimmed content (without sign line), and then verify the signature with the public key and the hash.
+- Verification: Load the `.env` file, extract the public key and signature from the metadata section, SHA256 hash the
+  .env file-trimmed content (without sign line), and then verify the signature with the public key and the hash.
 
 With this signature, you can ensure that the `.env` file is not tampered, and other people/tools can trust the
 `.env` file content and use it safely.
 
-**Attention**: dotenvx will overwrite the environment variables with the values from the `.env` file,
-and priority is given to the `.env` file over the environment variables.
+**Attention**: dotenvx will overwrite the environment variables with the values from the `.env` file, and priority is
+given to the `.env` file over the environment variables.
 
 ### Why introduce `dotenvx --seal` and `dotenvx --unseal`?
 
@@ -333,25 +330,25 @@ Run `dotenvx doctor` to check your `.env` files and key files for common issues:
 
 - Missing or malformed `DOTENV_PUBLIC_KEY` and metadata (front matter) in `.env` files.
 - Sensitive keys (e.g. `*_TOKEN`, `*_SECRET`, `PASSWORD`) that still hold a plain (unencrypted) value.
-- **Key file permissions**: on Unix it verifies that `$HOME/.dotenvx/.env.keys.json`, `$HOME/.env.keys`, and the
-  local `.env.keys` are `0600`. If group/other can access a key file, it prints a warning with the exact
+- **Key file permissions**: on Unix it verifies that `$HOME/.dotenvx/.env.keys.json`, `$HOME/.env.keys`, and the local
+  `.env.keys` are `0600`. If group/other can access a key file, it prints a warning with the exact
   `chmod 600 <file>` command to fix it.
 
-Files created by newer versions of dotenvx are already `0600`; the permission check mainly helps you fix key files
-that were created by older versions or copied with loose permissions.
+Files created by newer versions of dotenvx are already `0600`; the permission check mainly helps you fix key files that
+were created by older versions or copied with loose permissions.
 
 ### How to check the keys' difference between .env files?
 
-You can use the `dotenvx diff key1,key2` command to display the difference values from .env files,
-and dotenvx will search all .env files in the current directory and compare the values of the specified keys.
+You can use the `dotenvx diff key1,key2` command to display the difference values from .env files, and dotenvx will
+search all .env files in the current directory and compare the values of the specified keys.
 
-**Tips**: you can use `dotenvx diff --format csv key1,key2` to output the difference in CSV format,
-and use other tools to process the CSV data for further analysis.
+**Tips**: you can use `dotenvx diff --format csv key1,key2` to output the difference in CSV format, and use other tools
+to process the CSV data for further analysis.
 
 ### How to use dotenvx CLI in GitHub Actions?
 
-Please add `uses: linux-china/setup-dotenvx@main` to your workflow file to set up dotenvx CLI,
-and add `DOTENV_PRIVATE_KEY` secret to the `Repository secrets`.
+Please add `uses: linux-china/setup-dotenvx@main` to your workflow file to set up dotenvx CLI, and add
+`DOTENV_PRIVATE_KEY` secret to the `Repository secrets`.
 
 Example workflow file to use dotenvx cli:
 
@@ -376,8 +373,8 @@ If you use [act](https://github.com/nektos/act) for local GitHub Actions test, p
 Some applications use `.env.example` file to describe the environment variables, and you should create a new
 `.env` file from `.env.example` file for local development.
 
-Now you can use `dotenvx sync .env.example .env` command will create a new `.env` file from `.env.example` file,
-and the new `.env` file will have the same keys as `.env.example` file with new public key and metadata section.
+Now you can use `dotenvx sync .env.example .env` command will create a new `.env` file from `.env.example` file, and the
+new `.env` file will have the same keys as `.env.example` file with new public key and metadata section.
 
 ### How to generate shell completion
 
@@ -409,3 +406,4 @@ plugins=(dotenvx ...)
 * Command Line Interface Guidelines: https://clig.dev/
 * [GoFr Config](https://gofr.dev/docs/references/configs): GoFr Configuration Options
 * [Yopass](https://github.com/jhaals/yopass): Secure sharing of secrets, passwords and files
+* [SecretSpec](https://secretspec.dev/): A declarative interface for every secret provider.
