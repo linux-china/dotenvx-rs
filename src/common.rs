@@ -17,7 +17,15 @@ pub fn decode_base64_lenient(value: &str) -> Result<Vec<u8>, base64ct::Error> {
 }
 
 pub fn get_profile_name_from_env() -> Option<String> {
-    let env_vars = ["NODE_ENV", "RUN_ENV", "APP_ENV", "SPRING_PROFILES_ACTIVE", "MISE_ENV","STELA_ENV"];
+    let env_vars = [
+        "NODE_ENV",
+        "RUN_ENV",
+        "APP_ENV",
+        "SPRING_PROFILES_ACTIVE",
+        "MISE_ENV",
+        "STELA_ENV",
+        "SECRETSPEC_PROFILE",
+    ];
     for var in env_vars.iter() {
         if let Ok(value) = env::var(var) {
             if !value.is_empty() {
