@@ -8,6 +8,7 @@
 
 - Remove key pair: `dotenvx keypair --remove xxxxx`
 - Add `del` sub command to remove key from .env: `dotenvx del XXX`
+- Add `SECRETSPEC_PROFILE` environment variable to specify the profile name
 
 ## [0.4.32] - 2026-08-29
 
