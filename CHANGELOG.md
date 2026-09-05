@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.4.33] - 2026-09-05
+
 ### Added
 
 - Add double quote for plain/encrypted value
