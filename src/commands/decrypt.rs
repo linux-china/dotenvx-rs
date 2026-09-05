@@ -81,7 +81,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             let key = line.split('=').next().unwrap().trim();
             if let Some(value) = entries.get(key) {
                 let new_value = escape_shell_value(value);
-                new_lines.push(format!("{key}={new_value}"));
+                new_lines.push(format!("{key}=\"{new_value}\""));
                 is_changed = true;
             } else {
                 // If the key is not in the entries, we keep the original line

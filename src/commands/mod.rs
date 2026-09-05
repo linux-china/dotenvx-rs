@@ -566,7 +566,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
 # ---
 
 #  Private decryption keys. DO NOT commit to source control
-{}={}
+{}="{}"
 "#,
             &key_pair.name.clone().unwrap_or("project_name".to_string()),
             key_pair.group.clone().unwrap_or("group_name".to_string()),
@@ -586,7 +586,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
         // no key in the file, we add it
         if !env_keys_content.contains(private_key_name) {
             let new_content = format!(
-                "{}\n{}={}\n",
+                "{}\n{}=\"{}\"\n",
                 env_keys_content.trim(),
                 private_key_name,
                 private_key_value
@@ -812,7 +812,7 @@ pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
             println!("{}", to_colored_json_auto(&json_value).unwrap());
         } else if *fmt == "shell" {
             for (key, value) in entries {
-                println!("export {}={}", key, escape_shell_value(value));
+                println!("export {}=\"{}\"", key, escape_shell_value(value));
             }
         } else if *fmt == "csv" {
             let mut wtr = WriterBuilder::new()
@@ -830,7 +830,7 @@ pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
             }
         } else {
             for (key, value) in entries {
-                println!("{}={}", key, escape_shell_value(value));
+                println!("{}=\"{}\"", key, escape_shell_value(value));
             }
         }
     }

@@ -59,8 +59,8 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
         let reversed_pk_hex = kp.get_pk_hex();
         if &reversed_pk_hex != public_key_hex {
             eprintln!("{}", "The public key does not match the private key:".red());
-            eprintln!("{env_pub_key_name}={public_key_hex}");
-            eprintln!("{env_private_key_name}={private_key_hex}");
+            eprintln!("{env_pub_key_name}=\"{public_key_hex}\"");
+            eprintln!("{env_private_key_name}=\"{private_key_hex}\"");
             std::process::exit(1);
         }
     }
@@ -74,12 +74,12 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
     if format == "shell" {
         println!(
-            "export {}={}",
+            "export {}=\"{}\"",
             env_pub_key_name,
             public_key.unwrap_or_else(|_| "".to_owned())
         );
         println!(
-            "export {}={}",
+            "export {}=\"{}\"",
             env_private_key_name,
             private_key.unwrap_or("".to_owned())
         );

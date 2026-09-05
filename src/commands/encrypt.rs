@@ -57,7 +57,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             // key-value pairs
             let key = line.split('=').next().unwrap().trim();
             if let Some(value) = entries.get(key) {
-                new_lines.push(format!("{key}={value}"));
+                new_lines.push(format!("{key}=\"{value}\""));
                 is_changed = true;
             } else {
                 // if the key is not in the entries, we keep the original line

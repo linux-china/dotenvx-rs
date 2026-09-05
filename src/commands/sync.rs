@@ -52,14 +52,14 @@ pub fn sync_command(command_matches: &ArgMatches) {
                 let key = line.split('=').next().unwrap().trim();
                 if let Some(value) = entries.get(key) {
                     let encrypted_value = encrypt_env_item(&new_public_key, value).unwrap();
-                    new_lines.push(format!("{key}={encrypted_value}"));
+                    new_lines.push(format!("{key}=\"{encrypted_value}\""));
                 }
             } else {
                 let key_name = line.split('=').next().unwrap().trim();
                 if is_sensitive_key(key_name) && entries.contains_key(key_name) {
                     let value = entries.get(key_name).unwrap();
                     let encrypted_value = encrypt_env_item(&new_public_key, value).unwrap();
-                    new_lines.push(format!("{key_name}={encrypted_value}"));
+                    new_lines.push(format!("{key_name}=\"{encrypted_value}\""));
                 } else {
                     if line.starts_with("# Environment variables") {
                         continue;
@@ -112,9 +112,9 @@ pub fn sync_command(command_matches: &ArgMatches) {
             if !key.starts_with("DOTENV_PUBLIC_KEY") && !target_entries.contains_key(key) {
                 if !target_public_key.is_empty() && is_sensitive_key(key) {
                     let encrypted_value = encrypt_env_item(&target_public_key, value).unwrap();
-                    absent_variables.push(format!("{key}={encrypted_value}"));
+                    absent_variables.push(format!("{key}=\"{encrypted_value}\""));
                 } else {
-                    absent_variables.push(format!("{}={}", key, escape_shell_value(value)));
+                    absent_variables.push(format!("{}=\"{}\"", key, escape_shell_value(value)));
                 }
             }
         }

@@ -99,9 +99,9 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let public_key = get_public_key_for_file(&env_file).unwrap();
     let pair = if encrypt_mode {
         let encrypted_value = encrypt_env_item(&public_key, &value).unwrap();
-        format!("{key}={encrypted_value}")
+        format!("{key}=\"{encrypted_value}\"")
     } else {
-        format!("{}={}", key, escape_shell_value(&value))
+        format!("{}=\"{}\"", key, escape_shell_value(&value))
     };
     let pair = adjust_pair_for_file(&env_file, pair);
     if command_matches.get_flag("stdout") {
