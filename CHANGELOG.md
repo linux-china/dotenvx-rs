@@ -6,6 +6,7 @@
 
 ### Added
 
+- Add double quote for plain/encrypted value
 - Remove key pair: `dotenvx keypair --remove xxxxx`
 - Add `del` sub command to remove key from .env: `dotenvx del XXX`
 - Add `SECRETSPEC_PROFILE` environment variable to specify the profile name
