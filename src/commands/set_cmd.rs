@@ -84,7 +84,10 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         if let Ok(file_content) = fs::read_to_string(&env_file) {
             env_file_content = file_content;
         }
-        encrypt_mode = env_file_content.contains("=encrypted:");
+        // if encrypt_mode is false, check if the file contains any encrypted values
+        if !encrypt_mode {
+            encrypt_mode = env_file_content.contains("encrypted:");
+        }
     }
     // if encrypt or plain arg is provided, we override the encrypt_mode
     if command_matches.get_flag("plain") {
@@ -114,7 +117,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
             env_file = format!("configs/{env_file}");
         }
         create_env_file(&env_file, &public_key, Some(&pair), &None, &None);
-        println!("Added {key} to {env_file}");
+        println!("Added {key} to {env_file} with {} mode", if encrypt_mode { "encrypted" } else { "plain" });
     } else if env_file_content.contains(&format!("{key}=")) {
         // Update existing key
         let new_content = env_file_content
