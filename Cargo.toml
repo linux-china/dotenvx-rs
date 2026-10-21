@@ -29,7 +29,7 @@ totp-rs = { version = "6.0", features = ["otpauth", "gen_secret"] }
 rand = "0.10"
 uuid = { version = "1.26", features = ["v4", "v7"] }
 base64ct = "1.8.3"
-keyring = { version = "4.2" }
+#keyring = { version = "4.2" }
 hex = "0.4.3"
 # cli
 shlex = "2.0"
@@ -42,12 +42,10 @@ clap = "4.6"
 clap_complete = "4.6"
 colored = "3.1"
 prettytable-rs = "0.10"
-arboard = "3.7"
+arboard = { version = "3.7", default-features = false }
 # file format
 java-properties = "2"
 csv = "1.4"
-toml = "1.1.8+spec-1.1.0"
-yaml-rust2 = "0.13"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 colored_json = "5"
@@ -56,7 +54,6 @@ dotenv-analyzer = "0.1"
 # misc
 chrono = { version = "0.4.45", features = ["serde"] }
 regex = "1.13"
-lazy_static = "1.5.0"
 anyhow = "1.0"
 ureq = { version = "3.4", default-features = false, features = ["rustls", "json", "platform-verifier"] }
 which = "8.0"
@@ -64,8 +61,9 @@ symlink = "0.1.0"
 url = "2.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
-libdbus-sys = { version = "0.2.7", features = ["vendored"] }
+arboard = { version = "3.7", default-features = false , features = ["wayland-data-control"]}
+#openssl = { version = "0.10", features = ["vendored"] }
+#libdbus-sys = { version = "0.2.7", features = ["vendored"] }
 
 [[bin]]
 name = "mkey"

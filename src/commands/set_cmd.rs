@@ -6,15 +6,14 @@ use crate::commands::{
 };
 use arboard::Clipboard;
 use clap::ArgMatches;
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::io::Read;
 use std::path::Path;
+use std::sync::LazyLock;
 use std::{fs, io};
 
-lazy_static! {
-    static ref REGEX_KEY_NAME: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z0-9_]*$").unwrap();
-}
+static REGEX_KEY_NAME: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z_]+[a-zA-Z0-9_]*$").unwrap());
 
 pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let mut env_file = get_env_file_arg(command_matches, profile);
