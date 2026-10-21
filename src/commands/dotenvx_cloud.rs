@@ -1,8 +1,6 @@
 use crate::commands::crypt_util::{generate_jwt_token, sha256};
-use crate::commands::find_all_keys;
+use crate::commands::{find_all_keys, http_agent};
 use crate::commands::model::KeyPair;
-use reqwest::blocking::Client;
-use reqwest::header;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -36,24 +34,18 @@ pub struct RegistrationResult {
 
 pub fn fetch_self_info(private_key: &str) -> anyhow::Result<SelfInfo> {
     let jwt_token = generate_request_token(private_key)?;
-    let client = Client::new();
-    let mut request_headers = header::HeaderMap::new();
-    request_headers.insert(
-        "Authorization",
-        format!("Bearer {jwt_token}").parse().unwrap(),
-    );
-    let response = client
+    let mut response = http_agent()
         .get("https://dotenvx-api.microservices.club/api/v1/users/me")
-        .headers(request_headers)
-        .send()?;
+        .header("Authorization", format!("Bearer {jwt_token}"))
+        .call()?;
     if response.status() == 200 {
-        let self_response: SelfResponse = response.json()?;
+        let self_response: SelfResponse = response.body_mut().read_json()?;
         Ok(self_response.data.unwrap())
     } else {
         Err(anyhow::anyhow!(
             "status: {}, msg: {}",
             response.status(),
-            response.text()?,
+            response.body_mut().read_to_string()?,
         ))
     }
 }
@@ -65,25 +57,23 @@ pub fn register(
     email: &str,
     phone: &str,
 ) -> anyhow::Result<RegistrationResult> {
-    let client = Client::new();
-    let response = client
+    let mut response = http_agent()
         .post("https://dotenvx-api.microservices.club/registration")
-        .json(&json!({
+        .send_json(json!({
             "nick": nick,
             "email": email,
             "phone": phone,
             "publicKey": public_key,
             "privateKeySha256": private_key_sha256,
-        }))
-        .send()?;
+        }))?;
     if response.status() == 200 {
-        let self_response: RegistrationResponse = response.json()?;
+        let self_response: RegistrationResponse = response.body_mut().read_json()?;
         Ok(self_response.data.unwrap())
     } else {
         Err(anyhow::anyhow!(
             "status: {}, msg: {}",
             response.status(),
-            response.text()?,
+            response.body_mut().read_to_string()?,
         ))
     }
 }

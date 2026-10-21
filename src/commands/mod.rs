@@ -7,8 +7,6 @@ use colored_json::to_colored_json_auto;
 use csv::WriterBuilder;
 use dotenvx_rs::common::{find_dotenv_keys_file, find_env_file_path, get_profile_name_from_file};
 use java_properties::PropertiesIter;
-use reqwest::blocking::Client;
-use reqwest::header;
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs::File;
@@ -178,19 +176,15 @@ pub fn read_content_from_dotenv_url(
     file_url: &str,
     headers: Option<HashMap<String, String>>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let client = Client::new();
-    let mut request_headers = header::HeaderMap::new();
+    let mut request = http_agent().get(file_url);
     if let Some(custom_headers) = headers {
         for (key, value) in custom_headers {
-            request_headers.insert(
-                header::HeaderName::from_bytes(key.as_bytes()).unwrap(),
-                header::HeaderValue::from_str(&value).unwrap(),
-            );
+            request = request.header(key, value);
         }
     }
-    let response = client.get(file_url).headers(request_headers).send()?;
+    let mut response = request.call()?;
     if response.status().is_success() {
-        let body = response.text()?;
+        let body = response.body_mut().read_to_string()?;
         Ok(body)
     } else {
         Err(format!(
@@ -200,6 +194,18 @@ pub fn read_content_from_dotenv_url(
         )
         .into())
     }
+}
+
+/// HTTP agent with platform certificate verification; non-2xx status codes are returned as responses, not errors.
+pub fn http_agent() -> ureq::Agent {
+    let tls_config = ureq::tls::TlsConfig::builder()
+        .root_certs(ureq::tls::RootCerts::PlatformVerifier)
+        .build();
+    ureq::Agent::config_builder()
+        .tls_config(tls_config)
+        .http_status_as_error(false)
+        .build()
+        .new_agent()
 }
 
 pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
