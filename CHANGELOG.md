@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.4.34] - 2026-10-21
+
+### Added
+
+- Binary file optimize: 
+
+
 ## [0.4.33] - 2026-09-05
 
 ### Added
