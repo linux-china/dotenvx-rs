@@ -17,10 +17,10 @@ use walkdir::DirEntry;
 
 pub mod crypt_util;
 pub mod decrypt;
+pub mod del_cmd;
 pub mod diff;
 pub mod encrypt;
 pub mod get_cmd;
-pub mod del_cmd;
 pub mod init;
 pub mod keypair;
 pub mod list;
@@ -746,10 +746,17 @@ pub fn adjust_env_key(key: &str, env_file: &str) -> String {
 }
 pub fn escape_shell_value(value: &str) -> String {
     use shlex::try_quote;
-    if let Ok(escaped_value) = try_quote(value) {
+    let new_value = if let Ok(escaped_value) = try_quote(value) {
         escaped_value.to_string()
     } else {
         value.to_string()
+    };
+    if new_value.starts_with('\'') && new_value.ends_with('\'') {
+        new_value[1..new_value.len() - 1].to_string()
+    } else if new_value.starts_with('"') && new_value.ends_with('"') {
+        new_value[1..new_value.len() - 1].to_string()
+    } else {
+        new_value
     }
 }
 
@@ -845,7 +852,6 @@ pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
 pub fn is_remote_env_file(env_file: &str) -> bool {
     env_file.starts_with("http://") || env_file.starts_with("https://")
 }
-
 
 pub fn is_valid_env_key(name: &str) -> bool {
     let mut chars = name.chars();
