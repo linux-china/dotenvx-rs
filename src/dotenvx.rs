@@ -156,7 +156,7 @@ pub fn from_read_iter<R: Read>(reader: R) -> dotenvy::Result<Vec<(String, String
 fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dotenvy::Result<()> {
     if env_file.as_ref().exists() {
         let dotenv_content = std::fs::read_to_string(&env_file).unwrap();
-        if dotenv_content.contains("=encrypted:") {
+        if dotenv_content.contains("encrypted:") {
             let public_key = get_public_key(&env_file);
             let env_file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
             let profile_name = get_profile_name_from_file(env_file_name);

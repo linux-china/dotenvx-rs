@@ -15,10 +15,10 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if Path::new(&env_file).exists() {
         let entries = decrypt_env_entries(&env_file).unwrap();
         let file_content = fs::read_to_string(&env_file).unwrap();
-        let encrypt_mode = file_content.contains("=encrypted:");
+        let encrypt_mode = file_content.contains("encrypted:");
         let mut plain_lines: Vec<String> = Vec::new();
         for line in file_content.lines() {
-            if line.contains("=encrypted:") {
+            if line.contains("encrypted:") {
                 let key = line.split('=').next().unwrap().trim();
                 if let Some(value) = entries.get(key) {
                     let new_value = escape_shell_value(value);
@@ -70,7 +70,7 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 {
                     // public key line
                     new_lines.push(line.to_string());
-                } else if line.contains("=encrypted:") {
+                } else if line.contains("encrypted:") {
                     // already encrypted lines
                     new_lines.push(line.to_string());
                 } else if line.contains('=') {

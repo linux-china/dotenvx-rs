@@ -56,7 +56,7 @@ pub fn doctor_command(_: &ArgMatches) {
                     || line.starts_with("DOTENV_PUBLIC_KEY")
                     || line.trim().is_empty()
                     || !line.contains('=')
-                    || line.contains("=encrypted:")
+                    || line.contains("encrypted:")
                 {
                     continue;
                 }

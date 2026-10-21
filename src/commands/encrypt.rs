@@ -50,7 +50,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         } else if line.starts_with("DOTENV_PUBLIC_KEY") || line.starts_with("dotenv.public.key") {
             // public key line
             new_lines.push(line.to_string());
-        } else if line.contains("=encrypted:") {
+        } else if line.contains("encrypted:") {
             // already encrypted lines
             new_lines.push(line.to_string());
         } else if line.contains('=') {

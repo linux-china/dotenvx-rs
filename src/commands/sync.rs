@@ -48,7 +48,7 @@ pub fn sync_command(command_matches: &ArgMatches) {
             }
         }
         for line in lines {
-            if line.contains("=encrypted:") {
+            if line.contains("encrypted:") {
                 let key = line.split('=').next().unwrap().trim();
                 if let Some(value) = entries.get(key) {
                     let encrypted_value = encrypt_env_item(&new_public_key, value).unwrap();

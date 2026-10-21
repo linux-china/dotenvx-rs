@@ -77,7 +77,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let mut new_lines: Vec<String> = Vec::new();
     let mut is_changed = false;
     for line in file_content.lines() {
-        if line.contains("=encrypted:") {
+        if line.contains("encrypted:") {
             let key = line.split('=').next().unwrap().trim();
             if let Some(value) = entries.get(key) {
                 let new_value = escape_shell_value(value);
