@@ -16,6 +16,11 @@ release:
 push:
    docker run --rm -it -v "$(pwd)":/repo -v "$HOME/.ssh":/root/.ssh:ro -w /repo alpine/git push origin main --tags
 
+# display crate dependency tree and space
+crates:
+  cargo tree > crates.txt
+  cargo bloat --release --crates -n 40 > cargo-bloat.txt
+
 cli-help:
     cargo run --bin dotenvx -- --help
 
