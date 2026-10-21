@@ -119,6 +119,11 @@ pub fn decrypt_env_entries(
         let reader = BufReader::new(f);
         PropertiesIter::new(reader)
             .read_into(|key, value| {
+                let value = if value.starts_with('"') {
+                    value[1..value.len() - 1].to_string()
+                } else {
+                    value
+                };
                 if value.starts_with("encrypted:") {
                     let decrypted_text = decrypt_env_item(&private_key, &value).unwrap();
                     entries.insert(key.clone(), decrypted_text);
