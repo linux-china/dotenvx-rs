@@ -1,8 +1,7 @@
 use crate::commands::list_env_files;
 use crate::commands::model::EnvFile;
 use clap::ArgMatches;
-use prettytable::format::Alignment;
-use prettytable::{Cell, Row, Table, row};
+use comfy_table::Table;
 use walkdir::DirEntry;
 
 pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
@@ -29,16 +28,13 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
             directory
         );
         let mut table = Table::new();
-        table.set_titles(Row::new(vec![
-            Cell::new_align(&title, Alignment::CENTER).with_hspan(6),
-        ]));
-        table.add_row(row![
+        table.set_header(vec![
             "Path",
             "UUID",
             "Entries",
             "Public Key",
             "Signed",
-            "Verified"
+            "Verified",
         ]);
         for entry in entries {
             let file_path = entry.path().to_str().unwrap();
@@ -75,15 +71,16 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 "N/A"
             };
 
-            table.add_row(row![
-                display_name,
+            table.add_row(vec![
+                display_name.to_string(),
                 file_uuid,
-                entry_count,
+                entry_count.to_string(),
                 public_key_short,
-                sign_symbol,
-                verified
+                sign_symbol.to_string(),
+                verified.to_string(),
             ]);
         }
-        table.printstd();
+        println!("{title}");
+        println!("{table}");
     }
 }

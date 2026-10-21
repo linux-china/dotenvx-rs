@@ -2,7 +2,7 @@ use crate::commands::crypt_util::decrypt_env_item;
 use crate::commands::{get_private_key_for_file, list_env_files, read_dotenv_file};
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_file;
-use prettytable::{row, Cell, Table};
+use comfy_table::Table;
 use std::io;
 
 pub fn diff_command(command_matches: &ArgMatches) {
@@ -22,17 +22,16 @@ pub fn diff_command(command_matches: &ArgMatches) {
         eprintln!("No .env files found.");
         return;
     }
-    let mut table = Table::new();
-    let mut header_row = row!["profile"];
+    let mut header_row = vec!["profile".to_string()];
     for key_name in &key_names {
-        header_row.add_cell(Cell::new(key_name));
+        header_row.push(key_name.to_string());
     }
-    table.add_row(header_row);
+    let mut rows: Vec<Vec<String>> = vec![];
     for entry in entries {
         let env_file_name = entry.file_name().to_str().unwrap();
         let entries = read_dotenv_file(env_file_name).unwrap();
         let profile_name = get_profile_name_from_file(env_file_name).unwrap_or("".to_string());
-        let mut data_row = row![profile_name];
+        let mut data_row = vec![profile_name];
         for key_name in &key_names {
             if let Some(value) = entries.get(*key_name) {
                 let mut plain_value = value.to_string();
@@ -42,16 +41,24 @@ pub fn diff_command(command_matches: &ArgMatches) {
                             decrypt_env_item(&private_key, value).unwrap_or(value.clone());
                     }
                 }
-                data_row.add_cell(Cell::new(&plain_value));
+                data_row.push(plain_value);
             } else {
-                data_row.add_cell(Cell::new(""));
+                data_row.push("".to_string());
             }
         }
-        table.add_row(data_row);
+        rows.push(data_row);
     }
     if format == "csv" {
-        table.to_csv(io::stdout()).unwrap();
+        let mut writer = csv::Writer::from_writer(io::stdout());
+        writer.write_record(&header_row).unwrap();
+        for row in &rows {
+            writer.write_record(row).unwrap();
+        }
+        writer.flush().unwrap();
     } else {
-        table.printstd();
+        let mut table = Table::new();
+        table.set_header(header_row);
+        table.add_rows(rows);
+        println!("{table}");
     }
 }

@@ -8,8 +8,7 @@ use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
 use dotenvx_rs::common::get_profile_name_from_file;
-use prettytable::format::Alignment;
-use prettytable::{Cell, Row, Table, row};
+use comfy_table::Table;
 
 pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     // import private key
@@ -137,10 +136,7 @@ fn list_all_pairs() {
     }
     let title = "All global key pairs";
     let mut table = Table::new();
-    table.set_titles(Row::new(vec![
-        Cell::new_align(title, Alignment::CENTER).with_hspan(8),
-    ]));
-    table.add_row(row![
+    table.set_header(vec![
         "Public Key",
         "Private Key",
         "timestamp",
@@ -148,13 +144,13 @@ fn list_all_pairs() {
         "group",
         "name",
         "profile",
-        "comment"
+        "comment",
     ]);
 
     for (public_key, key_pair) in &all_pairs {
         let pk_key_short = public_key[0..6].to_string();
         let sk_key_short = key_pair.private_key[0..6].to_string();
-        table.add_row(row![
+        table.add_row(vec![
             format!("{pk_key_short}..."),
             format!("{sk_key_short}..."),
             key_pair
@@ -168,5 +164,6 @@ fn list_all_pairs() {
             key_pair.comment.clone().unwrap_or_default(),
         ]);
     }
-    table.printstd();
+    println!("{title}");
+    println!("{table}");
 }
