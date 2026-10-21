@@ -12,13 +12,11 @@ use ecies::{PublicKey, SecretKey};
 use k256::ecdsa::{
     Signature as EcdsaSignature, SigningKey, VerifyingKey, signature::hazmat::PrehashVerifier,
 };
-use native_tls::{HandshakeError, TlsConnector};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::net::TcpStream;
 use std::path::Path;
 use totp_rs::Totp;
 
@@ -123,28 +121,6 @@ pub fn sha256(input: &[u8]) -> String {
     hasher.update(input);
     let result = hasher.finalize();
     hex::encode(result)
-}
-
-#[allow(dead_code)]
-fn get_https_cert_sha256(host: &str, port: u16) -> anyhow::Result<String> {
-    let connector = TlsConnector::new()?;
-    let stream = TcpStream::connect(format!("{host}:{port}"))?;
-
-    match connector.connect(host, stream) {
-        Ok(tls_stream) => {
-            if let Some(cert) = tls_stream.peer_certificate()? {
-                let der = cert.to_der()?;
-                return Ok(sha256(&der));
-            }
-        }
-        Err(HandshakeError::Failure(e)) => {
-            return Err(anyhow::anyhow!(e.to_string()));
-        }
-        Err(HandshakeError::WouldBlock(_)) => {
-            return Err(anyhow::anyhow!("Failed to get certificate"));
-        }
-    }
-    Err(anyhow::anyhow!("Failed to get certificate"))
 }
 
 /// trim the message and sign it using the private key and return the signature in base64 format
@@ -337,11 +313,5 @@ mod tests {
         // Encrypt the file
         decrypt_file(encrypted_file, output_file, password)?;
         Ok(())
-    }
-
-    #[test]
-    fn test_https_cert() {
-        let finger_print = get_https_cert_sha256("dotenvx.microservices.club", 443).unwrap();
-        println!("finger_print : {}", finger_print);
     }
 }

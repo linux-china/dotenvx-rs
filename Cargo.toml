@@ -59,7 +59,6 @@ regex = "1.13"
 lazy_static = "1.5.0"
 anyhow = "1.0"
 ureq = { version = "3", default-features = false, features = ["rustls", "json", "platform-verifier"] }
-native-tls = "0.2.18"
 which = "8.0"
 symlink = "0.1.0"
 url = "2.5"
