@@ -8,8 +8,9 @@
 
 ### Added
 
-- Binary file optimize: 
-
+- Dependencies optimization
+- Fix decrypt bugs because of double quote
+- Fix some bugs reported by LLM
 
 ## [0.4.33] - 2026-09-05
 
