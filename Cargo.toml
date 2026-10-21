@@ -45,7 +45,7 @@ comfy-table = { version = "8.0", default-features = false }
 arboard = { version = "3.7", default-features = false }
 # file format
 java-properties = "2"
-#csv = "1.4"
+csv = "1.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 colored_json = "5"
@@ -53,7 +53,7 @@ dotenv-linter = { version = "4.0", default-features = false }
 dotenv-analyzer = "0.1"
 # misc
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std", "serde"] }
-#regex = "1.13"
+regex = "1.13"
 anyhow = "1.0"
 ureq = { version = "3.4", default-features = false, features = ["rustls", "json", "platform-verifier"] }
 which = "8.0"
