@@ -1,19 +1,11 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::framework::detect_framework;
-use crate::commands::{
-    adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file,
-    is_sensitive_key, update_env_file,
-};
+use crate::commands::{adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file, is_sensitive_key, is_valid_env_key, update_env_file};
 use arboard::Clipboard;
 use clap::ArgMatches;
-use regex::Regex;
 use std::io::Read;
 use std::path::Path;
-use std::sync::LazyLock;
 use std::{fs, io};
-
-static REGEX_KEY_NAME: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[a-zA-Z_]+[a-zA-Z0-9_]*$").unwrap());
 
 pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let mut env_file = get_env_file_arg(command_matches, profile);
@@ -153,7 +145,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
 
 pub fn validate_key_name(key: &str, env_file: &str) -> bool {
     if env_file.contains(".env") {
-        REGEX_KEY_NAME.is_match(key)
+        is_valid_env_key(key)
     } else {
         true
     }

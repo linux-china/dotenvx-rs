@@ -1,12 +1,7 @@
-use crate::commands::{adjust_env_key, get_env_file_arg};
+use crate::commands::{adjust_env_key, get_env_file_arg, is_valid_env_key};
 use clap::ArgMatches;
-use regex::Regex;
 use std::fs;
 use std::path::Path;
-use std::sync::LazyLock;
-
-static REGEX_KEY_NAME: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[a-zA-Z_]+[a-zA-Z0-9_]*$").unwrap());
 
 pub fn del_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
@@ -41,13 +36,13 @@ pub fn del_command(command_matches: &ArgMatches, profile: &Option<String>) {
 
 pub fn validate_key_name(key: &str, env_file: &str) -> bool {
     if env_file.contains(".env") {
-        REGEX_KEY_NAME.is_match(key)
+        is_valid_env_key(key)
     } else {
         true
     }
 }
 
-fn remove_key_lines(content: &str, env_file: &str, key: &str) -> Option<String> {
+fn remove_key_lines(content: &str, _env_file: &str, key: &str) -> Option<String> {
     let line_prefix = format!("{key}=");
     let mut removed = false;
     let new_content = content

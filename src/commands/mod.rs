@@ -846,6 +846,13 @@ pub fn is_remote_env_file(env_file: &str) -> bool {
     env_file.starts_with("http://") || env_file.starts_with("https://")
 }
 
+
+pub fn is_valid_env_key(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

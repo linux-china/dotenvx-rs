@@ -140,6 +140,7 @@ pub struct EnvKeys {
 }
 
 impl EnvKeys {
+    #[allow(dead_code)]
     pub fn from_file<P: AsRef<Path>>(env_keys_file_path: P) -> anyhow::Result<EnvKeys> {
         let content = fs::read_to_string(&env_keys_file_path)?;
         let metadata = extract_front_matter(&content);
@@ -155,6 +156,7 @@ impl EnvKeys {
         })
     }
 
+    #[allow(dead_code)]
     pub fn new<P: AsRef<Path>>(env_keys_file_path: P) -> Self {
         let keys_uuid = uuid::Uuid::now_v7().to_string();
         let mut metadata = HashMap::new();
@@ -166,6 +168,7 @@ impl EnvKeys {
         }
     }
 
+    #[allow(dead_code)]
     pub fn write(&self) -> anyhow::Result<()> {
         let mut content = String::new();
         if let Some(metadata) = &self.metadata {
@@ -295,6 +298,7 @@ struct ApplicationProperties {
 }
 
 impl ApplicationProperties {
+    #[allow(dead_code)]
     pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<Self, std::io::Error> {
         let content = fs::read_to_string(&file_path)?;
         let metadata = extract_front_matter(&content);
