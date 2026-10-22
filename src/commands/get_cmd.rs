@@ -18,17 +18,23 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let mut decrypted_entries: HashMap<String, String> = HashMap::new();
     if let Some(key_name) = key_arg {
         let key_name = adjust_env_key(key_name, &env_file);
-        let private_key = get_private_key_for_file(&env_file).unwrap();
+        let private_key = get_private_key_for_file(&env_file).ok();
+        let decrypt_value = |value: &String| {
+            private_key
+                .as_ref()
+                .and_then(|private_key| decrypt_env_item(private_key, value).ok())
+                .unwrap_or(value.clone())
+        };
         // get the decrypted value from the command line arguments if provided
         let plain_value = if let Some(value) = command_matches.get_one::<String>("value") {
-            decrypt_env_item(&private_key, value).unwrap_or(value.clone())
+            decrypt_value(value)
         } else {
             // get key's value from the .env file
             if let Ok(entries) = read_dotenv_file(&env_file)
                 && let Some(value) = entries.get(&key_name)
             {
                 if value.starts_with("encrypted:") {
-                    decrypt_env_item(&private_key, value).unwrap_or(value.clone())
+                    decrypt_value(value)
                 } else {
                     value.clone()
                 }

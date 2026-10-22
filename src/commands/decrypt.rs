@@ -112,7 +112,8 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
 pub fn decrypt_env_entries(
     env_file: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let private_key = get_private_key_for_file(env_file)?;
+    // only required when there are encrypted values
+    let private_key = get_private_key_for_file(env_file).map_err(|e| e.to_string());
     let mut entries: HashMap<String, String> = HashMap::new();
     if env_file.ends_with(".properties") {
         let f = File::open(env_file)?;
@@ -125,7 +126,7 @@ pub fn decrypt_env_entries(
                     value
                 };
                 if value.starts_with("encrypted:") {
-                    let decrypted_text = decrypt_env_item(&private_key, &value).unwrap();
+                    let decrypted_text = decrypt_env_item(private_key.as_ref().unwrap(), &value).unwrap();
                     entries.insert(key.clone(), decrypted_text);
                 } else {
                     entries.insert(key.clone(), value.clone());
@@ -144,7 +145,7 @@ pub fn decrypt_env_entries(
         };
         for (key, value) in items {
             if value.starts_with("encrypted:") {
-                let decrypted_text = decrypt_env_item(&private_key, &value)?;
+                let decrypted_text = decrypt_env_item(private_key.as_ref().map_err(|e| e.clone())?, &value)?;
                 entries.insert(key.clone(), decrypted_text);
             } else {
                 entries.insert(key.clone(), value.clone());

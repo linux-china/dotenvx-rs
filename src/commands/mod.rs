@@ -221,17 +221,30 @@ pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::e
     get_private_key(&profile_name)
 }
 
+/// read-only: find the private key from .env.keys or environment variables, never generate a new one
 pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_private_key_name(profile_name);
-    let dotenv_keys_file_path = if let Some(profile) = profile_name
+    lookup_private_key(profile_name)?
+        .ok_or_else(|| format!("Private key not found: {env_key_name}").into())
+}
+
+fn get_dotenv_keys_file_path(profile_name: &Option<String>) -> Option<PathBuf> {
+    if let Some(profile) = profile_name
         && profile.starts_with("g_")
     {
         dirs::home_dir().map(|home| home.join(KEYS_FILE_NAME))
     } else {
         find_dotenv_keys_file()
-    };
+    }
+}
+
+fn lookup_private_key(
+    profile_name: &Option<String>,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let env_key_name = get_private_key_name(profile_name);
+    let dotenv_keys_file_path = get_dotenv_keys_file_path(profile_name);
     let key_entries = if let Some(file_path) = &dotenv_keys_file_path {
         read_dotenv_file(file_path)?
     } else {
@@ -239,12 +252,27 @@ pub fn get_private_key(
     };
     // read from .env.keys file
     if let Some(private_key) = key_entries.get(&env_key_name) {
-        return Ok(trim_private_key(private_key.trim_matches('"').to_owned()));
+        return Ok(Some(trim_private_key(
+            private_key.trim_matches('"').to_owned(),
+        )));
     }
     // read from environment variables
     if let Ok(private_key) = env::var(&env_key_name) {
-        return Ok(trim_private_key(private_key));
+        return Ok(Some(trim_private_key(private_key)));
     }
+    Ok(None)
+}
+
+/// find the private key, and generate a new key pair and save it to .env.keys if not found.
+/// Only call it from commands that create keys explicitly, such as encrypt/set.
+pub fn get_or_create_private_key(
+    profile_name: &Option<String>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    if let Some(private_key) = lookup_private_key(profile_name)? {
+        return Ok(private_key);
+    }
+    let env_key_name = get_private_key_name(profile_name);
+    let dotenv_keys_file_path = get_dotenv_keys_file_path(profile_name);
     // create a new private key if not found
     let key_pair = EcKeyPair::generate();
     let public_key_hex = key_pair.get_pk_hex();
@@ -257,7 +285,11 @@ pub fn get_private_key(
         let file_path = PathBuf::from(KEYS_FILE_NAME);
         write_private_key_to_file(&file_path, &env_key_name, &key_pair)?;
     }
-    Ok(trim_private_key(private_key_hex))
+    // make sure the new private key is persisted, otherwise values encrypted with it can never be decrypted
+    match lookup_private_key(profile_name)? {
+        Some(saved_key) if saved_key == private_key_hex => Ok(saved_key),
+        _ => Err(format!("Failed to save new private key {env_key_name} to {KEYS_FILE_NAME}").into()),
+    }
 }
 
 fn trim_private_key(private_key_hex: String) -> String {
@@ -268,7 +300,23 @@ fn trim_private_key(private_key_hex: String) -> String {
     }
 }
 
+/// read-only: never generate a new key pair
 pub fn get_public_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
+    resolve_public_key_for_file(env_file, false)
+}
+
+/// generate a new key pair if no public/private key found.
+/// Call it once per command and pass the public key down, see review #1.
+pub fn get_or_create_public_key_for_file(
+    env_file: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    resolve_public_key_for_file(env_file, true)
+}
+
+fn resolve_public_key_for_file(
+    env_file: &str,
+    create: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
     let profile_name = get_profile_name_from_file(env_file);
     if env_file.ends_with(".properties") {
         let file_content = fs::read_to_string(env_file).unwrap();
@@ -282,10 +330,18 @@ pub fn get_public_key_for_file(env_file: &str) -> Result<String, Box<dyn std::er
             }
         }
     }
-    get_public_key(&profile_name)
+    resolve_public_key(&profile_name, create)
 }
 
+/// read-only: never generate a new key pair
 pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn std::error::Error>> {
+    resolve_public_key(profile_name, false)
+}
+
+fn resolve_public_key(
+    profile_name: &Option<String>,
+    create: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
     let env_key_name = get_public_key_name(profile_name);
     let env_file_name = if let Some(name) = profile_name {
         format!(".env.{name}")
@@ -317,7 +373,11 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
         return Ok(public_key);
     }
     // get public key from the default private key
-    let private_key_hex = get_private_key(profile_name)?;
+    let private_key_hex = if create {
+        get_or_create_private_key(profile_name)?
+    } else {
+        get_private_key(profile_name)?
+    };
     let kp = EcKeyPair::from_secret_key(&private_key_hex);
     Ok(kp.get_pk_hex())
 }

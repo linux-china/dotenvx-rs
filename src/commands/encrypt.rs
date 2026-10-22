@@ -2,7 +2,7 @@ use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
     adjust_env_key, construct_env_file_header, get_env_file_arg, get_private_key,
-    get_public_key_for_file, get_public_key_name, is_public_key_included, update_env_file,
+    get_or_create_public_key_for_file, get_public_key_name, is_public_key_included, update_env_file,
     write_public_key_to_file,
 };
 use clap::ArgMatches;
@@ -22,14 +22,16 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
         // create default env file if it does not exist
-        let public_key = get_public_key_for_file(&env_file).unwrap();
+        let public_key = get_or_create_public_key_for_file(&env_file).unwrap();
         println!("'{env_file}' does not exist, creating a new file with public key.");
         write_public_key_to_file(&env_file_path, &public_key).unwrap();
         return;
     }
     let mut is_changed = false;
     let file_content = fs::read_to_string(&env_file_path).unwrap();
-    let mut entries = encrypt_env_entries(&env_file).unwrap();
+    // resolve the public key only once for the whole command
+    let public_key = get_or_create_public_key_for_file(&env_file).unwrap();
+    let mut entries = encrypt_env_entries(&env_file, &public_key).unwrap();
     let mut hint = format!(".env file({env_file})");
     if let Some(keys) = env_keys {
         let patterns: Vec<Pattern> = keys
@@ -87,7 +89,6 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             println!("{}", format!("✔ sign added for ({env_file})").green());
         }
     } else {
-        let public_key = get_public_key_for_file(&env_file).unwrap();
         let mut new_file_content = if is_public_key_included(&file_content) {
             new_lines.join("\n")
         } else {
@@ -122,8 +123,8 @@ pub fn add_or_replace_signature(
 
 pub fn encrypt_env_entries(
     env_file: &str,
+    public_key: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let public_key = get_public_key_for_file(env_file)?;
     let mut entries: HashMap<String, String> = HashMap::new();
     if env_file.ends_with(".properties") {
         let encrypted_patterns = [
@@ -149,7 +150,7 @@ pub fn encrypt_env_entries(
                         .iter()
                         .any(|pattern| key.contains(pattern))
                     {
-                        let encrypted_text = encrypt_env_item(&public_key, &value).unwrap();
+                        let encrypted_text = encrypt_env_item(public_key, &value).unwrap();
                         entries.insert(key, encrypted_text);
                     } else {
                         entries.insert(key, value);
@@ -163,7 +164,7 @@ pub fn encrypt_env_entries(
             let (key, value) = &item?;
             // encrypt the value if it is not already encrypted or key contains _PLAIN
             if !key.contains("_PLAIN") && !value.starts_with("encrypted:") {
-                let encrypted_text = encrypt_env_item(&public_key, value)?;
+                let encrypted_text = encrypt_env_item(public_key, value)?;
                 entries.insert(key.clone(), encrypted_text);
             } else {
                 entries.insert(key.clone(), value.clone());

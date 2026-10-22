@@ -1,6 +1,6 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::framework::detect_framework;
-use crate::commands::{adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_public_key_for_file, is_sensitive_key, is_valid_env_key, update_env_file};
+use crate::commands::{adjust_env_key, create_env_file, escape_shell_value, get_env_file_arg, get_or_create_public_key_for_file, is_sensitive_key, is_valid_env_key, update_env_file};
 use arboard::Clipboard;
 use clap::ArgMatches;
 use std::io::Read;
@@ -91,7 +91,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if command_matches.get_flag("encrypt") {
         encrypt_mode = true;
     }
-    let public_key = get_public_key_for_file(&env_file).unwrap();
+    let public_key = get_or_create_public_key_for_file(&env_file).unwrap();
     let pair = if encrypt_mode {
         let encrypted_value = encrypt_env_item(&public_key, &value).unwrap();
         format!("{key}=\"{encrypted_value}\"")

@@ -56,7 +56,7 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
         // encrypt the .env file again
         if encrypt_mode {
             let file_content = fs::read_to_string(&env_file).unwrap();
-            let entries = encrypt_env_entries(&env_file).unwrap();
+            let entries = encrypt_env_entries(&env_file, &pk_hex).unwrap();
             let mut new_lines: Vec<String> = Vec::new();
             for line in file_content.lines() {
                 if line.starts_with("#") {
