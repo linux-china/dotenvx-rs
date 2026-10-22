@@ -148,9 +148,14 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
         let reader = BufReader::new(f);
         PropertiesIter::new(reader)
             .read_into(|key, value| {
-                entries.insert(key, value);
-            })
-            .unwrap();
+                // trim double quote
+                let new_value = if value.starts_with('"') && value.ends_with('"') {
+                    value[1..value.len() - 1].to_string()
+                } else {
+                    value
+                };
+                entries.insert(key, new_value);
+            })?;
     } else {
         for (key, value) in dotenvy::from_filename_iter(path)?.flatten() {
             entries.insert(key.clone(), value.clone());
@@ -288,7 +293,9 @@ pub fn get_or_create_private_key(
     // make sure the new private key is persisted, otherwise values encrypted with it can never be decrypted
     match lookup_private_key(profile_name)? {
         Some(saved_key) if saved_key == private_key_hex => Ok(saved_key),
-        _ => Err(format!("Failed to save new private key {env_key_name} to {KEYS_FILE_NAME}").into()),
+        _ => {
+            Err(format!("Failed to save new private key {env_key_name} to {KEYS_FILE_NAME}").into())
+        }
     }
 }
 
