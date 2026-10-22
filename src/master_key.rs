@@ -66,7 +66,7 @@ fn reset_profile(raw_args: &mut Vec<String>) {
         let profile_value = raw_args.get(offset + 1).cloned().unwrap_or_default();
         if !profile_value.starts_with("g_") {
             raw_args.remove(offset + 1); // Remove the profile value
-            raw_args.insert(offset + 1, format!("g-{profile_value}"));
+            raw_args.insert(offset + 1, format!("g_{profile_value}"));
         }
     } else {
         raw_args.insert(0, "-p".to_string());
