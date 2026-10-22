@@ -40,8 +40,7 @@ fn link_uv_python(command_name: &str) {
     let real_path = canonical_path.to_string_lossy().to_string();
     std::fs::remove_file(command_name).unwrap();
     let python3_script = format!(
-        r#"
-#!/bin/bash
+        r#"#!/bin/bash
 
 # load .env by dotenvx
 eval $( dotenvx decrypt --stdout --format shell )
