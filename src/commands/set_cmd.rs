@@ -121,7 +121,7 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         let new_content = env_file_content
             .lines()
             .map(|line| {
-                if line.starts_with(&key) {
+                if line.starts_with(&format!("{key}=")) {
                     pair.clone()
                 } else {
                     line.to_string()
