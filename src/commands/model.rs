@@ -29,25 +29,89 @@ impl DotenvxKeyStore {
             keys: HashMap::new(),
         }
     }
+    pub fn global_path() -> std::path::PathBuf {
+        get_dotenvx_home().join(".env.keys.json")
+    }
+
+    /// Parse key store json, compatible with the legacy format (plain `{public_key: KeyPair}` map).
+    pub fn from_json(file_content: &str) -> anyhow::Result<DotenvxKeyStore> {
+        if file_content.contains("\"version\"") {
+            Ok(serde_json::from_str(file_content)?)
+        } else {
+            let keys: HashMap<String, KeyPair> = serde_json::from_str(file_content)?;
+            let mut metadata = HashMap::new();
+            metadata.insert("uuid".to_owned(), uuid::Uuid::now_v7().to_string());
+            Ok(DotenvxKeyStore {
+                version: "0.1.0".to_string(),
+                metadata,
+                keys,
+            })
+        }
+    }
+
     pub fn load_global() -> anyhow::Result<DotenvxKeyStore> {
-        let dotenvx_home = get_dotenvx_home();
-        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+        let env_keys_json_file = Self::global_path();
         if env_keys_json_file.exists() {
-            let file_content = fs::read_to_string(env_keys_json_file)?;
-            return if file_content.contains("\"version\"") {
-                Ok(serde_json::from_str(&file_content)?)
-            } else {
-                let keys: HashMap<String, KeyPair> = serde_json::from_str(&file_content)?;
-                let mut metadata = HashMap::new();
-                metadata.insert("uuid".to_owned(), uuid::Uuid::now_v7().to_string());
-                Ok(DotenvxKeyStore {
-                    version: "0.1.0".to_string(),
-                    metadata,
-                    keys,
-                })
-            };
+            let file_content = fs::read_to_string(&env_keys_json_file)?;
+            return Self::from_json(&file_content);
         }
         Err(anyhow!("$HOME/.dotenvx/.env.keys.json not foud"))
+    }
+
+    /// Load the global key store, or create an empty one ONLY if the file does not exist.
+    /// Any other error (corrupted json, permission denied...) is returned, so that the existing
+    /// private keys are never overwritten by an empty store.
+    pub fn load_global_or_new() -> anyhow::Result<DotenvxKeyStore> {
+        let env_keys_json_file = Self::global_path();
+        match fs::read_to_string(&env_keys_json_file) {
+            Ok(file_content) => Self::from_json(&file_content).map_err(|e| {
+                anyhow!(
+                    "Failed to parse {}: {e}. Please fix or back up the file manually, private keys are not saved.",
+                    env_keys_json_file.display()
+                )
+            }),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(DotenvxKeyStore::new()),
+            Err(e) => Err(anyhow!(
+                "Failed to read {}: {e}",
+                env_keys_json_file.display()
+            )),
+        }
+    }
+
+    /// Load-modify-write the global key store under an exclusive file lock.
+    /// `update` returns true if the store was changed and should be written back.
+    pub fn update_global<F, R>(update: F) -> anyhow::Result<R>
+    where
+        F: FnOnce(&mut DotenvxKeyStore) -> anyhow::Result<(bool, R)>,
+    {
+        let dotenvx_home = get_dotenvx_home();
+        if !dotenvx_home.exists() {
+            fs::create_dir_all(&dotenvx_home)?;
+        }
+        let lock_file = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(dotenvx_home.join(".env.keys.json.lock"))?;
+        lock_file.lock()?;
+        let mut key_store = Self::load_global_or_new()?;
+        let (changed, result) = update(&mut key_store)?;
+        if changed {
+            key_store.write()?;
+        }
+        Ok(result)
+    }
+
+    /// Merge keys from another store, returns true if any new key was added.
+    pub fn merge(&mut self, other: DotenvxKeyStore) -> bool {
+        let mut changed = false;
+        for (public_key, key_pair) in other.keys {
+            if !self.keys.contains_key(&public_key) {
+                self.keys.insert(public_key, key_pair);
+                changed = true;
+            }
+        }
+        changed
     }
 
     pub fn find_private_key(&self, public_key: &str) -> Option<String> {
@@ -74,14 +138,33 @@ impl DotenvxKeyStore {
         }
     }
 
+    /// Write the global key store atomically: write a 0600 temp file in the same directory, then rename.
     pub fn write(&self) -> anyhow::Result<()> {
         let dotenvx_home = get_dotenvx_home();
         if !dotenvx_home.exists() {
             fs::create_dir_all(&dotenvx_home)?;
         }
-        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
+        let env_keys_json_file = Self::global_path();
         let file_content = serde_json::to_string_pretty(self)?;
-        fs::write(&env_keys_json_file, file_content)?;
+        let tmp_file = dotenvx_home.join(format!(".env.keys.json.{}.tmp", std::process::id()));
+        let write_result = (|| -> anyhow::Result<()> {
+            let mut options = fs::OpenOptions::new();
+            options.write(true).create(true).truncate(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let mut file = options.open(&tmp_file)?;
+            std::io::Write::write_all(&mut file, file_content.as_bytes())?;
+            file.sync_all()?;
+            fs::rename(&tmp_file, &env_keys_json_file)?;
+            Ok(())
+        })();
+        if write_result.is_err() {
+            let _ = fs::remove_file(&tmp_file);
+        }
+        write_result?;
         crate::commands::restrict_file_permissions(&env_keys_json_file);
         Ok(())
     }

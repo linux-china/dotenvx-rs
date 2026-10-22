@@ -2,6 +2,7 @@ use crate::clap_app::build_dotenvx_app;
 use crate::commands::cloud::cloud_command;
 use crate::commands::completion::completion_command;
 use crate::commands::crypt_util::{decrypt_file, encrypt_file};
+use crate::commands::merge_sealed_key_store;
 use crate::commands::decrypt::decrypt_command;
 use crate::commands::diff::diff_command;
 use crate::commands::doctor::doctor_command;
@@ -151,6 +152,15 @@ fn encrypt_env_keys_file() {
     if dotenvx_home.join(".env.keys.json").exists() {
         let keys_file_path = dotenvx_home.join(".env.keys.json");
         let encrypted_file_path = dotenvx_home.join(".env.keys.json.aes");
+        // a previous sealed key store exists: merge its keys first, otherwise they would be lost
+        if encrypted_file_path.exists() {
+            if let Err(e) = merge_sealed_key_store(&encrypted_file_path, &password) {
+                eprintln!(
+                    "Failed to merge the existing $HOME/.dotenvx/.env.keys.json.aes file: {e}. Nothing changed."
+                );
+                return;
+            }
+        }
         if encrypt_file(&keys_file_path, &encrypted_file_path, &password).is_ok() {
             std::fs::remove_file(&keys_file_path).unwrap();
             println!(
@@ -188,20 +198,20 @@ fn decrypt_env_keys_file() {
         }
     }
     let dotenvx_home = home_dir.join(".dotenvx");
-    if dotenvx_home.join(".env.keys.json.aes").exists() {
-        let keys_file_path = dotenvx_home.join(".env.keys.json");
-        let encrypted_file_path = dotenvx_home.join(".env.keys.json.aes");
-        if decrypt_file(&encrypted_file_path, &keys_file_path, &password).is_ok() {
-            println!(
+    let encrypted_file_path = dotenvx_home.join(".env.keys.json.aes");
+    if encrypted_file_path.exists() {
+        // merge into the existing .env.keys.json (if any) instead of overwriting it
+        match merge_sealed_key_store(&encrypted_file_path, &password) {
+            Ok(_) => println!(
                 "✔ Successfully decrypted the env.keys.json.aes file to $HOME/.dotenvx/.env.keys.json",
-            );
-        } else {
-            eprintln!(
-                "Failed to decrypt the $HOME/env.keys.json.aes file. Please check your password and try again."
-            );
+            ),
+            Err(e) => eprintln!(
+                "Failed to decrypt the $HOME/.dotenvx/.env.keys.json.aes file: {e}. Please check your password and try again."
+            ),
         }
     }
 }
+
 
 fn get_profile(global_matches: &ArgMatches) -> Option<String> {
     let profile = global_matches

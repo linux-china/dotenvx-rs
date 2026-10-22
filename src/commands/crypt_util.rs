@@ -228,8 +228,23 @@ pub fn decrypt_file<P: AsRef<Path>>(
     output_file: P,
     password: &str,
 ) -> anyhow::Result<()> {
+    let plain_bytes = decrypt_file_to_bytes(encrypted_file, password)?;
+    // Write the decrypted bytes to the output file
+    fs::write(&output_file, plain_bytes)?;
+    // decrypted key store holds plaintext private keys, restrict to owner-only on Unix
+    crate::commands::restrict_file_permissions(&output_file);
+    Ok(())
+}
+
+pub fn decrypt_file_to_bytes<P: AsRef<Path>>(
+    encrypted_file: P,
+    password: &str,
+) -> anyhow::Result<Vec<u8>> {
     // Read the encrypted file
     let encrypted_file_content = fs::read(encrypted_file)?;
+    if encrypted_file_content.len() < 28 {
+        return Err(anyhow::anyhow!("Invalid encrypted file: too short"));
+    }
 
     // Extract the salt, nonce, and ciphertext
     let salt_bytes = &encrypted_file_content[0..16]; // First 16 bytes: salt
@@ -251,12 +266,7 @@ pub fn decrypt_file<P: AsRef<Path>>(
     let plain_bytes = cipher
         .decrypt(&nonce, ciphertext)
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-
-    // Write the decrypted bytes to the output file
-    fs::write(&output_file, plain_bytes)?;
-    // decrypted key store holds plaintext private keys, restrict to owner-only on Unix
-    crate::commands::restrict_file_permissions(&output_file);
-    Ok(())
+    Ok(plain_bytes)
 }
 
 pub fn generate_totp_password(totp_url: &str) -> anyhow::Result<String> {

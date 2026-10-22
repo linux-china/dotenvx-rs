@@ -114,18 +114,21 @@ fn import_private_key() {
 }
 
 fn remove_private_key(key: &str) {
-    if let Ok(mut store) = DotenvxKeyStore::load_global() {
-        let removed = store.remove_private_key(key);
-        if removed {
-            store.write().unwrap();
-            println!("{}", "✔ Key removed successfully.".to_string().green());
-        } else {
-            std::process::exit(1);
-        }
-    } else {
+    if !DotenvxKeyStore::global_path().exists() {
         eprintln!("Key store file not found");
         std::process::exit(1);
-    };
+    }
+    match DotenvxKeyStore::update_global(|store| {
+        let removed = store.remove_private_key(key);
+        Ok((removed, removed))
+    }) {
+        Ok(true) => println!("{}", "✔ Key removed successfully.".to_string().green()),
+        Ok(false) => std::process::exit(1),
+        Err(e) => {
+            eprintln!("Failed to remove key: {e}");
+            std::process::exit(1);
+        }
+    }
 }
 
 fn list_all_pairs() {

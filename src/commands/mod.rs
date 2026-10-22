@@ -103,39 +103,33 @@ pub fn restrict_file_permissions<P: AsRef<Path>>(path: P) {
 }
 
 pub fn write_key_pair(key_pair: &KeyPair) -> anyhow::Result<()> {
-    let mut key_store = if let Ok(store) = DotenvxKeyStore::load_global() {
-        store
-    } else {
-        DotenvxKeyStore::new()
-    };
-    if !key_store.keys.contains_key(&key_pair.public_key) {
-        key_store
-            .keys
-            .insert(key_pair.public_key.clone(), key_pair.clone());
-        return key_store.write();
-    }
-    Ok(())
+    write_key_pairs(&vec![key_pair.clone()])
 }
 
 pub fn write_key_pairs(key_pairs: &Vec<KeyPair>) -> anyhow::Result<()> {
-    let mut key_store = if let Ok(store) = DotenvxKeyStore::load_global() {
-        store
-    } else {
-        DotenvxKeyStore::new()
-    };
-    let mut is_changed = false;
-    for key_pair in key_pairs {
-        if !key_store.keys.contains_key(&key_pair.public_key) {
-            is_changed = true;
-            key_store
-                .keys
-                .insert(key_pair.public_key.clone(), key_pair.clone());
+    DotenvxKeyStore::update_global(|key_store| {
+        let mut is_changed = false;
+        for key_pair in key_pairs {
+            if !key_store.keys.contains_key(&key_pair.public_key) {
+                is_changed = true;
+                key_store
+                    .keys
+                    .insert(key_pair.public_key.clone(), key_pair.clone());
+            }
         }
-    }
-    if is_changed {
-        return key_store.write();
-    }
-    Ok(())
+        Ok((is_changed, ()))
+    })
+}
+
+/// Decrypt the sealed key store and merge its keys into $HOME/.dotenvx/.env.keys.json
+pub fn merge_sealed_key_store(encrypted_file_path: &Path, password: &str) -> anyhow::Result<()> {
+    let plain_bytes = crypt_util::decrypt_file_to_bytes(encrypted_file_path, password)?;
+    let sealed_store = DotenvxKeyStore::from_json(&String::from_utf8(plain_bytes)?)?;
+    DotenvxKeyStore::update_global(|key_store| {
+        // always write: the json file may not exist yet after `--seal`
+        key_store.merge(sealed_store);
+        Ok((true, ()))
+    })
 }
 
 pub fn read_dotenv_file<P: AsRef<Path>>(
