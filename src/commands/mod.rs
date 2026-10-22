@@ -146,16 +146,15 @@ pub fn read_dotenv_file<P: AsRef<Path>>(
     if file_name.ends_with(".properties") {
         let f = File::open(path)?;
         let reader = BufReader::new(f);
-        PropertiesIter::new(reader)
-            .read_into(|key, value| {
-                // trim double quote
-                let new_value = if value.starts_with('"') && value.ends_with('"') {
-                    value[1..value.len() - 1].to_string()
-                } else {
-                    value
-                };
-                entries.insert(key, new_value);
-            })?;
+        PropertiesIter::new(reader).read_into(|key, value| {
+            // trim double quote
+            let new_value = if value.starts_with('"') && value.ends_with('"') {
+                value[1..value.len() - 1].to_string()
+            } else {
+                value
+            };
+            entries.insert(key, new_value);
+        })?;
     } else {
         for (key, value) in dotenvy::from_filename_iter(path)?.flatten() {
             entries.insert(key.clone(), value.clone());
@@ -216,7 +215,9 @@ pub fn http_agent() -> ureq::Agent {
 pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     let public_key = get_public_key_for_file(env_file)?;
     if !public_key.is_empty() {
-        return if let Some(private_key) = find_private_key_from_home(&public_key) {
+        return if let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY") {
+            Ok(trim_private_key(private_key))
+        } else if let Some(private_key) = find_private_key_from_home(&public_key) {
             Ok(trim_private_key(private_key))
         } else {
             Err(format!("Private key not found for public key: {}", public_key).into())
