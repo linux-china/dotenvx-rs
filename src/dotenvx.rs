@@ -199,14 +199,8 @@ fn get_public_key<P: AsRef<Path>>(env_file: P) -> Option<String> {
 fn get_public_key_from_entries(entries: &[(String, String)]) -> Option<String> {
     entries
         .iter()
-        .find(|x| x.0 == "DOTENV_PUBLIC_KEY")
-        .map(|x| {
-            x.1.split("=")
-                .nth(1)
-                .unwrap_or("")
-                .trim_matches(|c| c == '"' || c == '\'')
-                .to_string()
-        })
+        .find(|(key, _)| key.starts_with("DOTENV_PUBLIC_KEY"))
+        .map(|(_, value)| value.trim_matches(|c| c == '"' || c == '\'').to_string())
 }
 
 fn from_read_with_dotenvx<R: Read>(reader: R) -> dotenvy::Result<()> {
@@ -443,6 +437,22 @@ mod tests {
         }
         dotenv_override().unwrap();
         assert_eq!(env::var("HELLO").unwrap(), "World");
+    }
+
+    #[test]
+    fn test_get_public_key_from_entries() {
+        let pk = "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0";
+        let entries = vec![
+            ("HELLO".to_string(), "World".to_string()),
+            ("DOTENV_PUBLIC_KEY".to_string(), pk.to_string()),
+        ];
+        assert_eq!(get_public_key_from_entries(&entries).as_deref(), Some(pk));
+
+        let entries = vec![("DOTENV_PUBLIC_KEY_PROD".to_string(), format!("\"{pk}\""))];
+        assert_eq!(get_public_key_from_entries(&entries).as_deref(), Some(pk));
+
+        let entries = vec![("HELLO".to_string(), "World".to_string())];
+        assert_eq!(get_public_key_from_entries(&entries), None);
     }
 
     #[test]
