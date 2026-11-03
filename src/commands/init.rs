@@ -117,13 +117,20 @@ fn create_global_env_keys(profile: &Option<String>) {
     } else {
         let profiles = vec!["dev", "test", "perf", "sandbox", "stage", "prod"];
         let mut lines: Vec<String> = Vec::new();
+        let mut key_pairs: Vec<KeyPair> = Vec::new();
         // global private key
         {
             let kp = EcKeyPair::generate();
             let private_key = kp.get_sk_hex();
-            lines.push(format!("DOTENV_PRIVATE_KEY={private_key}"));
+            lines.push(format!("DOTENV_PRIVATE_KEY=\"{private_key}\""));
+            key_pairs.push(KeyPair::from(
+                &kp.get_pk_hex(),
+                &private_key,
+                &Some("global".to_owned()),
+                &Some("app".to_owned()),
+                &None,
+            ));
         }
-        let mut key_pairs: Vec<KeyPair> = Vec::new();
         // private keys for each profile
         for profile in profiles {
             let kp = EcKeyPair::generate();
