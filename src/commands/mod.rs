@@ -7,7 +7,7 @@ use colored_json::to_colored_json_auto;
 use csv::WriterBuilder;
 use dotenvx_rs::common::{
     KEYS_FILE_NAME, find_env_file_path, get_dotenv_keys_file_path, get_profile_name_from_file,
-    trim_private_key,
+    is_global_profile, trim_private_key,
 };
 use java_properties::PropertiesIter;
 use serde_json::json;
@@ -356,10 +356,6 @@ pub fn get_or_create_private_key(
     }
 }
 
-fn is_global_profile(profile_name: &Option<String>) -> bool {
-    profile_name.as_deref().is_some_and(|p| p.starts_with("g_"))
-}
-
 fn is_in_current_dir(path: &Path) -> bool {
     let parent = path
         .parent()
@@ -490,62 +486,34 @@ fn resolve_public_key(
 }
 
 pub fn get_public_key_from_text_file(file_path: &str) -> Option<String> {
-    if Path::new(file_path).exists() {
-        if let Ok(content) = fs::read_to_string(file_path) {
-            // extract the public key by text parsing
-            for line in content.lines() {
-                let line = line.trim();
-                if line.contains("dotenv.public.key") || line.contains("DOTENV_PUBLIC_KEY") {
-                    let result = line
-                        .split(['=', ':', '：'])
-                        .nth(1)
-                        .map(|s| s.trim().to_string())
-                        .map(|s| {
-                            s.split([',', ';', '}', ']', ')', ' ', '-', '_'])
-                                .next()
-                                .unwrap()
-                                .trim()
-                                .to_string()
-                        })
-                        .map(|s| s.trim_matches(['"', '\'']).to_string())
-                        .filter(|s| s.len() == 66);
-                    if result.is_some() {
-                        return result;
-                    }
-                }
-            }
-            if file_path.ends_with(".json") {
-                if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Ok(pretty_json_text) = serde_json::to_string_pretty(&json_value) {
-                        for line in pretty_json_text.lines() {
-                            let line = line.trim();
-                            if line.contains("dotenv.public.key")
-                                || line.contains("DOTENV_PUBLIC_KEY")
-                            {
-                                let result = line
-                                    .split([':'])
-                                    .nth(1)
-                                    .map(|s| s.trim().to_string())
-                                    .map(|s| {
-                                        s.split([',', ';', '}', ']', ')', ' ', '-', '_'])
-                                            .next()
-                                            .unwrap()
-                                            .trim()
-                                            .to_string()
-                                    })
-                                    .map(|s| s.trim_matches(['"', '\'']).to_string())
-                                    .filter(|s| s.len() == 66);
-                                if result.is_some() {
-                                    return result;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    let content = fs::read_to_string(file_path).ok()?;
+    if let Some(public_key) = find_public_key_in_lines(&content) {
+        return Some(public_key);
+    }
+    // minified JSON: pretty print it so that the public key is on its own line
+    if file_path.ends_with(".json") {
+        let json_value = serde_json::from_str::<serde_json::Value>(&content).ok()?;
+        let pretty_json_text = serde_json::to_string_pretty(&json_value).ok()?;
+        return find_public_key_in_lines(&pretty_json_text);
     }
     None
+}
+
+/// Extract the public key from the first line like `DOTENV_PUBLIC_KEY=...` or `"dotenv.public.key": "..."`.
+fn find_public_key_in_lines(content: &str) -> Option<String> {
+    content
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.contains("dotenv.public.key") || line.contains("DOTENV_PUBLIC_KEY"))
+        .find_map(|line| {
+            let value = line.split(['=', ':', '：']).nth(1)?.trim();
+            let value = value
+                .split([',', ';', '}', ']', ')', ' ', '-', '_'])
+                .next()?
+                .trim()
+                .trim_matches(['"', '\'']);
+            (value.len() == 66).then(|| value.to_string())
+        })
 }
 
 pub fn create_env_file<P: AsRef<Path>>(
@@ -1676,7 +1644,10 @@ mod tests {
         fs::create_dir_all(dir.join(".git")).unwrap();
         fs::write(dir.join(".dockerignore"), "target").unwrap();
         append_to_ignores(&dir, ".env.keys");
-        assert_eq!(fs::read_to_string(dir.join(".gitignore")).unwrap(), ".env.keys\n");
+        assert_eq!(
+            fs::read_to_string(dir.join(".gitignore")).unwrap(),
+            ".env.keys\n"
+        );
         assert_eq!(
             fs::read_to_string(dir.join(".dockerignore")).unwrap(),
             "target\n.env.keys\n"
@@ -1684,7 +1655,10 @@ mod tests {
         assert!(!dir.join(".aiignore").exists());
         // idempotent
         append_to_ignores(&dir, ".env.keys");
-        assert_eq!(fs::read_to_string(dir.join(".gitignore")).unwrap(), ".env.keys\n");
+        assert_eq!(
+            fs::read_to_string(dir.join(".gitignore")).unwrap(),
+            ".env.keys\n"
+        );
         // no .git: no .gitignore created
         let plain = dir.join("plain");
         fs::create_dir_all(&plain).unwrap();
@@ -1879,6 +1853,34 @@ mod tests {
             public_key,
             "02e8d78f0da7fc3b529d503edd933ed8cdc79dbe5fd5d9bd480f1e63a09905f3b3"
         );
+    }
+
+    #[test]
+    fn test_find_public_key_in_lines() {
+        let key = "02e8d78f0da7fc3b529d503edd933ed8cdc79dbe5fd5d9bd480f1e63a09905f3b3";
+        for content in [
+            format!("DOTENV_PUBLIC_KEY=\"{key}\""),
+            format!("dotenv.public.key: {key}"),
+            format!("  \"dotenv.public.key\": \"{key}\","),
+            format!("DOTENV_PUBLIC_KEY：'{key}'"),
+        ] {
+            assert_eq!(find_public_key_in_lines(&content).as_deref(), Some(key));
+        }
+        assert_eq!(find_public_key_in_lines("DOTENV_PUBLIC_KEY=abc"), None);
+    }
+
+    #[test]
+    fn test_get_public_key_from_minified_json() {
+        let key = "02e8d78f0da7fc3b529d503edd933ed8cdc79dbe5fd5d9bd480f1e63a09905f3b3";
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("app.json");
+        fs::write(
+            &path,
+            format!(r#"{{"name":"demo","dotenv.public.key":"{key}"}}"#),
+        )
+        .unwrap();
+        let public_key = get_public_key_from_text_file(path.to_str().unwrap());
+        assert_eq!(public_key.as_deref(), Some(key));
     }
 
     #[test]

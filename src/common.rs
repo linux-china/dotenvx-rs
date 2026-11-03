@@ -115,7 +115,8 @@ pub fn public_key_of_private_key(private_key_hex: &str) -> Option<String> {
     ))
 }
 
-fn is_global_profile(profile_name: &Option<String>) -> bool {
+/// Global profiles start with `g_` and keep their `.env.keys` in `$HOME`.
+pub fn is_global_profile(profile_name: &Option<String>) -> bool {
     profile_name.as_deref().is_some_and(|p| p.starts_with("g_"))
 }
 
