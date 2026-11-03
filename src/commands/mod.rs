@@ -1196,6 +1196,26 @@ pub fn adjust_env_key(key: &str, env_file: &str) -> String {
         key.to_string()
     }
 }
+/// The `--keys` glob patterns given on the command line, see [`compile_key_patterns`].
+#[derive(Debug)]
+pub struct KeyPatterns {
+    patterns: Vec<glob::Pattern>,
+    options: glob::MatchOptions,
+}
+
+impl KeyPatterns {
+    /// Whether `key` matches any of the patterns.
+    ///
+    /// `.env` keys are matched case-insensitively (the patterns are upper-cased by
+    /// [`adjust_env_key`], but the keys in the file may be lower-case), `.properties` keys
+    /// case-sensitively, see review #24.
+    pub fn matches(&self, key: &str) -> bool {
+        self.patterns
+            .iter()
+            .any(|pattern| pattern.matches_with(key, self.options))
+    }
+}
+
 /// Compile the `--keys` glob patterns given on the command line.
 ///
 /// Each key is normalized with [`adjust_env_key`] first; an invalid glob (e.g. `[`)
@@ -1203,14 +1223,20 @@ pub fn adjust_env_key(key: &str, env_file: &str) -> String {
 pub fn compile_key_patterns<'a>(
     keys: impl IntoIterator<Item = &'a String>,
     env_file: &str,
-) -> Result<Vec<glob::Pattern>, String> {
-    keys.into_iter()
+) -> Result<KeyPatterns, String> {
+    let patterns = keys
+        .into_iter()
         .map(|key| {
             let adjusted = adjust_env_key(key, env_file);
             glob::Pattern::new(&adjusted)
                 .map_err(|e| format!("invalid key pattern '{key}': {}", e.msg))
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    let options = glob::MatchOptions {
+        case_sensitive: env_file.contains(".properties"),
+        ..glob::MatchOptions::new()
+    };
+    Ok(KeyPatterns { patterns, options })
 }
 /// Quote a value for a POSIX shell `export K=...` line.
 ///
@@ -1398,8 +1424,9 @@ mod tests {
     fn test_compile_key_patterns() {
         let keys = vec!["db-*".to_string(), "API_KEY".to_string()];
         let patterns = compile_key_patterns(&keys, ".env").unwrap();
-        assert!(patterns[0].matches("DB_HOST"));
-        assert!(patterns[1].matches("API_KEY"));
+        assert!(patterns.matches("DB_HOST"));
+        assert!(patterns.matches("API_KEY"));
+        assert!(!patterns.matches("APP_NAME"));
         let invalid = vec!["[".to_string()];
         let err = compile_key_patterns(&invalid, ".env").unwrap_err();
         assert!(err.contains("invalid key pattern '['"), "{err}");
@@ -1932,6 +1959,20 @@ mod tests {
         for key in ["HOST", "PORT", "APP_NAME", "LOG_LEVEL", ""] {
             assert!(!is_sensitive_key(key), "{key} should not be sensitive");
         }
+    }
+
+    #[test]
+    fn test_key_patterns_case() {
+        let keys = vec!["api*".to_string()];
+        // .env: the pattern is upper-cased, but lower-case keys still match
+        let patterns = compile_key_patterns(&keys, ".env").unwrap();
+        assert!(patterns.matches("API_KEY"));
+        assert!(patterns.matches("api_key"));
+        assert!(!patterns.matches("DB_PASSWORD"));
+        // .properties: keys are case-sensitive
+        let patterns = compile_key_patterns(&keys, "application.properties").unwrap();
+        assert!(patterns.matches("api.key"));
+        assert!(!patterns.matches("API.KEY"));
     }
 
     #[test]

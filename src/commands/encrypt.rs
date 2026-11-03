@@ -1,14 +1,14 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
-    compile_key_patterns, construct_env_file_header, content_has_key, entry_line_count,
+    KeyPatterns, compile_key_patterns, construct_env_file_header, content_has_key, entry_line_count,
     get_env_file_arg, get_or_create_public_key_for_file, get_private_key_for_file,
-    get_public_key_name_for_file, is_encrypted_value_text, is_public_key_name, split_assignment,
+    get_public_key_name_for_file, is_encrypted_value_text, is_public_key_name, is_sensitive_key,
+    split_assignment,
     update_env_file, write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
-use glob::Pattern;
 use java_properties::PropertiesIter;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
@@ -21,7 +21,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let is_stdout = command_matches.get_flag("stdout");
     let is_sign_required = command_matches.get_flag("sign");
     // validate the key patterns before touching any file or key
-    let patterns: Option<Vec<Pattern>> =
+    let patterns: Option<KeyPatterns> =
         match env_keys.map(|keys| compile_key_patterns(keys, &env_file)) {
             Some(Ok(patterns)) => Some(patterns),
             Some(Err(e)) => {
@@ -53,7 +53,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         hint = format!("keys in .env file: {env_file}");
     }
     let (new_lines, is_changed) =
-        encrypt_content(&env_file, &file_content, entries, patterns.as_deref());
+        encrypt_content(&env_file, &file_content, entries, patterns.as_ref());
     if is_stdout {
         let new_content = new_lines.join("\n");
         if is_sign_required {
@@ -118,7 +118,7 @@ fn encrypt_content(
     env_file: &str,
     file_content: &str,
     entries: Vec<(String, String)>,
-    patterns: Option<&[Pattern]>,
+    patterns: Option<&KeyPatterns>,
 ) -> (Vec<String>, bool) {
     let mut values: HashMap<String, VecDeque<String>> = HashMap::new();
     for (key, value) in entries {
@@ -144,7 +144,7 @@ fn encrypt_content(
             if is_public_key_name(key)
                 || is_encrypted_value_text(value_text)
                 || !encrypted.starts_with("encrypted:")
-                || patterns.is_some_and(|ps| !ps.iter().any(|p| p.matches(key)))
+                || patterns.is_some_and(|ps| !ps.matches(key))
             {
                 return None;
             }
@@ -220,28 +220,12 @@ pub fn encrypt_env_entries(
     // in file order, duplicated keys included (review #15)
     let mut entries: Vec<(String, String)> = Vec::new();
     if env_file.ends_with(".properties") {
-        let encrypted_patterns = [
-            "password",
-            "pwd",
-            "passwd",
-            "secret",
-            "private",
-            "key",
-            "token",
-            "credential",
-            "auth",
-            "jwt",
-            "jaas",
-            "passphrase",
-        ];
         let f = File::open(env_file)?;
         let reader = BufReader::new(f);
         PropertiesIter::new(reader).read_into(|key, value| {
             if !value.starts_with("encrypted:") {
-                if encrypted_patterns
-                    .iter()
-                    .any(|pattern| key.contains(pattern))
-                {
+                // same (case-insensitive) rule as `set`, `sync` and `doctor`, see review #24
+                if is_sensitive_key(&key) {
                     let encrypted_text = encrypt_env_item(public_key, &value).unwrap();
                     entries.push((key, encrypted_text));
                 } else {
@@ -306,7 +290,7 @@ mod tests {
         let env_file = dir.path().join("application.properties");
         fs::write(
             &env_file,
-            "server.port=8080\ndb.password=secret1\napi.token: token1\n",
+            "server.port=8080\ndb.password=secret1\napi.token: token1\nDB_PASSWORD=secret2\n",
         )
         .unwrap();
         let entries: HashMap<_, _> = encrypt_env_entries(env_file.to_str().unwrap(), &pk)
@@ -321,6 +305,11 @@ mod tests {
         assert_eq!(
             decrypt_env_item(&sk, &entries["api.token"]).unwrap(),
             "token1"
+        );
+        // upper-case keys are sensitive too (review #24)
+        assert_eq!(
+            decrypt_env_item(&sk, &entries["DB_PASSWORD"]).unwrap(),
+            "secret2"
         );
     }
 
@@ -374,7 +363,7 @@ mod tests {
         fs::write(&env_file, &content).unwrap();
         let env_file = env_file.to_str().unwrap();
         let entries = encrypt_env_entries(env_file, &pk).unwrap();
-        let patterns = [Pattern::new("A").unwrap()];
+        let patterns = compile_key_patterns(&["A".to_string()], env_file).unwrap();
         let (lines, _) = encrypt_content(env_file, &content, entries, Some(&patterns));
         assert_eq!(
             decrypted_lines(&sk, &lines),

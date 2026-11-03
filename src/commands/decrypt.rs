@@ -80,7 +80,7 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 std::process::exit(1);
             }
         };
-        entries.retain(|key, _| patterns.iter().any(|pattern| pattern.matches(key)));
+        entries.retain(|key, _| patterns.matches(key));
         hint = format!("keys in .env file: {env_file}");
     }
     // check dump flag
