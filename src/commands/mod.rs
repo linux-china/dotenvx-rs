@@ -1355,6 +1355,22 @@ pub fn append_to_ignores(file_name: &str) {
     }
 }
 
+/// Whether `file_name` is a dotenv file (`.env` or `.env.<profile>`), excluding key stores
+/// (`.env.keys`, `.env.keys.json`, `.env.keys.aes`, ...), `.env.vault`, and encrypted, lock,
+/// temporary or backup files.
+fn is_env_file_name(file_name: &str) -> bool {
+    const EXCLUDED_SUFFIXES: [&str; 4] = [".aes", ".lock", ".tmp", ".bak"];
+    if file_name == ".env" {
+        return true;
+    }
+    file_name.starts_with(".env.")
+        && !file_name.starts_with(".env.keys")
+        && file_name != ".env.vault"
+        && !EXCLUDED_SUFFIXES
+            .iter()
+            .any(|suffix| file_name.ends_with(suffix))
+}
+
 pub fn list_env_files<P: AsRef<Path>>(
     root: P,
     max_depth: usize,
@@ -1365,17 +1381,10 @@ pub fn list_env_files<P: AsRef<Path>>(
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
-        .filter(|e| {
-            let file_name = e.file_name().to_str().unwrap();
-            if file_name == ".env.keys" || file_name == ".env.vault" {
-                false
-            } else {
-                file_name.starts_with(".env.") || file_name == ".env"
-            }
-        })
+        .filter(|e| e.file_name().to_str().is_some_and(is_env_file_name))
         .filter(|e| {
             // filter by profile if provided
-            let file_name = e.file_name().to_str().unwrap();
+            let file_name = e.file_name().to_str().unwrap_or_default();
             if let Some(profile_name) = profile {
                 let env_file_name = format!(".env.{profile_name}");
                 file_name == &env_file_name
@@ -2112,6 +2121,14 @@ mod tests {
             ".env.prod",
             ".env.keys",
             ".env.vault",
+            ".env.keys.json",
+            ".env.keys.aes",
+            ".env.keys.json.aes",
+            ".env.keys.json.lock",
+            ".env.keys.json.123.tmp",
+            ".env.keys.tmp",
+            ".env.prod.aes",
+            ".env.prod.tmp",
             ".envrc",
             "app.env",
             "sub/.env.test",

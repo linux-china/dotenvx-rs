@@ -17,16 +17,10 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
         entries.sort_by_key(|entry| {
             entry
                 .path()
-                .to_str()
-                .unwrap()
+                .to_string_lossy()
                 .trim_start_matches("./")
                 .to_string()
         });
-        let title = format!(
-            "Found {} .env files in '{}' directory:",
-            entries.len(),
-            directory
-        );
         let mut table = Table::new();
         table.set_header(vec![
             "Path",
@@ -37,9 +31,15 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
             "Verified",
         ]);
         for entry in entries {
-            let file_path = entry.path().to_str().unwrap();
-            let env_file = EnvFile::from(file_path).unwrap();
+            let file_path = entry.path().to_string_lossy();
             let display_name = file_path.trim_start_matches("./");
+            let env_file = match EnvFile::from(file_path.as_ref()) {
+                Ok(env_file) => env_file,
+                Err(e) => {
+                    eprintln!("Warning: skip {display_name}, failed to read it: {e}");
+                    continue;
+                }
+            };
             let file_uuid = if let Some(uuid) = env_file.get_uuid() {
                 uuid.to_string()
             } else {
@@ -80,7 +80,10 @@ pub fn ls_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 verified.to_string(),
             ]);
         }
-        println!("{title}");
+        println!(
+            "Found {} .env files in '{directory}' directory:",
+            table.row_count()
+        );
         println!("{table}");
     }
 }

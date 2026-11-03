@@ -28,8 +28,16 @@ pub fn diff_command(command_matches: &ArgMatches) {
     }
     let mut rows: Vec<Vec<String>> = vec![];
     for entry in entries {
-        let env_file_name = entry.file_name().to_str().unwrap();
-        let entries = read_dotenv_file(env_file_name).unwrap();
+        let Some(env_file_name) = entry.file_name().to_str() else {
+            continue;
+        };
+        let entries = match read_dotenv_file(env_file_name) {
+            Ok(entries) => entries,
+            Err(e) => {
+                eprintln!("Warning: skip {env_file_name}, failed to read it: {e}");
+                continue;
+            }
+        };
         let profile_name = get_profile_name_from_file(env_file_name).unwrap_or("".to_string());
         let mut data_row = vec![profile_name];
         for key_name in &key_names {
