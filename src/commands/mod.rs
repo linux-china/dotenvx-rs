@@ -1059,7 +1059,7 @@ pub fn list_env_files<P: AsRef<Path>>(
             let file_name = e.file_name().to_str().unwrap();
             if let Some(profile_name) = profile {
                 let env_file_name = format!(".env.{profile_name}");
-                file_name.starts_with(&env_file_name)
+                file_name == &env_file_name
             } else {
                 true
             }
