@@ -91,6 +91,7 @@ fn rotate_env_file(env_file: &str, profile: &Option<String>) -> Result<(), Strin
     if held_old_key && let Some(old_pk) = old_public_key.as_deref() {
         warn_shared_key_users(env_file, old_pk, &keys_files);
     }
+    let mut updated_keys_files = 0;
     for keys_file in &keys_files {
         if let Err(e) = write_private_key_to_file(keys_file, &private_key_name, &key_pair, true) {
             // the new key is already in the global key store, decryption still works
@@ -102,9 +103,11 @@ fn rotate_env_file(env_file: &str, profile: &Option<String>) -> Result<(), Strin
                 )
                 .yellow()
             );
+        } else {
+            updated_keys_files += 1;
         }
     }
-    if keys_files.is_empty() {
+    if updated_keys_files == 0 {
         println!(
             "{}",
             format!(
@@ -129,7 +132,49 @@ fn rotate_env_file(env_file: &str, profile: &Option<String>) -> Result<(), Strin
             format!("✔ signature updated with the new private key ({env_file})").green()
         );
     }
+    if let Some(warning) = stale_private_key_warning(
+        env_file,
+        &private_key_name,
+        updated_keys_files > 0,
+        std::env::var(&private_key_name).is_ok(),
+    ) {
+        eprintln!("{}", warning.yellow());
+    }
     Ok(())
+}
+
+/// Warn that copies of the old private key outside this machine's key files are now invalid.
+/// Without an updated `.env.keys` the new key only lives in the local global key store, so
+/// `DOTENV_PRIVATE_KEY*` secrets in CI/deployment must be replaced; the same applies when the
+/// variable is set in the current environment (it still holds the old key).
+fn stale_private_key_warning(
+    env_file: &str,
+    private_key_name: &str,
+    keys_file_updated: bool,
+    env_var_set: bool,
+) -> Option<String> {
+    if keys_file_updated && !env_var_set {
+        return None;
+    }
+    let mut lines = Vec::new();
+    if env_var_set {
+        lines.push(format!(
+            "⚠ {private_key_name} is set in the current environment and still holds the old private key, update or unset it"
+        ));
+    }
+    if !keys_file_updated {
+        lines.push(
+            "⚠ no .env.keys was updated, the new private key only exists in this machine's global key store"
+                .to_owned(),
+        );
+    }
+    lines.push(format!(
+        "⚠ the old private key can no longer decrypt {env_file}: update {private_key_name} wherever it is stored as a secret (CI, deployment, other machines)"
+    ));
+    lines.push(format!(
+        "  run `dotenvx keypair -f {env_file}` to print the new private key"
+    ));
+    Some(lines.join("\n"))
 }
 
 /// Store the old key pair in the global key store (no-op if it's already there).
@@ -422,6 +467,22 @@ mod tests {
         dotenvy::from_read_iter(content.as_bytes())
             .flatten()
             .collect()
+    }
+
+    #[test]
+    fn test_stale_private_key_warning() {
+        let key = "DOTENV_PRIVATE_KEY_PROD";
+        assert!(stale_private_key_warning(".env.prod", key, true, false).is_none());
+
+        let only_global = stale_private_key_warning(".env.prod", key, false, false).unwrap();
+        assert!(only_global.contains("no .env.keys was updated"));
+        assert!(only_global.contains("update DOTENV_PRIVATE_KEY_PROD"));
+        assert!(only_global.contains("dotenvx keypair -f .env.prod"));
+        assert!(!only_global.contains("current environment"));
+
+        let env_var = stale_private_key_warning(".env.prod", key, true, true).unwrap();
+        assert!(env_var.contains("set in the current environment"));
+        assert!(!env_var.contains("no .env.keys was updated"));
     }
 
     #[test]
