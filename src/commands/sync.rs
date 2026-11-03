@@ -6,7 +6,8 @@ use crate::commands::{
     KEYS_FILE_NAME, construct_env_file_header, dotenv_double_quote, entry_line_count,
     get_dotenvx_home, get_private_key_for_file, get_private_key_name_for_file,
     get_public_key_for_file, get_public_key_name_for_file, is_public_key_name, is_sensitive_key,
-    private_key_exists_in_file, split_assignment, write_key_pair, write_private_key_to_file,
+    private_key_exists_in_file, properties_escape, resign_env_file_if_signed, split_assignment,
+    write_key_pair, write_private_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
@@ -270,16 +271,24 @@ fn sync_to_existing_target(source: &str, target: &str) {
     } else {
         None
     };
+    // `.properties` readers (java.util.Properties, Spring) keep quotes, so write escaped bare values
+    let target_is_properties = target.ends_with(".properties");
     let mut absent_variables: Vec<String> = Vec::new();
     for key in &absent_keys {
         let raw_value = &source_items[key];
         let value = plain_value(key, raw_value, private_key.as_deref());
         let needs_encryption = raw_value.starts_with("encrypted:") || is_sensitive_key(key);
-        if needs_encryption && !target_public_key.is_empty() {
-            let encrypted_value = encrypt_or_fail(&target_public_key, key, &value);
-            absent_variables.push(format!("{key}=\"{encrypted_value}\""));
+        let stored_value = if needs_encryption && !target_public_key.is_empty() {
+            encrypt_or_fail(&target_public_key, key, &value)
         } else {
-            absent_variables.push(format!("{key}={}", dotenv_double_quote(&value)));
+            value
+        };
+        if target_is_properties {
+            absent_variables.push(format!("{key}={}", properties_escape(&stored_value)));
+        } else if stored_value.starts_with("encrypted:") {
+            absent_variables.push(format!("{key}=\"{stored_value}\""));
+        } else {
+            absent_variables.push(format!("{key}={}", dotenv_double_quote(&stored_value)));
         }
     }
     if absent_variables.is_empty() {
@@ -300,6 +309,7 @@ fn sync_to_existing_target(source: &str, target: &str) {
     if let Err(e) = fs::write(target, new_content.as_bytes()) {
         fail(format!("failed to write {target}: {e}"));
     }
+    resign_env_file_if_signed(target, &target_file_content);
     println!(
         "{}",
         format!(

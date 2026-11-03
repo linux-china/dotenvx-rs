@@ -54,7 +54,7 @@ pub fn dotenv_iter<P: AsRef<Path>>() -> dotenvy::Result<Vec<(String, String)>> {
     let mut items: Vec<(String, String)> = vec![];
     for x in dotenvy::dotenv_iter()? {
         let (key, value) = x?;
-        let plain_value = check_and_decrypt(&private_key, value)?;
+        let plain_value = check_and_decrypt(&private_key, &public_key, value)?;
         items.push((key, plain_value));
     }
     Ok(items)
@@ -76,7 +76,7 @@ pub fn from_path_iter<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<Vec<(Strin
     let mut items: Vec<(String, String)> = vec![];
     for x in dotenvy::from_path_iter(env_file)? {
         let (key, value) = x?;
-        let plain_value = check_and_decrypt(&private_key, value)?;
+        let plain_value = check_and_decrypt(&private_key, &public_key, value)?;
         items.push((key, plain_value));
     }
     Ok(items)
@@ -111,7 +111,7 @@ pub fn from_filename_iter<P: AsRef<Path>>(filename: P) -> dotenvy::Result<Vec<(S
     let private_key = private_key_for_file(&public_key, &profile_name, filename.as_ref());
     for x in dotenvy::from_filename_iter(filename)? {
         let (key, value) = x?;
-        let plain_value = check_and_decrypt(&private_key, value)?;
+        let plain_value = check_and_decrypt(&private_key, &public_key, value)?;
         items.push((key, plain_value));
     }
     Ok(items)
@@ -128,7 +128,7 @@ pub fn from_read_iter<R: Read>(reader: R) -> dotenvy::Result<Vec<(String, String
     let private_key =
         get_private_key(&public_key, &get_profile_name_from_env()).map_err(|e| e.to_string());
     for (key, value) in entries {
-        let plain_value = check_and_decrypt(&private_key, value)?;
+        let plain_value = check_and_decrypt(&private_key, &public_key, value)?;
         items.push((key, plain_value));
     }
     Ok(items)
@@ -140,15 +140,11 @@ fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dot
         if dotenv_content.contains("encrypted:") {
             let public_key = get_public_key(&env_file);
             let profile_name = profile_name_of_path(env_file.as_ref());
-            let private_key = private_key_for_file(&public_key, &profile_name, env_file.as_ref())
-                .map_err(private_key_not_found)?;
+            let private_key = Ok(private_key_for_file(&public_key, &profile_name, env_file.as_ref())
+                .map_err(private_key_not_found)?);
             for item in dotenvy::from_filename_iter(&env_file)? {
                 let (key, value) = item?;
-                let env_value = if value.starts_with("encrypted:") {
-                    decrypt_dotenvx_item(&private_key, &value)?
-                } else {
-                    value
-                };
+                let env_value = check_and_decrypt(&private_key, &public_key, value)?;
                 set_env_var(&key, env_value, is_override);
             }
         } else if is_override {
@@ -179,16 +175,19 @@ fn get_public_key_from_entries(entries: &[(String, String)]) -> Option<String> {
 fn from_read_with_dotenvx<R: Read>(reader: R) -> dotenvy::Result<()> {
     let entries = dotenvy::from_read_iter(reader).collect::<dotenvy::Result<Vec<_>>>()?;
     let public_key = get_public_key_from_entries(&entries);
-    let profile_name = get_profile_name_from_env();
-    let private_key = get_private_key(&public_key, &profile_name)
-        .map_err(|e| private_key_not_found(e.to_string()))?;
+    // only look up the private key when there is something to decrypt, like `from_path` (review #12)
+    let private_key = if entries.iter().any(|(_, value)| value.starts_with("encrypted:")) {
+        get_private_key(&public_key, &get_profile_name_from_env()).map_err(|e| e.to_string())
+    } else {
+        Err("no encrypted value".to_owned())
+    };
+    // decrypt everything before touching the environment: a failure must not leave it half loaded
+    let mut items = Vec::with_capacity(entries.len());
     for (key, value) in entries {
-        let env_value = if value.starts_with("encrypted:") {
-            decrypt_dotenvx_item(&private_key, &value)?
-        } else {
-            value
-        };
-        set_env_var(&key, env_value, true);
+        items.push((key, check_and_decrypt(&private_key, &public_key, value)?));
+    }
+    for (key, value) in items {
+        set_env_var(&key, value, true);
     }
     Ok(())
 }
@@ -221,14 +220,25 @@ fn private_key_not_found(message: String) -> dotenvy::Error {
     dotenvy::Error::Io(io::Error::new(ErrorKind::NotFound, message))
 }
 
-// if the encrypted text starts with "encrypted:", it will decrypt it
+// if the encrypted text starts with "encrypted:", it will decrypt it.
+// `public_key` is the one declared by the env file: without it the private key could not be verified,
+// so a decryption failure says so instead of a bare ecies error (review #12)
 fn check_and_decrypt(
     private_key: &Result<String, String>,
+    public_key: &Option<String>,
     encrypted_text: String,
 ) -> dotenvy::Result<String> {
     if let Some(tripped_value) = encrypted_text.strip_prefix("encrypted:") {
         match private_key {
-            Ok(private_key) => decrypt_dotenvx_item(private_key, tripped_value),
+            Ok(private_key) => decrypt_dotenvx_item(private_key, tripped_value).map_err(|e| {
+                if public_key.is_some() {
+                    e
+                } else {
+                    invalid_data(format!(
+                        "{e} (no DOTENV_PUBLIC_KEY in the env file, the private key found may belong to another env file)"
+                    ))
+                }
+            }),
             Err(message) => Err(private_key_not_found(message.clone())),
         }
     } else {
@@ -288,6 +298,14 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io::Cursor;
+
+    #[test]
+    fn test_from_read_without_encrypted_value_needs_no_private_key() {
+        // a key name unique to this test, so the environment can not interfere
+        let key = format!("DOTENVX_FROM_READ_{}", uuid::Uuid::now_v7().simple());
+        from_read(Cursor::new(format!("{key}=plain\n"))).unwrap();
+        assert_eq!(env::var(&key).unwrap(), "plain");
+    }
 
     #[test]
     #[ignore = "needs the private key of the repository's .env and mutates the process environment"]

@@ -236,7 +236,8 @@ pub fn find_private_key_in_global_store(public_key: &str) -> Option<String> {
 /// 4. `DOTENV_PRIVATE_KEY` environment variable as the last resort for profiles
 ///
 /// With `public_key`, every candidate is verified against it and a mismatched key is skipped.
-/// Without `public_key`, only 1 and 2 are checked and the first candidate is returned.
+/// Without `public_key`, only 1 and 2 are checked and the first valid candidate is returned: it cannot be
+/// verified, so it may belong to another project.
 pub fn find_private_key(
     public_key: Option<&str>,
     profile_name: &Option<String>,
@@ -259,10 +260,11 @@ pub fn find_private_key(
         }
     }
     let Some(public_key) = public_key else {
+        // nothing to verify against: at least skip the candidates that are not a valid private key (review #12)
         return candidates
             .into_iter()
-            .next()
             .map(trim_private_key)
+            .find(|private_key| public_key_of_private_key(private_key).is_some())
             .ok_or_else(|| format!("Private key not found: {env_key_name}"));
     };
     if let Some(private_key) = find_private_key_in_global_store(public_key) {
@@ -349,6 +351,24 @@ mod tests {
         let other_pk_hex = hex::encode(other_pk.serialize_compressed());
         let err = find_private_key(Some(&other_pk_hex), &profile, Some(&env_file)).unwrap_err();
         assert!(err.contains(&other_pk_hex), "{err}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_find_private_key_without_public_key_skips_invalid() {
+        let (sk, _) = ecies::utils::generate_keypair();
+        let sk_hex = hex::encode(sk.serialize());
+        let dir = env::temp_dir().join(format!("dotenvx_common_nopk_{}", uuid::Uuid::now_v7()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let profile = Some(format!("t{}", uuid::Uuid::now_v7().simple()));
+        let key_name = get_private_key_name(&profile);
+        let env_file = dir.join(".env");
+        std::fs::write(&env_file, "A=1\n").unwrap();
+        // only an invalid candidate: not returned
+        std::fs::write(dir.join(KEYS_FILE_NAME), format!("{key_name}=\"not-a-key\"\n")).unwrap();
+        assert!(find_private_key(None, &profile, Some(&env_file)).is_err());
+        std::fs::write(dir.join(KEYS_FILE_NAME), format!("{key_name}=\"{sk_hex}\"\n")).unwrap();
+        assert_eq!(find_private_key(None, &profile, Some(&env_file)).unwrap(), sk_hex);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
