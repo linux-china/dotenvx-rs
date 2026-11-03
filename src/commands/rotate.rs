@@ -122,7 +122,9 @@ fn rotate_env_file(env_file: &str, profile: &Option<String>) -> Result<(), Strin
 }
 
 /// Entries as written in the file, without decryption. Duplicated keys are all kept.
-fn read_raw_entries(env_file: &str) -> Result<HashSet<(String, String)>, Box<dyn std::error::Error>> {
+fn read_raw_entries(
+    env_file: &str,
+) -> Result<HashSet<(String, String)>, Box<dyn std::error::Error>> {
     if env_file.ends_with(".properties") {
         Ok(read_dotenv_file(env_file)?.into_iter().collect())
     } else {
@@ -403,7 +405,10 @@ mod tests {
         let out = rotated.content;
         assert!(out.contains("app.name=demo\nserver.port: 8080\n"));
         assert!(out.contains(&format!("dotenv.public.key={}\n", new.get_pk_hex())));
-        let line = out.lines().find(|l| l.starts_with("db.password: ")).unwrap();
+        let line = out
+            .lines()
+            .find(|l| l.starts_with("db.password: "))
+            .unwrap();
         let value = line.trim_start_matches("db.password: ");
         assert_eq!(decrypt_env_item(&new.get_sk_hex(), value).unwrap(), "pwd");
     }

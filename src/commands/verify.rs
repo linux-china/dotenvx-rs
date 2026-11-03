@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::verify_signature;
 use crate::commands::model::{get_signature, remove_signature};
 use crate::commands::{
-    get_env_file_arg, get_public_key_name, is_public_key_included, read_dotenv_file,
+    get_env_file_arg, get_public_key_name_for_file, is_public_key_included, read_dotenv_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
@@ -15,7 +15,8 @@ pub fn verify_command(command_matches: &ArgMatches, profile: &Option<String>) {
             std::process::exit(1);
         }
         if let Some(signature) = get_signature(&file_content) {
-            let public_key_name = get_public_key_name(profile);
+            // resolve the public key name by the file name, not by the CLI `-p` profile, see review #7
+            let public_key_name = get_public_key_name_for_file(&env_file);
             let entries = read_dotenv_file(env_file_path).unwrap();
             if let Some(public_key) = entries.get(&public_key_name) {
                 let message = remove_signature(&file_content);

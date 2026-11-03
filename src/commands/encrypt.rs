@@ -2,8 +2,8 @@ use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
     adjust_env_key, construct_env_file_header, get_env_file_arg, get_or_create_public_key_for_file,
-    get_private_key, get_public_key_name_for_file, is_public_key_included, update_env_file,
-    write_public_key_to_file,
+    get_private_key_for_file, get_public_key_name_for_file, is_public_key_included,
+    update_env_file, write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
@@ -72,7 +72,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         if is_sign_required {
             println!(
                 "{}",
-                add_or_replace_signature(profile, &new_content).unwrap()
+                add_or_replace_signature(&env_file, &new_content).unwrap()
             );
         } else {
             println!("{new_content}");
@@ -84,7 +84,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         if !is_sign_required {
             println!("{}", format!("✔ no changes ({env_file})").green());
         } else {
-            let new_content = add_or_replace_signature(profile, &file_content).unwrap();
+            let new_content = add_or_replace_signature(&env_file, &file_content).unwrap();
             fs::write(&env_file_path, new_content.as_bytes()).unwrap();
             println!("{}", format!("✔ sign added for ({env_file})").green());
         }
@@ -99,7 +99,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
                 + &new_lines.join("\n")
         };
         if is_sign_required {
-            new_file_content = add_or_replace_signature(profile, &new_file_content).unwrap();
+            new_file_content = add_or_replace_signature(&env_file, &new_file_content).unwrap();
         }
         update_env_file(&env_file, &public_key, &new_file_content);
         if is_sign_required {
@@ -113,11 +113,13 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
 }
 
+/// Sign `env_file_content` with the private key that matches `env_file` (resolved by the file name,
+/// not by the CLI `-p` profile), see review #6.
 pub fn add_or_replace_signature(
-    profile: &Option<String>,
+    env_file: &str,
     env_file_content: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let private_key = get_private_key(profile)?;
+    let private_key = get_private_key_for_file(env_file)?;
     sign_and_update_env_file_content(&private_key, env_file_content)
 }
 
