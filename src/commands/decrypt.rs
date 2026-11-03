@@ -1,10 +1,11 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::model::EnvFile;
 use crate::commands::{
-    adjust_env_key, dotenv_double_quote, get_env_file_arg, get_private_key_for_file,
-    get_private_key_for_public_key, get_public_key_from_text_file, is_encrypted_value_text,
-    is_remote_env_file, properties_escape, read_content_from_dotenv_url, read_dotenv_url,
-    split_assignment, std_output,
+    adjust_env_key, dotenv_double_quote, get_env_file_arg, get_private_key,
+    get_private_key_for_file, get_private_key_for_public_key, get_public_key_from_text_file,
+    get_public_key_name_for_file, is_encrypted_value_text, is_public_key_name, is_remote_env_file,
+    properties_escape, read_content_from_dotenv_url, resign_env_file_if_signed, split_assignment,
+    std_output,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -13,8 +14,7 @@ use glob::Pattern;
 use java_properties::PropertiesIter;
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
-use std::io::BufReader;
+use std::io::Cursor;
 
 pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     if let Some(arg_value) = command_matches.get_one::<String>("value") {
@@ -26,20 +26,47 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         verify_signature(&env_file);
         return;
     }
+    let is_stdout = command_matches.get_flag("stdout");
+    let is_dump = command_matches.get_flag("dump");
     let is_remote_env = is_remote_env_file(&env_file);
-    let env_file_path = std::path::PathBuf::from(&env_file);
-    if !is_remote_env && !std::path::PathBuf::from(&env_file).exists() {
-        //eprintln!("Error: The specified env file '{env_file}' does not exist.");
-        return;
+    // a remote env file can't be written back: only print the decrypted content (review 2.7)
+    if is_remote_env && !is_stdout && !is_dump {
+        eprintln!(
+            "{}",
+            format!("✘ remote env file can only be decrypted with --stdout or --dump ({env_file})")
+                .red()
+        );
+        std::process::exit(1);
     }
-    let file_name = env_file_path.file_name().unwrap().to_str().unwrap();
-    // decrypt normal text file if not .env or .properties file
-    if !file_name.starts_with(".env") && !file_name.ends_with(".properties") {
-        decrypt_normal_text_file(&env_file);
-        return;
+    let file_name = env_file_name(&env_file);
+    if !is_remote_env {
+        if !std::path::Path::new(&env_file).exists() {
+            //eprintln!("Error: The specified env file '{env_file}' does not exist.");
+            return;
+        }
+        // decrypt normal text file if not .env or .properties file
+        if !file_name.starts_with(".env") && !file_name.ends_with(".properties") {
+            decrypt_normal_text_file(&env_file);
+            return;
+        }
     }
+    let is_properties = file_name.ends_with(".properties");
+    // read the content once: the remote file is fetched once, and the entries match the rewritten lines
+    let file_content = match read_env_content(&env_file) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("{}", format!("✘ failed to read {env_file}: {e}").red());
+            std::process::exit(1);
+        }
+    };
+    let mut entries = match decrypt_env_content(&env_file, &file_content) {
+        Ok(entries) => entries,
+        Err(e) => {
+            eprintln!("{}", format!("✘ failed to decrypt {env_file}: {e}").red());
+            std::process::exit(1);
+        }
+    };
     let env_keys = command_matches.get_many::<String>("keys");
-    let mut entries = decrypt_env_entries(&env_file).unwrap();
     let mut hint = format!(".env file({env_file})");
     if let Some(keys) = env_keys {
         let patterns: Vec<Pattern> = keys
@@ -50,14 +77,13 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         hint = format!("keys in .env file: {env_file}");
     }
     // check dump flag
-    if command_matches.get_flag("dump") {
+    if is_dump {
         unsafe {
             std::env::set_var("NO_COLOR", "1");
         }
         std_output(&entries, &Some(&"json".to_string()));
         return;
     }
-    let is_stdout = command_matches.get_flag("stdout");
     // stdout with format shell, json or csv
     if is_stdout
         && let Some(fmt) = command_matches.get_one::<String>("format")
@@ -70,20 +96,17 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
         return;
     }
-    let file_content = if is_remote_env {
-        read_content_from_dotenv_url(&env_file, None).unwrap()
-    } else {
-        fs::read_to_string(&env_file_path).unwrap()
-    };
+    // split_assignment detects .properties by the suffix, a URL may end with a query string
+    let syntax_hint = if is_properties { ".properties" } else { ".env" };
     let mut new_lines: Vec<String> = Vec::new();
     let mut is_changed = false;
     // only `encrypted:` values are rewritten, keeping indentation and the `export ` prefix (review #1)
     for line in file_content.lines() {
-        let replacement = split_assignment(&env_file, line)
+        let replacement = split_assignment(syntax_hint, line)
             .filter(|(_, _, value_text)| is_encrypted_value_text(value_text))
             .and_then(|(prefix, key, _)| {
                 let value = entries.get(key)?;
-                let new_value = if env_file.ends_with(".properties") {
+                let new_value = if is_properties {
                     properties_escape(value)
                 } else {
                     dotenv_double_quote(value)
@@ -106,59 +129,130 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
     if !is_changed {
         println!("{}", format!("✔ no changes ({env_file})").green());
+        return;
+    }
+    let mut new_file_content = new_lines.join("\n");
+    if file_content.ends_with('\n') {
+        new_file_content.push('\n');
+    }
+    // decrypted .env now holds plaintext secrets, write it owner-only on Unix
+    if let Err(e) = crate::commands::write_private_file(&env_file, new_file_content.as_bytes()) {
+        eprintln!("{}", format!("✘ failed to write {env_file}: {e}").red());
+        std::process::exit(1);
+    }
+    println!("{}", format!("✔ {hint} decrypted ({env_file})").green());
+    resign_env_file_if_signed(&env_file, &file_content);
+}
+
+/// File name of a local path or the last path segment of a URL (query and fragment removed).
+fn env_file_name(env_file: &str) -> String {
+    let path = if is_remote_env_file(env_file) {
+        env_file.split(['?', '#']).next().unwrap_or(env_file)
     } else {
-        let new_file_content = new_lines.join("\n");
-        // decrypted .env now holds plaintext secrets, write it owner-only on Unix
-        crate::commands::write_private_file(&env_file_path, new_file_content.as_bytes()).unwrap();
-        println!("{}", format!("✔ {hint} decrypted ({env_file})").green());
+        env_file
+    };
+    path.trim_end_matches(['/', '\\'])
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("")
+        .to_string()
+}
+
+fn read_env_content(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
+    if is_remote_env_file(env_file) {
+        read_content_from_dotenv_url(env_file, None)
+    } else {
+        Ok(fs::read_to_string(env_file)?)
     }
 }
 
 pub fn decrypt_env_entries(
     env_file: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    // only required when there are encrypted values
-    let private_key = get_private_key_for_file(env_file).map_err(|e| e.to_string());
+    let content = read_env_content(env_file)?;
+    decrypt_env_content(env_file, &content)
+}
+
+/// Parse `content` (the content of `env_file`, a local path or a URL) and decrypt its `encrypted:` values.
+fn decrypt_env_content(
+    env_file: &str,
+    content: &str,
+) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    let is_properties = env_file_name(env_file).ends_with(".properties");
+    let items = parse_env_content(content, is_properties)?;
+    if !items.values().any(|v| v.starts_with("encrypted:")) {
+        return Ok(items);
+    }
+    let private_key = if is_remote_env_file(env_file) {
+        private_key_for_remote(env_file, &items)?
+    } else {
+        get_private_key_for_file(env_file)?
+    };
+    let mut entries = HashMap::with_capacity(items.len());
+    for (key, value) in items {
+        let value = if value.starts_with("encrypted:") {
+            decrypt_env_item(&private_key, &value)
+                .map_err(|e| format!("failed to decrypt {key}: {e}"))?
+        } else {
+            value
+        };
+        entries.insert(key, value);
+    }
+    Ok(entries)
+}
+
+fn parse_env_content(
+    content: &str,
+    is_properties: bool,
+) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut entries: HashMap<String, String> = HashMap::new();
-    if env_file.ends_with(".properties") {
-        let f = File::open(env_file)?;
-        let reader = BufReader::new(f);
-        PropertiesIter::new(reader).read_into(|key, value| {
-            let value = if value.starts_with('"') {
-                value[1..value.len() - 1].to_string()
-            } else {
-                value
+    if is_properties {
+        PropertiesIter::new(Cursor::new(content.as_bytes())).read_into(|key, value| {
+            let value = match value.strip_prefix('"').and_then(|v| v.strip_suffix('"')) {
+                Some(unquoted) => unquoted.to_string(),
+                None => value,
             };
-            if value.starts_with("encrypted:") {
-                let decrypted_text =
-                    decrypt_env_item(private_key.as_ref().unwrap(), &value).unwrap();
-                entries.insert(key.clone(), decrypted_text);
-            } else {
-                entries.insert(key.clone(), value.clone());
-            }
+            entries.insert(key, value);
         })?;
     } else {
-        let items = if env_file.starts_with("http://") || env_file.starts_with("https://") {
-            read_dotenv_url(env_file, None)?
-        } else {
-            let mut entries: HashMap<String, String> = HashMap::new();
-            for item in dotenvy::from_filename_iter(env_file)? {
-                let (key, value) = &item?;
-                entries.insert(key.clone(), value.clone());
-            }
-            entries
-        };
-        for (key, value) in items {
-            if value.starts_with("encrypted:") {
-                let decrypted_text =
-                    decrypt_env_item(private_key.as_ref().map_err(|e| e.clone())?, &value)?;
-                entries.insert(key.clone(), decrypted_text);
-            } else {
-                entries.insert(key.clone(), value.clone());
-            }
+        for item in dotenvy::from_read_iter(Cursor::new(content.as_bytes())) {
+            let (key, value) = item?;
+            entries.insert(key, value);
         }
     }
     Ok(entries)
+}
+
+/// The private key of a remote env file: matched against the public key declared in the remote content,
+/// never against a local file with the same name (review 2.7).
+fn private_key_for_remote(
+    env_file: &str,
+    items: &HashMap<String, String>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let file_name = env_file_name(env_file);
+    let profile_name = get_profile_name_from_file(&file_name);
+    let clean = |v: &String| v.trim().trim_matches('"').to_owned();
+    let mut public_key = items
+        .get(&get_public_key_name_for_file(&file_name))
+        .map(clean)
+        .filter(|v| !v.is_empty());
+    if public_key.is_none() {
+        let mut keys: Vec<String> = items
+            .iter()
+            .filter(|(k, _)| is_public_key_name(k))
+            .map(|(_, v)| clean(v))
+            .filter(|v| !v.is_empty())
+            .collect();
+        keys.sort();
+        keys.dedup();
+        if keys.len() == 1 {
+            public_key = keys.pop();
+        }
+    }
+    match public_key {
+        Some(public_key) => get_private_key_for_public_key(&public_key, &profile_name, None),
+        None => get_private_key(&profile_name),
+    }
 }
 
 fn verify_signature(env_file_path: &str) {

@@ -756,6 +756,105 @@ fn decrypt_values_embedded_in_text_file() {
     assert!(out.contains("token: \"s3cr3t\""), "{out}");
 }
 
+/// Serve `body` over HTTP on 127.0.0.1 (one response per connection) and return the base URL.
+fn serve_http(body: String) -> String {
+    use std::io::{BufRead, BufReader};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        for mut stream in listener.incoming().flatten() {
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut line = String::new();
+            while reader.read_line(&mut line).is_ok_and(|n| n > 0) && line != "\r\n" {
+                line.clear();
+            }
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = stream.write_all(response.as_bytes());
+        }
+    });
+    format!("http://127.0.0.1:{port}")
+}
+
+/// review 2.7: a remote file is decrypted with the key matching its own public key, never written back.
+#[test]
+fn decrypt_remote_env_file() {
+    // the remote file is encrypted with another key pair than the local project
+    let remote = Sandbox::new();
+    remote.write(".env.keys", "");
+    remote.write(".env", "API_TOKEN=remote-secret\nPORT=8080\n");
+    remote.ok(&["encrypt"]);
+    let remote_private_key = raw_value(&remote.read(".env.keys"), "DOTENV_PRIVATE_KEY").unwrap();
+    let url = format!("{}/config/.env?token=abc", serve_http(remote.read(".env")));
+
+    let sb = Sandbox::new();
+    sb.write(".env.keys", "");
+    sb.ok(&["init"]);
+    let run = |args: &[&str]| {
+        sb.command(args)
+            .env("DOTENV_PRIVATE_KEY", &remote_private_key)
+            .env("NO_PROXY", "*")
+            .env_remove("HTTP_PROXY")
+            .env_remove("http_proxy")
+            .env_remove("ALL_PROXY")
+            .env_remove("all_proxy")
+            .output()
+            .unwrap()
+    };
+
+    let output = run(&["decrypt", "-f", &url, "--stdout"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let out = stdout(&output);
+    assert_eq!(raw_value(&out, "API_TOKEN").as_deref(), Some("remote-secret"), "{out}");
+    assert_eq!(raw_value(&out, "PORT").as_deref(), Some("8080"), "{out}");
+
+    let output = run(&["decrypt", "-f", &url, "--stdout", "--format", "json"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(parse_json(&stdout(&output))["API_TOKEN"], "remote-secret");
+
+    // without --stdout / --dump: clear error, no panic, nothing written locally
+    let before = sb.read(".env");
+    let output = run(&["decrypt", "-f", &url]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stderr(&output).contains("--stdout"), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
+    assert_eq!(sb.read(".env"), before);
+
+    // no matching private key: error instead of panic
+    let output = sb.run(&["decrypt", "-f", &url, "--stdout"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
+}
+
+#[test]
+fn decrypt_properties_with_lone_quote_value_does_not_panic() {
+    let sb = Sandbox::new();
+    sb.write("application.properties", "app.name=\"\nquoted=\"demo\"\n");
+    let output = sb.run(&["decrypt", "--stdout", "--format", "json"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let json = parse_json(&stdout(&output));
+    assert_eq!(json["app.name"], "\"");
+    assert_eq!(json["quoted"], "demo");
+}
+
+#[test]
+fn decrypt_in_place_resigns_and_keeps_trailing_newline() {
+    let sb = Sandbox::new();
+    sb.ok(&["init"]);
+    sb.ok(&["set", "API_TOKEN", "s3cr3t"]);
+    sb.ok(&["encrypt", "--sign"]);
+    assert!(sb.ok(&["verify"]).contains("is valid"));
+
+    let out = sb.ok(&["decrypt"]);
+    assert!(out.contains("signature updated"), "{out}");
+    let content = sb.read(".env");
+    assert!(content.ends_with('\n'), "{content:?}");
+    assert_eq!(raw_value(&content, "API_TOKEN").as_deref(), Some("s3cr3t"));
+    assert!(sb.ok(&["verify"]).contains("is valid"));
+}
+
 // ---------------------------------------------------------------- sign / verify
 
 #[test]
