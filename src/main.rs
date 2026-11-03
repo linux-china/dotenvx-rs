@@ -1,8 +1,10 @@
 use crate::clap_app::build_dotenvx_app;
 use crate::commands::cloud::cloud_command;
 use crate::commands::completion::completion_command;
-use crate::commands::crypt_util::{decrypt_file, encrypt_file};
-use crate::commands::merge_sealed_key_store;
+use crate::commands::crypt_util::{
+    decrypt_file_to_bytes, encrypt_bytes_to_file, encrypt_file, write_file_atomic,
+};
+use crate::commands::{get_dotenvx_home, merge_env_keys_text, merge_sealed_key_store};
 use crate::commands::decrypt::decrypt_command;
 use crate::commands::diff::diff_command;
 use crate::commands::doctor::doctor_command;
@@ -121,97 +123,142 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn encrypt_env_keys_file() {
     let password = rpassword::prompt_password("Your password: ").unwrap();
+    if password.trim().is_empty() {
+        eprintln!("Password must not be empty. Nothing changed.");
+        return;
+    }
     let password_confirm = rpassword::prompt_password("Password again: ").unwrap();
     if password != password_confirm {
         eprintln!("Passwords do not match. Please try again.");
         return;
     }
-    // let store_in_keychain = rprompt::prompt_reply("Save to keychain(Yes/No)?: ").unwrap();
-    // if store_in_keychain.to_lowercase().starts_with("y") {
-    //     if let Ok(entry) = Entry::new("dotenvx-keys-password", "dotenvx") {
-    //         entry.set_password(&password).unwrap();
-    //         entry.get_password().unwrap();
-    //     }
-    // }
     let home_dir = dirs::home_dir().unwrap();
     // encrypt the $HOME/.env.keys file to $HOME/.env.keys.aes
-    if home_dir.join(".env.keys").exists() {
-        let keys_file_path = home_dir.join(".env.keys");
+    let keys_file_path = home_dir.join(".env.keys");
+    if keys_file_path.exists() {
         let encrypted_file_path = home_dir.join(".env.keys.aes");
-        if encrypt_file(&keys_file_path, &encrypted_file_path, &password).is_ok() {
-            std::fs::remove_file(&keys_file_path).unwrap();
-            println!("✔ Successfully encrypted the $HOME/.env.keys file to .env.keys.aes",);
-        } else {
-            eprintln!(
-                "Failed to encrypt the .env.keys file. Please check your password and try again."
-            );
+        if let Err(e) = seal_env_keys(&keys_file_path, &encrypted_file_path, &password) {
+            eprintln!("Failed to encrypt the $HOME/.env.keys file: {e}. Nothing changed.");
+            return;
         }
+        println!("✔ Successfully encrypted the $HOME/.env.keys file to .env.keys.aes");
     }
-    // encrypt the $HOME/.dotenvx/.env.keys.json
-    let dotenvx_home = home_dir.join(".dotenvx");
-    if dotenvx_home.join(".env.keys.json").exists() {
-        let keys_file_path = dotenvx_home.join(".env.keys.json");
+    // encrypt the $DOTENVX_DIR/.env.keys.json, default $HOME/.dotenvx/.env.keys.json
+    let dotenvx_home = get_dotenvx_home();
+    let keys_file_path = dotenvx_home.join(".env.keys.json");
+    if keys_file_path.exists() {
         let encrypted_file_path = dotenvx_home.join(".env.keys.json.aes");
         // a previous sealed key store exists: merge its keys first, otherwise they would be lost
         if encrypted_file_path.exists() {
             if let Err(e) = merge_sealed_key_store(&encrypted_file_path, &password) {
                 eprintln!(
-                    "Failed to merge the existing $HOME/.dotenvx/.env.keys.json.aes file: {e}. Nothing changed."
+                    "Failed to merge the existing {} file: {e}. Nothing changed.",
+                    encrypted_file_path.display()
                 );
                 return;
             }
         }
-        if encrypt_file(&keys_file_path, &encrypted_file_path, &password).is_ok() {
-            std::fs::remove_file(&keys_file_path).unwrap();
-            println!(
-                "✔ Successfully encrypted the $HOME/.dotenvx/.env.keys.json file to .env.keys.json.aes",
-            );
-        } else {
-            eprintln!(
-                "Failed to encrypt the .env.keys.json file. Please check your password and try again."
-            );
+        // encrypt_file writes a temp file, fsyncs and verifies it before replacing the .aes file,
+        // so the plaintext is only removed once a readable sealed copy is on disk
+        match encrypt_file(&keys_file_path, &encrypted_file_path, &password)
+            .and_then(|_| Ok(std::fs::remove_file(&keys_file_path)?))
+        {
+            Ok(_) => println!(
+                "✔ Successfully encrypted the {} file to .env.keys.json.aes",
+                keys_file_path.display()
+            ),
+            Err(e) => eprintln!(
+                "Failed to encrypt the {} file: {e}. Please check your password and try again.",
+                keys_file_path.display()
+            ),
         }
+    }
+}
+
+/// Seal `$HOME/.env.keys` into `$HOME/.env.keys.aes`, merging the keys of an existing
+/// `.env.keys.aes` first so they are not lost. The plaintext is removed only after the
+/// new sealed file has been written, fsynced and verified.
+fn seal_env_keys(
+    keys_file_path: &std::path::Path,
+    encrypted_file_path: &std::path::Path,
+    password: &str,
+) -> anyhow::Result<()> {
+    let mut plain_text = std::fs::read_to_string(keys_file_path)?;
+    if encrypted_file_path.exists() {
+        let sealed_bytes = decrypt_file_to_bytes(encrypted_file_path, password).map_err(|e| {
+            anyhow::anyhow!(
+                "cannot decrypt the existing {} with this password ({e})",
+                encrypted_file_path.display()
+            )
+        })?;
+        let (merged, conflicts) = merge_env_keys_text(&plain_text, &String::from_utf8(sealed_bytes)?);
+        warn_env_keys_conflicts(&conflicts);
+        plain_text = merged;
+    }
+    encrypt_bytes_to_file(plain_text.as_bytes(), encrypted_file_path, password)?;
+    std::fs::remove_file(keys_file_path)?;
+    Ok(())
+}
+
+fn warn_env_keys_conflicts(conflicts: &[String]) {
+    for key in conflicts {
+        eprintln!(
+            "Warning: {key} has different values in $HOME/.env.keys and $HOME/.env.keys.aes, keeping the one in $HOME/.env.keys"
+        );
     }
 }
 
 fn decrypt_env_keys_file() {
-    // check if the password is stored in the keychain
-    let mut password = "".to_owned();
-    // if let Ok(entry) = Entry::new("dotenvx-keys-password", "dotenvx") {
-    //     if let Ok(password_from_store) = entry.get_password() {
-    //         password = password_from_store;
-    //     }
-    // }
+    let password = rpassword::prompt_password("Your password: ").unwrap();
     if password.is_empty() {
-        password = rpassword::prompt_password("Your password: ").unwrap();
+        eprintln!("Password must not be empty.");
+        return;
     }
     let home_dir = dirs::home_dir().unwrap();
-    if home_dir.join(".env.keys.aes").exists() {
+    let encrypted_file_path = home_dir.join(".env.keys.aes");
+    if encrypted_file_path.exists() {
         let keys_file_path = home_dir.join(".env.keys");
-        let encrypted_file_path = home_dir.join(".env.keys.aes");
-        if decrypt_file(&encrypted_file_path, &keys_file_path, &password).is_ok() {
-            println!("✔ Successfully decrypted the .env.keys.aes file to $HOME/.env.keys",);
-        } else {
-            eprintln!(
-                "Failed to decrypt the $HOME/.env.keys.aes file. Please check your password and try again."
-            );
+        match unseal_env_keys(&encrypted_file_path, &keys_file_path, &password) {
+            Ok(_) => println!("✔ Successfully decrypted the .env.keys.aes file to $HOME/.env.keys"),
+            Err(e) => eprintln!(
+                "Failed to decrypt the $HOME/.env.keys.aes file: {e}. Please check your password and try again."
+            ),
         }
     }
-    let dotenvx_home = home_dir.join(".dotenvx");
-    let encrypted_file_path = dotenvx_home.join(".env.keys.json.aes");
+    let encrypted_file_path = get_dotenvx_home().join(".env.keys.json.aes");
     if encrypted_file_path.exists() {
         // merge into the existing .env.keys.json (if any) instead of overwriting it
         match merge_sealed_key_store(&encrypted_file_path, &password) {
             Ok(_) => println!(
-                "✔ Successfully decrypted the env.keys.json.aes file to $HOME/.dotenvx/.env.keys.json",
+                "✔ Successfully decrypted the {} file to .env.keys.json",
+                encrypted_file_path.display()
             ),
             Err(e) => eprintln!(
-                "Failed to decrypt the $HOME/.dotenvx/.env.keys.json.aes file: {e}. Please check your password and try again."
+                "Failed to decrypt the {} file: {e}. Please check your password and try again.",
+                encrypted_file_path.display()
             ),
         }
     }
 }
 
+/// Restore `$HOME/.env.keys` from `$HOME/.env.keys.aes`. When `$HOME/.env.keys` already exists
+/// (created after `--seal`), the sealed keys are merged into it instead of overwriting it.
+fn unseal_env_keys(
+    encrypted_file_path: &std::path::Path,
+    keys_file_path: &std::path::Path,
+    password: &str,
+) -> anyhow::Result<()> {
+    let sealed_text = String::from_utf8(decrypt_file_to_bytes(encrypted_file_path, password)?)?;
+    let plain_text = if keys_file_path.exists() {
+        let current_text = std::fs::read_to_string(keys_file_path)?;
+        let (merged, conflicts) = merge_env_keys_text(&current_text, &sealed_text);
+        warn_env_keys_conflicts(&conflicts);
+        merged
+    } else {
+        sealed_text
+    };
+    write_file_atomic(keys_file_path, plain_text.as_bytes())
+}
 
 fn get_profile(global_matches: &ArgMatches) -> Option<String> {
     let profile = global_matches
@@ -222,4 +269,41 @@ fn get_profile(global_matches: &ArgMatches) -> Option<String> {
         return get_profile_name_from_env();
     }
     profile
+}
+
+#[cfg(test)]
+mod seal_tests {
+    use super::*;
+
+    #[test]
+    fn test_seal_unseal_env_keys_merges() -> anyhow::Result<()> {
+        let dir = std::env::temp_dir().join(format!("dotenvx-seal-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir)?;
+        let keys = dir.join(".env.keys");
+        let aes = dir.join(".env.keys.aes");
+        let password = "test-password";
+
+        // first seal: plaintext is removed, no temp file left behind
+        std::fs::write(&keys, "DOTENV_PRIVATE_KEY=\"k1\"\n")?;
+        seal_env_keys(&keys, &aes, password)?;
+        assert!(!keys.exists());
+        assert!(!dir.join(".env.keys.aes.tmp").exists());
+
+        // a new .env.keys created after seal: sealing again keeps the old sealed keys
+        std::fs::write(&keys, "DOTENV_PRIVATE_KEY_PROD=\"k2\"\n")?;
+        seal_env_keys(&keys, &aes, password)?;
+        // wrong password: nothing changes
+        std::fs::write(&keys, "DOTENV_PRIVATE_KEY_TEST=\"k3\"\n")?;
+        assert!(seal_env_keys(&keys, &aes, "wrong").is_err());
+        assert!(keys.exists());
+
+        // unseal merges into the existing .env.keys instead of overwriting it
+        unseal_env_keys(&aes, &keys, password)?;
+        let text = std::fs::read_to_string(&keys)?;
+        for expected in ["k1", "k2", "k3"] {
+            assert!(text.contains(expected), "{expected} missing in {text}");
+        }
+        std::fs::remove_dir_all(&dir)?;
+        Ok(())
+    }
 }

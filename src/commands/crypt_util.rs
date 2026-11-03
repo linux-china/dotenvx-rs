@@ -311,17 +311,65 @@ fn decrypt_legacy_bytes(encrypted: &[u8], password: &str) -> anyhow::Result<Vec<
     aes_decrypt(&aes_key, nonce_bytes, ciphertext)
 }
 
+/// Write `bytes` to `path` atomically: write a 0600 `<path>.tmp` in the same directory,
+/// fsync it, then rename it over `path`. A crash never leaves a half-written `path`.
+pub fn write_file_atomic<P: AsRef<Path>>(path: P, bytes: &[u8]) -> anyhow::Result<()> {
+    let path = path.as_ref();
+    let tmp_path = tmp_path_of(path);
+    let result = (|| -> anyhow::Result<()> {
+        write_and_sync(&tmp_path, bytes)?;
+        fs::rename(&tmp_path, path)?;
+        sync_parent_dir(path);
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+    result?;
+    crate::commands::restrict_file_permissions(path);
+    Ok(())
+}
+
+/// Encrypt `plain_bytes` into `output_file` safely: the ciphertext is written to
+/// `<output_file>.tmp` and fsynced, read back and decrypted to verify it round-trips,
+/// and only then renamed over `output_file`.
+pub fn encrypt_bytes_to_file<P: AsRef<Path>>(
+    plain_bytes: &[u8],
+    output_file: P,
+    password: &str,
+) -> anyhow::Result<()> {
+    let output_file = output_file.as_ref();
+    let tmp_path = tmp_path_of(output_file);
+    let result = (|| -> anyhow::Result<()> {
+        let encrypted = encrypt_bytes(plain_bytes, password)?;
+        write_and_sync(&tmp_path, &encrypted)?;
+        // read back from disk and verify before replacing anything
+        let verified = decrypt_file_to_bytes(&tmp_path, password)?;
+        if verified != plain_bytes {
+            return Err(anyhow::anyhow!(
+                "verification failed: {} does not decrypt back to the original content",
+                tmp_path.display()
+            ));
+        }
+        fs::rename(&tmp_path, output_file)?;
+        sync_parent_dir(output_file);
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+    result?;
+    crate::commands::restrict_file_permissions(output_file);
+    Ok(())
+}
+
 pub fn encrypt_file<P: AsRef<Path>>(
     input_file: P,
     output_file: P,
     password: &str,
 ) -> anyhow::Result<()> {
     let plain_bytes = fs::read(input_file)?;
-    let encrypted = encrypt_bytes(&plain_bytes, password)?;
-    let mut output = File::create(&output_file)?;
-    output.write_all(&encrypted)?;
-    crate::commands::restrict_file_permissions(&output_file);
-    Ok(())
+    encrypt_bytes_to_file(&plain_bytes, output_file, password)
 }
 
 pub fn decrypt_file<P: AsRef<Path>>(
@@ -330,11 +378,42 @@ pub fn decrypt_file<P: AsRef<Path>>(
     password: &str,
 ) -> anyhow::Result<()> {
     let plain_bytes = decrypt_file_to_bytes(encrypted_file, password)?;
-    // Write the decrypted bytes to the output file
-    fs::write(&output_file, plain_bytes)?;
-    // decrypted key store holds plaintext private keys, restrict to owner-only on Unix
-    crate::commands::restrict_file_permissions(&output_file);
+    // decrypted key store holds plaintext private keys: written as 0600, atomically
+    write_file_atomic(output_file, &plain_bytes)
+}
+
+fn tmp_path_of(path: &Path) -> std::path::PathBuf {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(".tmp");
+    path.with_file_name(name)
+}
+
+/// Create (or truncate) `path` as owner-only, write `bytes` and fsync.
+fn write_and_sync(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file: File = options.open(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()?;
     Ok(())
+}
+
+/// fsync the parent directory so a rename survives a crash (best effort, Unix only).
+fn sync_parent_dir(path: &Path) {
+    #[cfg(unix)]
+    if let Some(parent) = path.parent() {
+        let parent = if parent.as_os_str().is_empty() { Path::new(".") } else { parent };
+        if let Ok(dir) = File::open(parent) {
+            let _ = dir.sync_all();
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = path;
 }
 
 pub fn decrypt_file_to_bytes<P: AsRef<Path>>(

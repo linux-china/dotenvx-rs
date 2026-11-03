@@ -138,6 +138,38 @@ pub fn merge_sealed_key_store(encrypted_file_path: &Path, password: &str) -> any
     })
 }
 
+/// Merge the content of a sealed `$HOME/.env.keys` into the current plaintext one.
+///
+/// `current` wins: it is kept verbatim, and every `KEY=value` line of `sealed` whose key is
+/// not in `current` is appended. Returns the merged text and the keys present in both
+/// with different values (the `current` value is kept for those).
+pub fn merge_env_keys_text(current: &str, sealed: &str) -> (String, Vec<String>) {
+    let current_entries: HashMap<String, String> =
+        dotenvy::from_read_iter(current.as_bytes()).flatten().collect();
+    let mut merged = current.to_owned();
+    let mut conflicts = Vec::new();
+    for line in sealed.lines() {
+        let Some((key, value)) = dotenvy::from_read_iter(line.as_bytes()).flatten().next() else {
+            continue; // blank line or comment
+        };
+        match current_entries.get(&key) {
+            Some(current_value) => {
+                if current_value != &value && !conflicts.contains(&key) {
+                    conflicts.push(key);
+                }
+            }
+            None => {
+                if !merged.is_empty() && !merged.ends_with('\n') {
+                    merged.push('\n');
+                }
+                merged.push_str(line);
+                merged.push('\n');
+            }
+        }
+    }
+    (merged, conflicts)
+}
+
 pub fn read_dotenv_file<P: AsRef<Path>>(
     path: P,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -1269,5 +1301,21 @@ mod tests {
             assert_eq!(String::from_utf8(output.stdout).unwrap(), *value, "script {script:?}");
         }
         assert!(!Path::new("/tmp/dotenvx_pwned").exists());
+    }
+
+    #[test]
+    fn test_merge_env_keys_text() {
+        let current = "# current\nDOTENV_PRIVATE_KEY_NEW=\"new\"\nDOTENV_PRIVATE_KEY=\"a2\"";
+        let sealed = "# sealed\nDOTENV_PRIVATE_KEY=\"a1\"\n\nDOTENV_PRIVATE_KEY_OLD=\"old\"\n";
+        let (merged, conflicts) = merge_env_keys_text(current, sealed);
+        assert_eq!(
+            merged,
+            "# current\nDOTENV_PRIVATE_KEY_NEW=\"new\"\nDOTENV_PRIVATE_KEY=\"a2\"\nDOTENV_PRIVATE_KEY_OLD=\"old\"\n"
+        );
+        assert_eq!(conflicts, vec!["DOTENV_PRIVATE_KEY".to_owned()]);
+        // nothing to merge into: the sealed keys are restored as-is
+        let (merged, conflicts) = merge_env_keys_text("", sealed);
+        assert_eq!(merged, "DOTENV_PRIVATE_KEY=\"a1\"\nDOTENV_PRIVATE_KEY_OLD=\"old\"\n");
+        assert!(conflicts.is_empty());
     }
 }
