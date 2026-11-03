@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::model::EnvFile;
 use crate::commands::{
-    adjust_env_key, dotenv_double_quote, get_env_file_arg, get_private_key,
+    adjust_env_key, dotenv_double_quote, entry_line_count, get_env_file_arg, get_private_key,
     get_private_key_for_file, get_private_key_for_public_key, get_public_key_from_text_file,
     get_public_key_name_for_file, is_encrypted_value_text, is_public_key_name, is_remote_env_file,
     properties_escape, read_content_from_dotenv_url, resign_env_file_if_signed, split_assignment,
@@ -12,7 +12,7 @@ use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_file;
 use glob::Pattern;
 use java_properties::PropertiesIter;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io::Cursor;
 
@@ -59,13 +59,15 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             std::process::exit(1);
         }
     };
-    let mut entries = match decrypt_env_content(&env_file, &file_content) {
+    // in file order, a key may occur more than once (review #1)
+    let ordered_entries = match decrypt_env_content_ordered(&env_file, &file_content) {
         Ok(entries) => entries,
         Err(e) => {
             eprintln!("{}", format!("✘ failed to decrypt {env_file}: {e}").red());
             std::process::exit(1);
         }
     };
+    let mut entries: HashMap<String, String> = ordered_entries.iter().cloned().collect();
     let env_keys = command_matches.get_many::<String>("keys");
     let mut hint = format!(".env file({env_file})");
     if let Some(keys) = env_keys {
@@ -98,27 +100,46 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
     // split_assignment detects .properties by the suffix, a URL may end with a query string
     let syntax_hint = if is_properties { ".properties" } else { ".env" };
+    // every occurrence of a key is decrypted with its own value, consumed in file order (review #1)
+    let mut values: HashMap<String, VecDeque<String>> = HashMap::new();
+    for (key, value) in ordered_entries {
+        values.entry(key).or_default().push_back(value);
+    }
+    let lines: Vec<&str> = file_content.lines().collect();
     let mut new_lines: Vec<String> = Vec::new();
     let mut is_changed = false;
+    let mut i = 0;
     // only `encrypted:` values are rewritten, keeping indentation and the `export ` prefix (review #1)
-    for line in file_content.lines() {
-        let replacement = split_assignment(syntax_hint, line)
-            .filter(|(_, _, value_text)| is_encrypted_value_text(value_text))
-            .and_then(|(prefix, key, _)| {
-                let value = entries.get(key)?;
-                let new_value = if is_properties {
-                    properties_escape(value)
-                } else {
-                    dotenv_double_quote(value)
-                };
-                Some(format!("{prefix}{key}={new_value}"))
-            });
+    while i < lines.len() {
+        let assignment = split_assignment(syntax_hint, lines[i]);
+        let line_count = if assignment.is_some() {
+            entry_line_count(syntax_hint, &lines, i)
+        } else {
+            1
+        };
+        let end = (i + line_count).min(lines.len());
+        let replacement = assignment.and_then(|(prefix, key, value_text)| {
+            // consume this occurrence's value even when the entry is kept, so that later
+            // occurrences of the same key stay aligned with the parser
+            let value = values.get_mut(key).and_then(VecDeque::pop_front)?;
+            if !is_encrypted_value_text(value_text) || !entries.contains_key(key) {
+                return None;
+            }
+            let new_value = if is_properties {
+                properties_escape(&value)
+            } else {
+                dotenv_double_quote(&value)
+            };
+            Some(format!("{prefix}{key}={new_value}"))
+        });
         if let Some(new_line) = replacement {
+            // the whole entry is replaced, continuation lines of a wrapped ciphertext included
             new_lines.push(new_line);
             is_changed = true;
         } else {
-            new_lines.push(line.to_string());
+            new_lines.extend(lines[i..end].iter().map(|l| l.to_string()));
         }
+        i = end;
     }
     // stdout with text format
     if is_stdout {
@@ -194,46 +215,67 @@ fn decrypt_env_content(
     env_file: &str,
     content: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    Ok(decrypt_env_content_ordered(env_file, content)?
+        .into_iter()
+        .collect())
+}
+
+/// Like [`decrypt_env_content`], but keeps the entries in file order, duplicated keys included.
+fn decrypt_env_content_ordered(
+    env_file: &str,
+    content: &str,
+) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
     let is_properties = env_file_name(env_file).ends_with(".properties");
-    let items = parse_env_content(content, is_properties)?;
-    if !items.values().any(|v| v.starts_with("encrypted:")) {
+    let items = parse_env_content_ordered(content, is_properties)?;
+    if !items.iter().any(|(_, v)| v.starts_with("encrypted:")) {
         return Ok(items);
     }
     let private_key = if is_remote_env_file(env_file) {
-        private_key_for_remote(env_file, &items)?
+        let item_map: HashMap<String, String> = items.iter().cloned().collect();
+        private_key_for_remote(env_file, &item_map)?
     } else {
         get_private_key_for_file(env_file)?
     };
-    let mut entries = HashMap::with_capacity(items.len());
-    for (key, value) in items {
-        let value = if value.starts_with("encrypted:") {
-            decrypt_env_item(&private_key, &value)
-                .map_err(|e| format!("failed to decrypt {key}: {e}"))?
-        } else {
-            value
-        };
-        entries.insert(key, value);
-    }
-    Ok(entries)
+    items
+        .into_iter()
+        .map(|(key, value)| {
+            if value.starts_with("encrypted:") {
+                let plain = decrypt_env_item(&private_key, &value)
+                    .map_err(|e| format!("failed to decrypt {key}: {e}"))?;
+                Ok((key, plain))
+            } else {
+                Ok((key, value))
+            }
+        })
+        .collect()
 }
 
 fn parse_env_content(
     content: &str,
     is_properties: bool,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let mut entries: HashMap<String, String> = HashMap::new();
+    Ok(parse_env_content_ordered(content, is_properties)?
+        .into_iter()
+        .collect())
+}
+
+/// The entries of `content` in file order, a duplicated key occurs once per assignment.
+fn parse_env_content_ordered(
+    content: &str,
+    is_properties: bool,
+) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
+    let mut entries: Vec<(String, String)> = Vec::new();
     if is_properties {
         PropertiesIter::new(Cursor::new(content.as_bytes())).read_into(|key, value| {
             let value = match value.strip_prefix('"').and_then(|v| v.strip_suffix('"')) {
                 Some(unquoted) => unquoted.to_string(),
                 None => value,
             };
-            entries.insert(key, value);
+            entries.push((key, value));
         })?;
     } else {
         for item in dotenvy::from_read_iter(Cursor::new(content.as_bytes())) {
-            let (key, value) = item?;
-            entries.insert(key, value);
+            entries.push(item?);
         }
     }
     Ok(entries)
@@ -343,6 +385,19 @@ mod tests {
     fn test_decrypt_dotenv() {
         let entries = super::decrypt_env_entries(".env").unwrap();
         println!("{entries:?}");
+    }
+
+    #[test]
+    fn parse_keeps_duplicated_keys_in_order() {
+        let entries = super::parse_env_content_ordered("X=one\nY=keep\nX=two\n", false).unwrap();
+        let expected = [("X", "one"), ("Y", "keep"), ("X", "two")];
+        assert_eq!(
+            entries,
+            expected.map(|(k, v)| (k.to_string(), v.to_string()))
+        );
+        let entries = super::parse_env_content_ordered("a=one\na=two\n", true).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].1, "one");
     }
 
     #[test]

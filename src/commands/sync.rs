@@ -112,13 +112,9 @@ fn sync_to_new_target(source: &str, target: &str) {
     let new_public_key = kp.get_pk_hex();
     let is_properties = source.ends_with(".properties");
 
-    let mut lines: Vec<&str> = source_file_content.lines().collect();
-    // drop the header of the source: everything up to its public key
-    if let Some(pos) = lines.iter().position(|line| {
-        split_assignment(source, line).is_some_and(|(_, key, _)| is_public_key_name(key))
-    }) {
-        lines = lines[pos + 1..].to_vec();
-    }
+    // only the front matter is dropped here, the public key line and the fixed hint comment are
+    // skipped below, every other line is kept wherever the public key is (review #8)
+    let lines = skip_front_matter(source_file_content.lines().collect());
     let mut new_lines: Vec<String> = Vec::new();
     let mut i = 0;
     while i < lines.len() {
@@ -173,16 +169,10 @@ fn sync_to_new_target(source: &str, target: &str) {
         &None,
     );
     let new_content = format!("{}\n{}\n", header.trim(), new_lines.join("\n").trim());
-    if let Err(e) = fs::write(target_file_path, new_content.as_bytes()) {
-        fail(format!("failed to write {target}: {e}"));
-    }
-    println!(
-        "{}",
-        format!("✔ target env file '{target}' created.").green()
-    );
-    // write key pair
+    // persist the new private key before the file encrypted with it, so it can never be lost
+    // (review #8, same order as `rotate`)
     let mut key_pair = KeyPair::from(&new_public_key, &kp.get_sk_hex(), &None, &None, &profile);
-    if let Ok(absolute_path) = fs::canonicalize(target_file_path) {
+    if let Ok(absolute_path) = std::path::absolute(target_file_path) {
         key_pair.path = Some(absolute_path.to_string_lossy().to_string());
     }
     if PathBuf::from(KEYS_FILE_NAME).exists() {
@@ -191,13 +181,15 @@ fn sync_to_new_target(source: &str, target: &str) {
             write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair, false)
         {
             fail(format!(
-                "Failed to write private key to {KEYS_FILE_NAME}: {e}"
+                "Failed to write private key to {KEYS_FILE_NAME}: {e}, {target} not created"
             ));
         }
     } else {
         // global key store
         if let Err(e) = write_key_pair(&key_pair) {
-            fail(format!("Failed to save the private key of {target}: {e}"));
+            fail(format!(
+                "Failed to save the private key of {target}: {e}, {target} not created"
+            ));
         }
         let private_key_short = &key_pair.private_key[0..6];
         println!(
@@ -209,6 +201,35 @@ fn sync_to_new_target(source: &str, target: &str) {
             .green()
         );
     }
+    if let Err(e) = fs::write(target_file_path, new_content.as_bytes()) {
+        fail(format!("failed to write {target}: {e}"));
+    }
+    println!(
+        "{}",
+        format!("✔ target env file '{target}' created.").green()
+    );
+}
+
+/// Drop the front matter (`# ---` ... `# ---`, comment lines only) of an env file, even when
+/// variables were put before it. Files without front matter are returned unchanged.
+fn skip_front_matter(lines: Vec<&str>) -> Vec<&str> {
+    let Some(start) = lines.iter().position(|line| line.trim() == "# ---") else {
+        return lines;
+    };
+    let Some(offset) = lines[start + 1..]
+        .iter()
+        .position(|line| !line.trim_start().starts_with('#') || line.trim() == "# ---")
+    else {
+        return lines;
+    };
+    let end = start + 1 + offset;
+    if lines[end].trim() != "# ---" {
+        // not a front matter block: keep everything rather than drop variables
+        return lines;
+    }
+    let mut kept = lines[..start].to_vec();
+    kept.extend_from_slice(&lines[end + 1..]);
+    kept
 }
 
 /// Append the keys of `source` that are absent in `target`. A value that is encrypted in `source`
@@ -287,4 +308,39 @@ fn sync_to_existing_target(source: &str, target: &str) {
         )
         .green()
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::skip_front_matter;
+
+    #[test]
+    fn skip_front_matter_drops_only_the_front_matter() {
+        let lines = vec![
+            "",
+            "# ---",
+            "# uuid: x",
+            "# ---",
+            "DOTENV_PUBLIC_KEY=\"pk\"",
+            "A=1",
+        ];
+        assert_eq!(
+            skip_front_matter(lines),
+            vec!["", "DOTENV_PUBLIC_KEY=\"pk\"", "A=1"]
+        );
+    }
+
+    #[test]
+    fn skip_front_matter_keeps_files_without_front_matter() {
+        let lines = vec!["A=1", "DOTENV_PUBLIC_KEY=\"pk\"", "B=2"];
+        assert_eq!(skip_front_matter(lines.clone()), lines);
+        let unterminated = vec!["# ---", "A=1", "# ---"];
+        assert_eq!(skip_front_matter(unterminated.clone()), unterminated);
+    }
+
+    #[test]
+    fn skip_front_matter_keeps_variables_before_it() {
+        let lines = vec!["A=1", "# ---", "# uuid: x", "# ---", "B=2"];
+        assert_eq!(skip_front_matter(lines), vec!["A=1", "B=2"]);
+    }
 }
