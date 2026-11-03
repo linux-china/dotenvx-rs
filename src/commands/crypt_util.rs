@@ -39,8 +39,8 @@ impl EcKeyPair {
         let trimmed = trim_private_key(sk_hex.trim().to_string());
         let sk_bytes = hex::decode(check_sk_hex(&trimmed))
             .map_err(|e| anyhow::anyhow!("Invalid private key hex: {e}"))?;
-        let sk =
-            SecretKey::parse_slice(&sk_bytes).map_err(|_| anyhow::anyhow!("Invalid private key"))?;
+        let sk = SecretKey::parse_slice(&sk_bytes)
+            .map_err(|_| anyhow::anyhow!("Invalid private key"))?;
         let pk = PublicKey::from_secret_key(&sk);
         Ok(EcKeyPair {
             public_key: pk,

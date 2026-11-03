@@ -2,8 +2,8 @@ use crate::commands::framework::detect_framework;
 use crate::commands::model::KeyPair;
 use crate::commands::{
     EcKeyPair, KEYS_FILE_NAME, create_env_file, get_dotenvx_home, get_env_file_arg,
-    get_private_key_name_for_file, is_public_key_included, write_key_pair, write_key_pairs,
-    write_private_key_to_file,
+    get_private_key_name, get_private_key_name_for_file, is_public_key_included, write_key_pair,
+    write_key_pairs, write_private_key_to_file,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -91,11 +91,7 @@ fn create_global_env_keys(profile: &Option<String>) {
     let keys_file_path = dirs::home_dir().unwrap().join(KEYS_FILE_NAME);
     if keys_file_path.exists() {
         let file_content = fs::read_to_string(&keys_file_path).unwrap();
-        let private_key_name = if let Some(profile_name) = profile {
-            format!("DOTENV_PRIVATE_KEY_{}", profile_name.to_uppercase())
-        } else {
-            "DOTENV_PRIVATE_KEY".to_string()
-        };
+        let private_key_name = get_private_key_name(profile);
         if file_content.contains(&format!("{private_key_name}=")) {
             eprintln!("{} already exists.", private_key_name.red());
         } else {
@@ -119,39 +115,23 @@ fn create_global_env_keys(profile: &Option<String>) {
             );
         }
     } else {
-        let profiles = vec!["dev", "test", "perf", "sandbox", "stage", "prod"];
         let mut lines: Vec<String> = Vec::new();
         let mut key_pairs: Vec<KeyPair> = Vec::new();
-        // global private key
-        {
+        for profile_name in global_key_profiles(profile) {
             let kp = EcKeyPair::generate();
             let private_key = kp.get_sk_hex();
-            lines.push(format!("DOTENV_PRIVATE_KEY=\"{private_key}\""));
+            lines.push(format!(
+                "{}=\"{}\"",
+                get_private_key_name(&profile_name),
+                private_key
+            ));
             key_pairs.push(KeyPair::from(
                 &kp.get_pk_hex(),
                 &private_key,
                 &Some("global".to_owned()),
                 &Some("app".to_owned()),
-                &None,
+                &profile_name,
             ));
-        }
-        // private keys for each profile
-        for profile in profiles {
-            let kp = EcKeyPair::generate();
-            let private_key = kp.get_sk_hex();
-            lines.push(format!(
-                "DOTENV_PRIVATE_KEY_{}=\"{}\"",
-                profile.to_uppercase(),
-                private_key
-            ));
-            let key_pair = KeyPair::from(
-                &kp.get_pk_hex(),
-                &private_key,
-                &Some("global".to_owned()),
-                &Some("app".to_owned()),
-                &Some(profile.to_string()),
-            );
-            key_pairs.push(key_pair);
         }
         // dotenvx cloud key pair
         let dotenvx_cloud_keypair = EcKeyPair::generate();
@@ -180,8 +160,65 @@ fn create_global_env_keys(profile: &Option<String>) {
         write_key_pairs(&key_pairs).unwrap();
         println!(
             "{}",
-            "Global $HOME/.env.keys file created with profiles dev, test, perf, sandbox, stage, prod."
-                .green()
+            format!(
+                "Global $HOME/.env.keys file created with profiles {}.",
+                global_key_profiles(profile)
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+            .green()
         );
+    }
+}
+
+/// Profiles to generate keys for when creating `$HOME/.env.keys`: the default key (`None`),
+/// the common project profiles, `g_default` used by `mkey`, and the requested profile if any.
+fn global_key_profiles(profile: &Option<String>) -> Vec<Option<String>> {
+    let mut profiles: Vec<Option<String>> = vec![None];
+    for name in [
+        "dev",
+        "test",
+        "perf",
+        "sandbox",
+        "stage",
+        "prod",
+        "g_default",
+    ] {
+        profiles.push(Some(name.to_string()));
+    }
+    if let Some(name) = profile {
+        let name = name.to_lowercase();
+        if !profiles.iter().flatten().any(|p| *p == name) {
+            profiles.push(Some(name));
+        }
+    }
+    profiles
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_global_key_profiles_includes_mkey_default() {
+        let names: Vec<String> = global_key_profiles(&None)
+            .iter()
+            .map(get_private_key_name)
+            .collect();
+        assert!(names.contains(&"DOTENV_PRIVATE_KEY".to_string()));
+        assert!(names.contains(&"DOTENV_PRIVATE_KEY_DEV".to_string()));
+        assert!(names.contains(&"DOTENV_PRIVATE_KEY_G_DEFAULT".to_string()));
+    }
+
+    #[test]
+    fn test_global_key_profiles_includes_requested_profile() {
+        let profiles = global_key_profiles(&Some("g_work".to_string()));
+        assert_eq!(profiles.last(), Some(&Some("g_work".to_string())));
+        // no duplicate when the requested profile is already in the list
+        let profiles = global_key_profiles(&Some("dev".to_string()));
+        assert_eq!(profiles.iter().flatten().filter(|p| *p == "dev").count(), 1);
     }
 }

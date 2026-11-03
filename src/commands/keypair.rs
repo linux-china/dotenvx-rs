@@ -77,7 +77,10 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
             std::process::exit(1);
         }
         if let Err(e) = write_private_key_to_file(&keys_file, &env_private_key_name, &key_pair) {
-            eprintln!("Failed to write private key to {}: {e}", keys_file.display());
+            eprintln!(
+                "Failed to write private key to {}: {e}",
+                keys_file.display()
+            );
             std::process::exit(1);
         }
         return;
@@ -206,7 +209,10 @@ mod tests {
 
     #[test]
     fn test_keys_file_for_env_file() {
-        assert_eq!(keys_file_for_env_file(".env"), PathBuf::from(KEYS_FILE_NAME));
+        assert_eq!(
+            keys_file_for_env_file(".env"),
+            PathBuf::from(KEYS_FILE_NAME)
+        );
         assert_eq!(
             keys_file_for_env_file("config/.env.prod"),
             Path::new("config").join(KEYS_FILE_NAME)
