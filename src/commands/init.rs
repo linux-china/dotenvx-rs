@@ -169,7 +169,7 @@ fn create_global_env_keys(profile: &Option<String>) {
         write_key_pairs(&key_pairs).unwrap();
         println!(
             "{}",
-            "Global $HOME/.env.keys file created with profiles dev, test, perf, sand, stage, prod."
+            "Global $HOME/.env.keys file created with profiles dev, test, perf, sandbox, stage, prod."
                 .green()
         );
     }
