@@ -128,3 +128,4 @@ Cargo.lock
 
 .env.keys
 bin/
+.envrc
