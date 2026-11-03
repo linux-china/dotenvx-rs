@@ -1,8 +1,9 @@
 use crate::commands::framework::detect_framework;
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    EcKeyPair, KEYS_FILE_NAME, create_env_file, get_env_file_arg, get_private_key_name_for_file,
-    is_public_key_included, write_key_pair, write_key_pairs, write_private_key_to_file,
+    EcKeyPair, KEYS_FILE_NAME, create_env_file, get_dotenvx_home, get_env_file_arg,
+    get_private_key_name_for_file, is_public_key_included, write_key_pair, write_key_pairs,
+    write_private_key_to_file,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -65,8 +66,11 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
         let private_key_short = &key_pair.private_key[0..6];
         println!(
             "{}",
-            format!("✔ private key({private_key_short}) saved to $HOME/.dotenvx/.env.keys.json")
-                .green()
+            format!(
+                "✔ private key({private_key_short}) saved to {}",
+                get_dotenvx_home().join(".env.keys.json").display()
+            )
+            .green()
         );
     }
     println!(

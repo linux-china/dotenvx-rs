@@ -2,9 +2,9 @@ use crate::commands::crypt_util::{EcKeyPair, encrypt_env_item};
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    KEYS_FILE_NAME, construct_env_file_header, dotenv_double_quote, get_private_key_name_for_file,
-    get_public_key_for_file, get_public_key_name_for_file, is_sensitive_key, write_key_pair,
-    write_private_key_to_file,
+    KEYS_FILE_NAME, construct_env_file_header, dotenv_double_quote, get_dotenvx_home,
+    get_private_key_name_for_file, get_public_key_for_file, get_public_key_name_for_file,
+    is_sensitive_key, write_key_pair, write_private_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
@@ -96,7 +96,8 @@ pub fn sync_command(command_matches: &ArgMatches) {
             println!(
                 "{}",
                 format!(
-                    "✔ private key({private_key_short}) saved to $HOME/.dotenvx/.env.keys.json"
+                    "✔ private key({private_key_short}) saved to {}",
+                    get_dotenvx_home().join(".env.keys.json").display()
                 )
                 .green()
             );

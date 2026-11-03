@@ -1,5 +1,5 @@
 use crate::common::{
-    find_dotenv_keys_file, find_env_file_path, get_profile_name_from_env,
+    find_dotenv_keys_file, find_env_file_path, get_dotenvx_home, get_profile_name_from_env,
     get_profile_name_from_file,
 };
 use anyhow::anyhow;
@@ -264,11 +264,7 @@ impl DotenvxKeyStore {
     }
 
     fn get_global_key_store_path() -> Option<PathBuf> {
-        let dotenvx_home = if let Ok(dotenvx_dir) = env::var("DOTENVX_DIR") {
-            PathBuf::from(dotenvx_dir)
-        } else {
-            home_dir().unwrap().join(".dotenvx")
-        };
+        let dotenvx_home = get_dotenvx_home();
         let env_keys_json_file = dotenvx_home.join(".env.keys.json");
         if env_keys_json_file.exists() {
             return Some(env_keys_json_file);

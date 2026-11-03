@@ -16,6 +16,14 @@ pub fn decode_base64_lenient(value: &str) -> Result<Vec<u8>, base64ct::Error> {
     }
 }
 
+/// Directory of the global dotenvx store: `$DOTENVX_DIR` if set, otherwise `$HOME/.dotenvx`.
+pub fn get_dotenvx_home() -> PathBuf {
+    if let Ok(dotenvx_dir) = env::var("DOTENVX_DIR") {
+        return PathBuf::from(dotenvx_dir);
+    }
+    dirs::home_dir().unwrap().join(".dotenvx")
+}
+
 pub fn get_profile_name_from_env() -> Option<String> {
     let env_vars = [
         "NODE_ENV",

@@ -1,4 +1,4 @@
-use crate::commands::{is_sensitive_key, list_env_files};
+use crate::commands::{get_dotenvx_home, is_sensitive_key, list_env_files};
 use clap::ArgMatches;
 use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_file;
@@ -86,8 +86,8 @@ pub fn doctor_command(_: &ArgMatches) {
 /// Collect the sensitive key/secret files that should be owner-only (0600).
 fn sensitive_key_files() -> Vec<PathBuf> {
     let mut files = vec![];
+    files.push(get_dotenvx_home().join(".env.keys.json"));
     if let Some(home) = dirs::home_dir() {
-        files.push(home.join(".dotenvx").join(".env.keys.json"));
         files.push(home.join(".env.keys"));
     }
     if let Ok(dir) = current_dir() {

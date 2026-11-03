@@ -1,5 +1,4 @@
 use clap::{Arg, ArgAction, Command};
-use dirs::home_dir;
 use std::env;
 use std::process::Stdio;
 
@@ -26,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some((command, _)) = matches.subcommand() {
         match command {
             "ls" => {
-                let dotenvx_home = home_dir().unwrap().join(".dotenvx");
+                let dotenvx_home = dotenvx_rs::common::get_dotenvx_home();
                 raw_args.push(dotenvx_home.to_str().unwrap().to_owned());
             }
             "get" | "set" | "encrypt" | "decrypt" => {

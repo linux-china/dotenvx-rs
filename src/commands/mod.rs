@@ -44,12 +44,7 @@ pub mod sync;
 
 const KEYS_FILE_NAME: &str = ".env.keys";
 
-pub fn get_dotenvx_home() -> PathBuf {
-    if let Ok(dotenvx_dir) = env::var("DOTENVX_DIR") {
-        return PathBuf::from(dotenvx_dir);
-    }
-    dirs::home_dir().unwrap().join(".dotenvx")
-}
+pub use dotenvx_rs::common::get_dotenvx_home;
 
 pub fn is_sensitive_key(key_name: &str) -> bool {
     let encrypted_patterns = [
@@ -359,7 +354,9 @@ fn lookup_private_key(
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     let env_key_name = get_private_key_name(profile_name);
     let dotenv_keys_file_path = get_dotenv_keys_file_path(profile_name);
-    let key_entries = if let Some(file_path) = &dotenv_keys_file_path {
+    let key_entries = if let Some(file_path) = &dotenv_keys_file_path
+        && file_path.exists()
+    {
         read_dotenv_file(file_path)?
     } else {
         HashMap::new()
@@ -488,10 +485,7 @@ fn resolve_public_key(
     let dotenv_file_path = if let Some(profile) = profile_name
         && profile.starts_with("g_")
     {
-        dirs::home_dir()
-            .unwrap()
-            .join(".dotenvx")
-            .join(env_file_name)
+        get_dotenvx_home().join(env_file_name)
     } else {
         find_env_file_path(&env::current_dir()?, &env_file_name)
             .unwrap_or_else(|| PathBuf::from(env_file_name))
@@ -870,8 +864,10 @@ pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) 
     // load env file by profile
     let dotenv_file = if let Some(profile_name) = profile {
         if profile_name.starts_with("g_") {
-            let dotenvx_home = dirs::home_dir().unwrap().join(".dotenvx");
-            format!("{}/.env.{profile_name}", dotenvx_home.display())
+            get_dotenvx_home()
+                .join(format!(".env.{profile_name}"))
+                .display()
+                .to_string()
         } else {
             format!(".env.{profile_name}")
         }
