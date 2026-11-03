@@ -270,7 +270,11 @@ impl DotenvxKeyStore {
     }
 
     fn get_global_key_store_path() -> Option<PathBuf> {
-        let dotenvx_home = home_dir().unwrap().join(".dotenvx");
+        let dotenvx_home = if let Ok(dotenvx_dir) = env::var("DOTENVX_DIR") {
+            PathBuf::from(dotenvx_dir)
+        } else {
+            home_dir().unwrap().join(".dotenvx")
+        };
         let env_keys_json_file = dotenvx_home.join(".env.keys.json");
         if env_keys_json_file.exists() {
             return Some(env_keys_json_file);
