@@ -70,9 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     // check "-pp" for decryption to be compatible with python-dotenvx
-    if let Some(value) = raw_args.iter_mut().find(|x| *x == "-pp") {
-        *value = "--pretty-print".into();
-    }
+    normalize_pretty_print_arg(&mut raw_args);
     let matches = app.get_matches_from(raw_args);
     // check no-color flag
     if matches.get_flag("no-color") {
@@ -119,6 +117,55 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+/// Rewrite python-dotenvx style `-pp` into `--pretty-print`.
+///
+/// Only the `get` sub-command has `--pretty-print`, so `-pp` is rewritten only when it
+/// appears as a flag of `get`: before any `--` and not as the value of an option such as
+/// `--format`. Values of other sub-commands (for example `set KEY -pp`) are left untouched.
+fn normalize_pretty_print_arg(raw_args: &mut [OsString]) {
+    // locate the sub-command, skipping global options and their values
+    let mut index = 1;
+    let mut sub_command_index = None;
+    while index < raw_args.len() {
+        let Some(arg) = raw_args[index].to_str() else {
+            return;
+        };
+        match arg {
+            "--" => return,
+            // `-c/--command` consumes the rest of the arguments, so there is no sub-command
+            "-c" | "--command" => return,
+            "-p" | "--profile" => index += 2,
+            _ if arg.starts_with('-') => index += 1,
+            _ => {
+                sub_command_index = Some(index);
+                break;
+            }
+        }
+    }
+    let Some(sub_command_index) = sub_command_index else {
+        return;
+    };
+    if raw_args[sub_command_index] != "get" {
+        return;
+    }
+    let mut index = sub_command_index + 1;
+    while index < raw_args.len() {
+        let Some(arg) = raw_args[index].to_str() else {
+            index += 1;
+            continue;
+        };
+        match arg {
+            "--" => return,
+            "-f" | "--env-file" | "--format" => index += 2,
+            "-pp" => {
+                raw_args[index] = "--pretty-print".into();
+                index += 1;
+            }
+            _ => index += 1,
+        }
+    }
 }
 
 fn encrypt_env_keys_file() {
@@ -306,5 +353,45 @@ mod seal_tests {
         }
         std::fs::remove_dir_all(&dir)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn normalize(args: &[&str]) -> Vec<String> {
+        let mut raw_args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        normalize_pretty_print_arg(&mut raw_args);
+        raw_args
+            .into_iter()
+            .map(|s| s.into_string().unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn test_pp_rewritten_for_get() {
+        assert_eq!(
+            normalize(&["dotenvx", "get", "-pp"]),
+            ["dotenvx", "get", "--pretty-print"]
+        );
+        assert_eq!(
+            normalize(&["dotenvx", "--profile", "dev", "get", "KEY", "-pp"]),
+            ["dotenvx", "--profile", "dev", "get", "KEY", "--pretty-print"]
+        );
+    }
+
+    #[test]
+    fn test_pp_kept_outside_get_flags() {
+        let cases: [&[&str]; 5] = [
+            &["dotenvx", "set", "KEY", "-pp"],
+            &["dotenvx", "set", "KEY", "--", "-pp"],
+            &["dotenvx", "get", "KEY", "--", "-pp"],
+            &["dotenvx", "get", "--format", "-pp"],
+            &["dotenvx", "-c", "echo", "-pp"],
+        ];
+        for args in cases {
+            assert_eq!(normalize(args), args);
+        }
     }
 }
