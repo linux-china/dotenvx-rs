@@ -2,10 +2,19 @@ use clap::ArgMatches;
 use std::path::PathBuf;
 
 pub fn linter_command(_: &ArgMatches) {
-    lint().unwrap();
+    match lint() {
+        Ok(0) => {}
+        // warnings are printed by the linter
+        Ok(_) => std::process::exit(1),
+        Err(e) => {
+            eprintln!("Failed to lint env files: {e}");
+            std::process::exit(1);
+        }
+    }
 }
 
-pub fn lint() -> anyhow::Result<()> {
+/// Lint the env files in the current directory, returns the number of warnings.
+pub fn lint() -> anyhow::Result<usize> {
     use dotenv_analyzer::LintKind;
     use dotenv_linter::CheckOptions;
     use dotenv_linter::check;
@@ -17,12 +26,12 @@ pub fn lint() -> anyhow::Result<()> {
     }
     let options = CheckOptions {
         files: vec![&current_dir],
-        ignore_checks: vec![LintKind::UnorderedKey],
+        // dotenvx writes the values with double quotes, see `dotenv_double_quote`
+        ignore_checks: vec![LintKind::UnorderedKey, LintKind::QuoteCharacter],
         exclude: excludes,
         quiet: false,
         recursive: false,
         schema: None,
     };
-    let _ = check(&options, &current_dir).is_ok();
-    Ok(())
+    check(&options, &current_dir).map_err(|e| anyhow::anyhow!(e.to_string()))
 }

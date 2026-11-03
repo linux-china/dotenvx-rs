@@ -1559,3 +1559,23 @@ fn doctor_warns_about_readable_key_files() {
         stderr(&output)
     );
 }
+
+/// review #9: errors must not exit with 0
+#[test]
+fn errors_exit_with_non_zero_code() {
+    let sb = Sandbox::new();
+    // `run -f` with a missing file must not run the command
+    let output = sb.run(&["run", "-f", ".env.typo", "--", "echo", "should-not-run"]);
+    assert!(!output.status.success());
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("should-not-run"));
+    // the default .env is optional for `run`
+    assert!(sb.run(&["run", "--", "true"]).status.success());
+    // `decrypt -f` with a missing file
+    assert!(!sb.run(&["decrypt", "-f", ".env.nope"]).status.success());
+    // `decrypt --verify` with an unsigned file
+    sb.write(".env", "A=1\n");
+    assert!(!sb.run(&["decrypt", "--verify"]).status.success());
+    // `lint` with warnings
+    sb.write(".env", "A=1\nA=2\n");
+    assert!(!sb.run(&["lint"]).status.success());
+}

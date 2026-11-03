@@ -37,11 +37,8 @@ pub fn dotenv_entries() -> dotenvy::Result<HashMap<String, String>> {
     let env_file_path =
         find_env_file_path(&env::current_dir().map_err(dotenvy::Error::Io)?, &env_file);
     if let Some(path) = env_file_path {
-        if let Ok(items) = from_path_iter(path) {
-            for (key, value) in items {
-                entries.insert(key, value);
-            }
-        }
+        // propagate the read/decrypt error: an empty map means "no variables", not "failed" (review #9)
+        entries.extend(from_path_iter(path)?);
     }
     Ok(entries)
 }

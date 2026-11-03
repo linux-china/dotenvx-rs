@@ -14,9 +14,16 @@ pub fn run_command(
         return 1;
     }
     let env_file = get_env_file_arg(command_matches, profile);
+    // `-f` or `-p` given: the env file must exist, otherwise the command would run without its variables (review #9)
+    let is_explicit = command_matches
+        .try_get_one::<String>("env-file")
+        .ok()
+        .flatten()
+        .is_some()
+        || profile.is_some();
     let command_name = &command_and_args[0];
     let mut command_args: Vec<String> = command_and_args[1..].to_vec();
-    run_command_with_dotenvx(command_name, &mut command_args, &env_file)
+    run_command_with_dotenvx(command_name, &mut command_args, &env_file, is_explicit)
 }
 
 pub fn run_command_line(global_matches: &ArgMatches, profile: &Option<String>) -> i32 {
@@ -35,15 +42,28 @@ pub fn run_command_line(global_matches: &ArgMatches, profile: &Option<String>) -
     };
     let mut command_args: Vec<String> = command_args.to_vec();
     let env_file = get_env_file_arg(global_matches, profile);
-    run_command_with_dotenvx(command_name, &mut command_args, &env_file)
+    let is_explicit = global_matches
+        .try_get_one::<String>("env-file")
+        .ok()
+        .flatten()
+        .is_some()
+        || profile.is_some();
+    run_command_with_dotenvx(command_name, &mut command_args, &env_file, is_explicit)
 }
 
 fn run_command_with_dotenvx(
     command_name: &str,
     command_args: &mut [String],
     env_file: &str,
+    is_explicit: bool,
 ) -> i32 {
-    if let Err(e) = dotenvx::from_path(env_file) {
+    if !std::path::Path::new(env_file).exists() {
+        if is_explicit {
+            eprintln!("Failed to load {env_file}: file not found");
+            return 1;
+        }
+        // the default .env is optional
+    } else if let Err(e) = dotenvx::from_path(env_file) {
         eprintln!("Failed to load {env_file}: {e}");
         return 1;
     }

@@ -41,8 +41,11 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let file_name = env_file_name(&env_file);
     if !is_remote_env {
         if !std::path::Path::new(&env_file).exists() {
-            //eprintln!("Error: The specified env file '{env_file}' does not exist.");
-            return;
+            eprintln!(
+                "{}",
+                format!("✘ The specified env file '{env_file}' does not exist.").red()
+            );
+            std::process::exit(1);
         }
         // decrypt normal text file if not .env or .properties file
         if !file_name.starts_with(".env") && !file_name.ends_with(".properties") {
@@ -313,32 +316,35 @@ fn private_key_for_remote(
     }
 }
 
+/// Check the signature of the env file, exit with 1 if the file is unsigned, the signature is invalid
+/// or the file can't be parsed, same as the `verify` sub command (review #9).
 fn verify_signature(env_file_path: &str) {
-    if let Ok(env_file) = EnvFile::from(env_file_path) {
-        if env_file.is_signed() {
-            if env_file.is_verified() {
-                println!(
-                    "{}",
-                    format!(
-                        "✔ The env file is signed, and the signature is valid ({env_file_path})",
-                    )
-                    .green()
-                );
-            } else {
-                eprintln!(
-                    "{}",
-                    format!(
-                        "✘ The env file is signed, but the signature is invalid ({env_file_path})"
-                    )
-                    .red()
-                );
-            }
-        } else {
-            eprintln!("The env file is not signed");
-        }
-    } else {
-        eprintln!("Failed to parse the env file: {env_file_path}");
+    let Ok(env_file) = EnvFile::from(env_file_path) else {
+        eprintln!(
+            "{}",
+            format!("✘ Failed to parse the env file: {env_file_path}").red()
+        );
+        std::process::exit(1);
+    };
+    if !env_file.is_signed() {
+        eprintln!(
+            "{}",
+            format!("✘ The env file is not signed ({env_file_path})").red()
+        );
+        std::process::exit(1);
     }
+    if !env_file.is_verified() {
+        eprintln!(
+            "{}",
+            format!("✘ The env file is signed, but the signature is invalid ({env_file_path})")
+                .red()
+        );
+        std::process::exit(1);
+    }
+    println!(
+        "{}",
+        format!("✔ The env file is signed, and the signature is valid ({env_file_path})").green()
+    );
 }
 
 fn decrypt_normal_text_file(text_file_path: &str) {

@@ -34,6 +34,17 @@ fn next_shim_depth() -> Option<u32> {
     (depth < MAX_SHIM_DEPTH).then_some(depth + 1)
 }
 
+/// The shim still runs the wrapped command, but a load/decrypt failure must not be silent (review #9).
+fn warn_load_error(env_file: &str, result: dotenvy::Result<()>) {
+    if let Err(e) = result {
+        eprintln!(
+            "{}",
+            format!("dotenvx shim: failed to load {env_file}, the variables are not injected: {e}")
+                .yellow()
+        );
+    }
+}
+
 pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
     let Some(next_depth) = next_shim_depth() else {
         eprintln!(
@@ -46,7 +57,7 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
         return 126;
     };
     if let Some(command_path) = find_command_path(command_name) {
-        let _ = dotenvx_rs::dotenv().is_ok();
+        warn_load_error(".env", dotenvx_rs::dotenv());
         let profile = get_profile_name_from_env();
         if let Some(framework) = detect_framework() {
             if framework == "gofr" {
@@ -75,7 +86,8 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
             // load .env.duckdb file if exists
             if let Ok(current_dir) = env::current_dir() {
                 if let Some(dotenv_duck_file) = find_dotenv_duckdb_file_by_path(&current_dir) {
-                    dotenvx_rs::from_path(dotenv_duck_file).ok();
+                    let result = dotenvx_rs::from_path(&dotenv_duck_file);
+                    warn_load_error(&dotenv_duck_file.display().to_string(), result);
                 }
             }
             new_command_args.extend(get_duckdb_args());
@@ -157,9 +169,9 @@ fn is_same_file(a: &Path, b: &Path) -> bool {
 fn inject_gofr(profile: &Option<String>) {
     if let Some(profile_name) = profile {
         let dotenv_file = format!("configs/.env.{profile_name}");
-        dotenvx_rs::from_path(&dotenv_file).ok();
+        warn_load_error(&dotenv_file, dotenvx_rs::from_path(&dotenv_file));
     } else {
-        dotenvx_rs::from_path("configs/.env").ok();
+        warn_load_error("configs/.env", dotenvx_rs::from_path("configs/.env"));
     }
     if let Ok(db_host) = env::var("DB_HOST") {
         let db_dialect = env::var("DB_DIALECT").unwrap_or("mysql".to_string());
