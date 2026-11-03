@@ -318,7 +318,15 @@ pub fn build_dotenvx_app() -> Command {
         );
     let linter_command =
         Command::new("lint").about("Check all .env files in the current directory.");
-    let doctor_command = Command::new("doctor").about("Diagnose your .env files and lint");
+    let doctor_command = Command::new("doctor")
+        .about("Diagnose your .env files and lint")
+        .arg(
+            Arg::new("fix")
+                .long("fix")
+                .help("fix the problems found, such as adding missing front matter, and re-sign signed files")
+                .action(ArgAction::SetTrue)
+                .required(false),
+        );
     let diff_command = Command::new("diff")
         .about("Display keys' values between all .env files")
         .arg(

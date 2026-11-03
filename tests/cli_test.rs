@@ -1412,10 +1412,8 @@ fn doctor_warns_about_plain_sensitive_values_and_adds_metadata() {
     sb.ok(&["init"]);
     let public_key = raw_value(&sb.read(".env"), "DOTENV_PUBLIC_KEY").unwrap();
     // no front matter, a sensitive key with a plain value
-    sb.write(
-        ".env",
-        &format!("DOTENV_PUBLIC_KEY=\"{public_key}\"\nDB_PASSWORD=plain\n"),
-    );
+    let original = format!("DOTENV_PUBLIC_KEY=\"{public_key}\"\nDB_PASSWORD=plain\n");
+    sb.write(".env", &original);
     let output = sb.run(&["doctor"]);
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(
@@ -1423,9 +1421,37 @@ fn doctor_warns_about_plain_sensitive_values_and_adds_metadata() {
         "{}",
         stderr(&output)
     );
+    assert!(stderr(&output).contains("doctor --fix"), "{}", stderr(&output));
+    // doctor only reports, see review #12
+    assert_eq!(sb.read(".env"), original);
+
+    let output = sb.run(&["doctor", "--fix"]);
+    assert!(output.status.success(), "{}", stderr(&output));
     let content = sb.read(".env");
     assert!(content.starts_with("# ---\n# uuid: "), "{content}");
     assert!(content.contains("DB_PASSWORD=plain"), "{content}");
+}
+
+#[test]
+fn doctor_fix_resigns_signed_file() {
+    let sb = Sandbox::new();
+    sb.write(".env", "HELLO=world\n");
+    sb.ok(&["encrypt", "--sign"]);
+    // a signed file whose front matter has no uuid
+    let content: String = sb
+        .read(".env")
+        .lines()
+        .filter(|line| !line.starts_with("# uuid:"))
+        .map(|line| format!("{line}\n"))
+        .collect();
+    sb.write(".env", &content);
+    let output = sb.run(&["doctor", "--fix"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let content = sb.read(".env");
+    assert_eq!(content.matches("# ---").count(), 2, "{content}");
+    assert!(content.contains("# uuid: "), "{content}");
+    let output = sb.run(&["verify"]);
+    assert!(stdout(&output).contains("is valid"), "{}", stdout(&output));
 }
 
 #[test]

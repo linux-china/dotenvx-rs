@@ -428,7 +428,7 @@ pub fn read_dotenv_entries(
     Ok(entries)
 }
 
-fn extract_front_matter(content: &str) -> HashMap<String, String> {
+pub fn extract_front_matter(content: &str) -> HashMap<String, String> {
     let mut metadata = HashMap::new();
     if content.starts_with("# ---") || content.starts_with("#---") {
         let mut lines = content.lines();
