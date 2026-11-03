@@ -8,11 +8,43 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+/// Environment variable counting how many shims are currently nested in the process tree.
+const SHIM_DEPTH_ENV: &str = "DOTENVX_SHIM_DEPTH";
+/// Nesting limit; legit nesting (a shimmed tool calling another shimmed tool) stays far below it.
+const MAX_SHIM_DEPTH: u32 = 8;
+
+/// Returns true when the program name is not dotenvx itself, i.e. it is invoked through a shim.
+///
+/// Renamed binaries such as `dotenvx-aarch64` or `dotenvx_v1.exe` still count as dotenvx.
 pub fn is_shim_command(command_name: &str) -> bool {
-    !(command_name == "dotenvx" || command_name == "dotenvx.exe")
+    let stem = command_name
+        .strip_suffix(".exe")
+        .unwrap_or(command_name)
+        .to_ascii_lowercase();
+    !(stem == "dotenvx" || stem.starts_with("dotenvx-") || stem.starts_with("dotenvx_"))
+}
+
+/// Reads the current shim depth and returns the value to pass to the child,
+/// or `None` when the limit is reached (the shim is most likely re-executing itself).
+fn next_shim_depth() -> Option<u32> {
+    let depth = env::var(SHIM_DEPTH_ENV)
+        .ok()
+        .and_then(|v| v.trim().parse::<u32>().ok())
+        .unwrap_or(0);
+    (depth < MAX_SHIM_DEPTH).then_some(depth + 1)
 }
 
 pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
+    let Some(next_depth) = next_shim_depth() else {
+        eprintln!(
+            "{}",
+            format!(
+                "dotenvx shim recursion detected for '{command_name}' ({SHIM_DEPTH_ENV} reached {MAX_SHIM_DEPTH}): the resolved command is probably dotenvx itself (a copy or hard link?)"
+            )
+            .red()
+        );
+        return 126;
+    };
     if let Some(command_path) = find_command_path(command_name) {
         let _ = dotenvx_rs::dotenv().is_ok();
         let profile = get_profile_name_from_env();
@@ -47,6 +79,7 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
         let mut command = Command::new(command_path);
         command
             .envs(env::vars())
+            .env(SHIM_DEPTH_ENV, next_depth.to_string())
             .args(&new_command_args)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
@@ -62,32 +95,53 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
     }
 }
 
+/// Finds the real executable for `command_name` on `PATH`, skipping any entry that
+/// resolves to the running dotenvx binary (symlink chains, hard links).
+///
+/// The returned path is the `PATH` entry itself, not its canonical target, so
+/// multi-call binaries still see the expected `argv[0]`.
 pub fn find_command_path(command_name: &str) -> Option<String> {
-    if let Ok(items) = which::which_all(command_name) {
-        for item in items {
-            if item.is_symlink() {
-                if let Ok(target) = std::fs::read_link(&item) {
-                    let file_name = target.file_name().unwrap().to_str().unwrap().to_owned();
-                    if !(file_name == "dotenvx" || file_name == "dotenvx.exe") {
-                        let absolute_target = if target.is_absolute() {
-                            target.canonicalize().unwrap()
-                        } else {
-                            item.parent()
-                                .ok_or("No parent directory")
-                                .unwrap()
-                                .join(target)
-                                .canonicalize()
-                                .unwrap()
-                        };
-                        return Some(absolute_target.to_string_lossy().to_string());
-                    }
-                }
-            } else {
-                return Some(item.to_string_lossy().to_string());
+    let self_exe = env::current_exe().ok();
+    let paths = env::var_os("PATH")?;
+    let cwd = env::current_dir().ok()?;
+    find_command_path_in(command_name, paths, cwd, self_exe.as_deref())
+}
+
+fn find_command_path_in<P: AsRef<std::ffi::OsStr>>(
+    command_name: &str,
+    paths: P,
+    cwd: PathBuf,
+    self_exe: Option<&Path>,
+) -> Option<String> {
+    let self_canonical = self_exe.and_then(|p| p.canonicalize().ok());
+    which::which_in_all(command_name, Some(paths), cwd)
+        .ok()?
+        .find(|item| {
+            // broken symlinks and unreadable entries are skipped instead of panicking
+            let Ok(canonical) = item.canonicalize() else {
+                return false;
+            };
+            match &self_canonical {
+                Some(self_path) => !is_same_file(&canonical, self_path),
+                None => true,
             }
+        })
+        .map(|item| item.to_string_lossy().to_string())
+}
+
+/// Same canonical path, or (on unix) same device + inode, which also catches hard links.
+fn is_same_file(a: &Path, b: &Path) -> bool {
+    if a == b {
+        return true;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if let (Ok(ma), Ok(mb)) = (std::fs::metadata(a), std::fs::metadata(b)) {
+            return ma.dev() == mb.dev() && ma.ino() == mb.ino();
         }
     }
-    None
+    false
 }
 
 fn inject_gofr(profile: &Option<String>) {
@@ -588,9 +642,57 @@ mod tests {
 
     #[test]
     fn test_find_command_path() {
-        let path = find_command_path("lua");
+        let path = find_command_path("sh");
         println!("Found command path: {:?}", path);
         assert!(path.is_some());
+    }
+
+    #[test]
+    fn test_is_shim_command() {
+        for name in ["dotenvx", "dotenvx.exe", "dotenvx-aarch64", "dotenvx_v1.exe", "DotEnvX"] {
+            assert!(!is_shim_command(name), "{name} should be dotenvx itself");
+        }
+        for name in ["mysql", "psql.exe", "redis-cli", "python", "mydotenvx"] {
+            assert!(is_shim_command(name), "{name} should be a shim");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_find_command_path_skips_self() {
+        use std::os::unix::fs::symlink;
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let exe = |p: &Path| {
+            std::fs::write(p, "#!/bin/sh\n").unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        // fake dotenvx binary
+        let dotenvx = root.join("dotenvx");
+        exe(&dotenvx);
+        // shims: multi-level symlink, hard link, broken symlink
+        let (a, b, c, d, real) = (
+            root.join("a"),
+            root.join("b"),
+            root.join("c"),
+            root.join("d"),
+            root.join("real"),
+        );
+        for dir in [&a, &b, &c, &d, &real] {
+            std::fs::create_dir(dir).unwrap();
+        }
+        symlink(&dotenvx, root.join("mysql-shim")).unwrap();
+        symlink(root.join("mysql-shim"), a.join("mysql")).unwrap();
+        std::fs::hard_link(&dotenvx, b.join("mysql")).unwrap();
+        symlink(root.join("missing"), c.join("mysql")).unwrap();
+        exe(&real.join("mysql"));
+        let paths = std::env::join_paths([&a, &b, &c, &real]).unwrap();
+        let found = find_command_path_in("mysql", &paths, root.clone(), Some(&dotenvx));
+        assert_eq!(found, Some(real.join("mysql").to_string_lossy().to_string()));
+        // only dotenvx entries -> not found
+        let paths = std::env::join_paths([&a, &b, &c, &d]).unwrap();
+        assert_eq!(find_command_path_in("mysql", &paths, root, Some(&dotenvx)), None);
     }
 
     #[test]
