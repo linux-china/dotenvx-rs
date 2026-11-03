@@ -2,8 +2,9 @@ use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::model::EnvFile;
 use crate::commands::{
     adjust_env_key, dotenv_double_quote, get_env_file_arg, get_private_key_for_file,
-    get_private_key_for_public_key, get_public_key_from_text_file, is_remote_env_file,
-    read_content_from_dotenv_url, read_dotenv_url, std_output,
+    get_private_key_for_public_key, get_public_key_from_text_file, is_encrypted_value_text,
+    is_remote_env_file, properties_escape, read_content_from_dotenv_url, read_dotenv_url,
+    split_assignment, std_output,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -76,17 +77,22 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     };
     let mut new_lines: Vec<String> = Vec::new();
     let mut is_changed = false;
+    // only `encrypted:` values are rewritten, keeping indentation and the `export ` prefix (review #1)
     for line in file_content.lines() {
-        if line.contains("encrypted:") {
-            let key = line.split('=').next().unwrap().trim();
-            if let Some(value) = entries.get(key) {
-                let new_value = dotenv_double_quote(value);
-                new_lines.push(format!("{key}={new_value}"));
-                is_changed = true;
-            } else {
-                // If the key is not in the entries, we keep the original line
-                new_lines.push(line.to_string());
-            }
+        let replacement = split_assignment(&env_file, line)
+            .filter(|(_, _, value_text)| is_encrypted_value_text(value_text))
+            .and_then(|(prefix, key, _)| {
+                let value = entries.get(key)?;
+                let new_value = if env_file.ends_with(".properties") {
+                    properties_escape(value)
+                } else {
+                    dotenv_double_quote(value)
+                };
+                Some(format!("{prefix}{key}={new_value}"))
+            });
+        if let Some(new_line) = replacement {
+            new_lines.push(new_line);
+            is_changed = true;
         } else {
             new_lines.push(line.to_string());
         }

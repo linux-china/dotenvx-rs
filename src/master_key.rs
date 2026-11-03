@@ -232,3 +232,42 @@ pub fn build_global_keys_app() -> Command {
         .subcommand(decrypt_command)
         .subcommand(ls_command)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn test_reset_profile_defaults_to_g_default() {
+        let mut raw_args = args(&["get", "GITHUB_TOKEN"]);
+        reset_profile(&mut raw_args);
+        assert_eq!(raw_args, args(&["-p", "g_default", "get", "GITHUB_TOKEN"]));
+    }
+
+    #[test]
+    fn test_reset_profile_prefixes_global_profile() {
+        let mut raw_args = args(&["-p", "work", "get", "KEY"]);
+        reset_profile(&mut raw_args);
+        assert_eq!(raw_args, args(&["-p", "g_work", "get", "KEY"]));
+
+        let mut raw_args = args(&["--profile", "work", "set", "KEY", "v"]);
+        reset_profile(&mut raw_args);
+        assert_eq!(raw_args, args(&["--profile", "g_work", "set", "KEY", "v"]));
+    }
+
+    #[test]
+    fn test_reset_profile_keeps_g_prefixed_profile() {
+        let mut raw_args = args(&["-p", "g_home", "decrypt"]);
+        reset_profile(&mut raw_args);
+        assert_eq!(raw_args, args(&["-p", "g_home", "decrypt"]));
+    }
+
+    #[test]
+    fn test_global_keys_app_is_valid() {
+        build_global_keys_app().debug_assert();
+    }
+}

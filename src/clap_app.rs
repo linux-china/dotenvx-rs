@@ -354,7 +354,7 @@ pub fn build_dotenvx_app() -> Command {
             Arg::new("shell")
                 .long("shell")
                 .help("shell name: bash, zsh, fish, powershell")
-                .value_parser(["bash", "zsh", "first", "powershell"])
+                .value_parser(["bash", "zsh", "fish", "powershell"])
                 .num_args(1)
                 .required(false),
         );
@@ -435,4 +435,74 @@ pub fn build_dotenvx_app() -> Command {
         .subcommand(doctor_command)
         .subcommand(completion_command)
     //.subcommand(cloud_command)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cli_definition_is_valid() {
+        build_dotenvx_app().debug_assert();
+    }
+
+    #[test]
+    fn test_parse_global_and_sub_command_args() {
+        let matches = build_dotenvx_app()
+            .try_get_matches_from([
+                "dotenvx",
+                "-p",
+                "prod",
+                "get",
+                "-f",
+                ".env.prod",
+                "KEY",
+                "--format",
+                "json",
+            ])
+            .unwrap();
+        assert_eq!(matches.get_one::<String>("profile").unwrap(), "prod");
+        let (name, sub) = matches.subcommand().unwrap();
+        assert_eq!(name, "get");
+        assert_eq!(sub.get_one::<String>("env-file").unwrap(), ".env.prod");
+        assert_eq!(sub.get_one::<String>("key").unwrap(), "KEY");
+        assert_eq!(sub.get_one::<String>("format").unwrap(), "json");
+    }
+
+    #[test]
+    fn test_keypair_alias_and_encrypt_keys() {
+        let matches = build_dotenvx_app()
+            .try_get_matches_from(["dotenvx", "kp", "--format", "shell"])
+            .unwrap();
+        assert_eq!(matches.subcommand_name(), Some("keypair"));
+
+        let matches = build_dotenvx_app()
+            .try_get_matches_from(["dotenvx", "encrypt", "--keys", "A", "B*", "--sign"])
+            .unwrap();
+        let sub = matches.subcommand_matches("encrypt").unwrap();
+        let keys: Vec<&String> = sub.get_many::<String>("keys").unwrap().collect();
+        assert_eq!(keys, ["A", "B*"]);
+        assert!(sub.get_flag("sign"));
+    }
+
+    #[test]
+    fn test_completion_shells() {
+        for shell in ["bash", "zsh", "powershell"] {
+            assert!(
+                build_dotenvx_app()
+                    .try_get_matches_from(["dotenvx", "completion", "--shell", shell])
+                    .is_ok(),
+                "{shell}"
+            );
+        }
+    }
+
+    #[test]
+        fn test_completion_accepts_fish() {
+        assert!(
+            build_dotenvx_app()
+                .try_get_matches_from(["dotenvx", "completion", "--shell", "fish"])
+                .is_ok()
+        );
+    }
 }

@@ -1,8 +1,9 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
-    adjust_env_key, construct_env_file_header, get_env_file_arg, get_or_create_public_key_for_file,
-    get_private_key_for_file, get_public_key_name_for_file, is_public_key_included,
+    adjust_env_key, construct_env_file_header, entry_line_count, get_env_file_arg,
+    get_or_create_public_key_for_file, get_private_key_for_file, get_public_key_name_for_file,
+    is_encrypted_value_text, is_public_key_included, is_public_key_name, split_assignment,
     update_env_file, write_public_key_to_file,
 };
 use clap::ArgMatches;
@@ -31,7 +32,13 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let file_content = fs::read_to_string(&env_file_path).unwrap();
     // resolve the public key only once for the whole command
     let public_key = get_or_create_public_key_for_file(&env_file).unwrap();
-    let mut entries = encrypt_env_entries(&env_file, &public_key).unwrap();
+    let mut entries = match encrypt_env_entries(&env_file, &public_key) {
+        Ok(entries) => entries,
+        Err(e) => {
+            eprintln!("Error: failed to parse {env_file}: {e}");
+            std::process::exit(1);
+        }
+    };
     let mut hint = format!(".env file({env_file})");
     if let Some(keys) = env_keys {
         let patterns: Vec<Pattern> = keys
@@ -41,30 +48,39 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         entries.retain(|key, _| patterns.iter().any(|pattern| pattern.matches(key)));
         hint = format!("keys in .env file: {env_file}");
     }
+    // only entries encrypted by this run are rewritten, every other line is kept verbatim (review #1)
+    let is_properties = env_file.ends_with(".properties");
+    let lines: Vec<&str> = file_content.lines().collect();
     let mut new_lines: Vec<String> = Vec::new();
-    for line in file_content.lines() {
-        if line.starts_with("#") {
-            // comment lines
-            new_lines.push(line.to_string());
-        } else if line.is_empty() {
-            // empty lines
-            new_lines.push(line.to_string());
-        } else if line.starts_with("DOTENV_PUBLIC_KEY") || line.starts_with("dotenv.public.key") {
-            // public key line
-            new_lines.push(line.to_string());
-        } else if line.contains("encrypted:") {
-            // already encrypted lines
-            new_lines.push(line.to_string());
-        } else if line.contains('=') {
-            // key-value pairs
-            let key = line.split('=').next().unwrap().trim();
-            if let Some(value) = entries.get(key) {
-                new_lines.push(format!("{key}=\"{value}\""));
-                is_changed = true;
-            } else {
-                // if the key is not in the entries, we keep the original line
-                new_lines.push(line.to_string());
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i];
+        let assignment = split_assignment(&env_file, line);
+        let line_count = if assignment.is_some() {
+            entry_line_count(&env_file, &lines, i)
+        } else {
+            1
+        };
+        let replacement = assignment.and_then(|(prefix, key, value_text)| {
+            if is_public_key_name(key) || is_encrypted_value_text(value_text) {
+                return None;
             }
+            let encrypted = entries.get(key).filter(|v| v.starts_with("encrypted:"))?;
+            Some(if is_properties {
+                format!("{prefix}{key}={encrypted}")
+            } else {
+                format!("{prefix}{key}=\"{encrypted}\"")
+            })
+        });
+        if let Some(new_line) = replacement {
+            new_lines.push(new_line);
+            is_changed = true;
+            i += line_count;
+        } else {
+            // keep the whole entry, continuation lines of a multi-line value included
+            let end = (i + line_count).min(lines.len());
+            new_lines.extend(lines[i..end].iter().map(|l| l.to_string()));
+            i = end;
         }
     }
     if is_stdout {
@@ -173,4 +189,63 @@ pub fn encrypt_env_entries(
         }
     }
     Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::crypt_util::{EcKeyPair, decrypt_env_item};
+
+    #[test]
+    fn test_encrypt_env_entries_dotenv() {
+        let kp = EcKeyPair::generate();
+        let (pk, sk) = (kp.get_pk_hex(), kp.get_sk_hex());
+        let already = encrypt_env_item(&pk, "kept").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let env_file = dir.path().join(".env");
+        fs::write(
+            &env_file,
+            format!("API_TOKEN=s3cr3t\nAPP_NAME=demo\nHOST_PLAIN=localhost\nOLD=\"{already}\"\n"),
+        )
+        .unwrap();
+        let entries = encrypt_env_entries(env_file.to_str().unwrap(), &pk).unwrap();
+        // every value of a .env file is encrypted, except `_PLAIN` keys
+        for (key, plain) in [("API_TOKEN", "s3cr3t"), ("APP_NAME", "demo")] {
+            let encrypted = &entries[key];
+            assert!(encrypted.starts_with("encrypted:"), "{key}: {encrypted}");
+            assert_eq!(decrypt_env_item(&sk, encrypted).unwrap(), plain);
+        }
+        assert_eq!(entries["HOST_PLAIN"], "localhost");
+        // already encrypted values are kept as they are
+        assert_eq!(entries["OLD"], already);
+    }
+
+    #[test]
+    fn test_encrypt_env_entries_properties_only_sensitive_keys() {
+        let kp = EcKeyPair::generate();
+        let (pk, sk) = (kp.get_pk_hex(), kp.get_sk_hex());
+        let dir = tempfile::tempdir().unwrap();
+        let env_file = dir.path().join("application.properties");
+        fs::write(
+            &env_file,
+            "server.port=8080\ndb.password=secret1\napi.token: token1\n",
+        )
+        .unwrap();
+        let entries = encrypt_env_entries(env_file.to_str().unwrap(), &pk).unwrap();
+        assert_eq!(entries["server.port"], "8080");
+        assert_eq!(
+            decrypt_env_item(&sk, &entries["db.password"]).unwrap(),
+            "secret1"
+        );
+        assert_eq!(
+            decrypt_env_item(&sk, &entries["api.token"]).unwrap(),
+            "token1"
+        );
+    }
+
+    #[test]
+    fn test_encrypt_env_entries_missing_file() {
+        let kp = EcKeyPair::generate();
+        assert!(encrypt_env_entries("/nonexistent/dir/.env", &kp.get_pk_hex()).is_err());
+    }
 }

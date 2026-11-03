@@ -18,12 +18,30 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let mut decrypted_entries: HashMap<String, String> = HashMap::new();
     if let Some(key_name) = key_arg {
         let key_name = adjust_env_key(key_name, &env_file);
-        let private_key = get_private_key_for_file(&env_file).ok();
-        let decrypt_value = |value: &String| {
-            private_key
+        let private_key = get_private_key_for_file(&env_file);
+        // never print the ciphertext as if it were the value, see review #4
+        let decrypt_value = |value: &String| -> String {
+            if !value.starts_with("encrypted:") {
+                // a value without the prefix may still be a ciphertext (`get KEY <value>`)
+                return private_key
+                    .as_ref()
+                    .ok()
+                    .and_then(|private_key| decrypt_env_item(private_key, value).ok())
+                    .unwrap_or_else(|| value.clone());
+            }
+            let result = private_key
                 .as_ref()
-                .and_then(|private_key| decrypt_env_item(private_key, value).ok())
-                .unwrap_or(value.clone())
+                .map_err(|e| e.to_string())
+                .and_then(|private_key| {
+                    decrypt_env_item(private_key, value).map_err(|e| e.to_string())
+                });
+            match result {
+                Ok(plain_value) => plain_value,
+                Err(e) => {
+                    eprintln!("Error: failed to decrypt '{key_name}' in {env_file}: {e}");
+                    std::process::exit(1);
+                }
+            }
         };
         // get the decrypted value from the command line arguments if provided
         let plain_value = if let Some(value) = command_matches.get_one::<String>("value") {
@@ -33,11 +51,7 @@ pub fn get_command(command_matches: &ArgMatches, profile: &Option<String>) {
             if let Ok(entries) = read_dotenv_file(&env_file)
                 && let Some(value) = entries.get(&key_name)
             {
-                if value.starts_with("encrypted:") {
-                    decrypt_value(value)
-                } else {
-                    value.clone()
-                }
+                decrypt_value(value)
             } else {
                 "".to_string()
             }

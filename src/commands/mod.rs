@@ -814,6 +814,53 @@ pub fn entry_line_count(env_file: &str, lines: &[&str], start: usize) -> usize {
         .map_or(1, |end| end - start + 1)
 }
 
+/// Split an assignment line into `(prefix, key, value_text)`:
+/// - `prefix`: indentation and the `export ` prefix (dotenv only), kept when the line is rewritten
+/// - `value_text`: the raw text after the separator, leading whitespace removed
+///
+/// dotenv lines need `=`, `.properties` lines accept `=`, `:` or whitespace as separator.
+/// Returns `None` for comments, empty lines and lines without a key.
+pub fn split_assignment<'a>(env_file: &str, line: &'a str) -> Option<(&'a str, &'a str, &'a str)> {
+    let is_properties = env_file.ends_with(".properties");
+    let trimmed = line.trim_start();
+    if trimmed.is_empty()
+        || trimmed.starts_with('#')
+        || (is_properties && trimmed.starts_with('!'))
+    {
+        return None;
+    }
+    let body = if is_properties {
+        trimmed
+    } else {
+        trimmed
+            .strip_prefix("export ")
+            .map_or(trimmed, str::trim_start)
+    };
+    let prefix = &line[..line.len() - body.len()];
+    let (key, rest) = if is_properties {
+        let end = body.find(['=', ':', ' ', '\t'])?;
+        let rest = body[end..].trim_start();
+        let rest = rest
+            .strip_prefix(['=', ':'])
+            .map_or(rest, str::trim_start);
+        (&body[..end], rest)
+    } else {
+        let (key, rest) = body.split_once('=')?;
+        (key.trim_end(), rest.trim_start())
+    };
+    if key.is_empty() {
+        return None;
+    }
+    Some((prefix, key, rest))
+}
+
+/// Whether the raw value text of an assignment is an `encrypted:` value (optionally quoted).
+pub fn is_encrypted_value_text(value_text: &str) -> bool {
+    value_text
+        .trim_start_matches(['"', '\''])
+        .starts_with("encrypted:")
+}
+
 /// 删除 `content` 中所有定义了 `key` 的条目（包括多行值的续行），保留其余行的换行符。
 /// 没有找到 `key` 时返回 `None`。
 pub fn remove_key_entries(content: &str, env_file: &str, key: &str) -> Option<String> {
@@ -1090,7 +1137,11 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
 }
 
 pub fn get_env_file_arg(command_matches: &ArgMatches, profile: &Option<String>) -> String {
-    let env_file_arg = command_matches.get_one::<String>("env-file");
+    // `try_get_one`: the global command (`dotenvx -c ...`) has no `env-file` arg, see review #13
+    let env_file_arg = command_matches
+        .try_get_one::<String>("env-file")
+        .ok()
+        .flatten();
     // specified .env file argument takes precedence
     if let Some(env_file) = env_file_arg {
         return env_file.clone();
@@ -1805,5 +1856,217 @@ mod tests {
             "DOTENV_PRIVATE_KEY=\"a1\"\nDOTENV_PRIVATE_KEY_OLD=\"old\"\n"
         );
         assert!(conflicts.is_empty());
+    }
+
+    #[test]
+    fn test_is_sensitive_key() {
+        for key in [
+            "DB_PASSWORD",
+            "db_pwd",
+            "SMTP_PASSWD",
+            "GPG_PASSPHRASE",
+            "JWT_ISSUER",
+            "OAUTH_URL",
+            "CLIENT_SECRET",
+            "PRIVATE_URL",
+            "KAFKA_JAAS",
+            "API_KEY",
+            "GITHUB_TOKEN",
+            "AWS_CREDENTIALS",
+        ] {
+            assert!(is_sensitive_key(key), "{key} should be sensitive");
+        }
+        for key in ["HOST", "PORT", "APP_NAME", "LOG_LEVEL", ""] {
+            assert!(!is_sensitive_key(key), "{key} should not be sensitive");
+        }
+    }
+
+    #[test]
+    fn test_adjust_env_key() {
+        assert_eq!(adjust_env_key("api-token", ".env"), "API_TOKEN");
+        assert_eq!(adjust_env_key("db.password", ".env.prod"), "DB_PASSWORD");
+        assert_eq!(adjust_env_key("Mixed_Case", ".env"), "MIXED_CASE");
+        // .properties keys are kept as they are
+        assert_eq!(adjust_env_key("db.password", "application.properties"), "db.password");
+    }
+
+    #[test]
+    fn test_key_names_for_profile_and_file() {
+        assert_eq!(get_public_key_name(&None), "DOTENV_PUBLIC_KEY");
+        assert_eq!(get_public_key_name(&Some("prod".into())), "DOTENV_PUBLIC_KEY_PROD");
+        assert_eq!(get_private_key_name(&None), "DOTENV_PRIVATE_KEY");
+        assert_eq!(get_private_key_name(&Some("g_default".into())), "DOTENV_PRIVATE_KEY_G_DEFAULT");
+
+        assert_eq!(get_public_key_name_for_file(".env"), "DOTENV_PUBLIC_KEY");
+        assert_eq!(get_public_key_name_for_file("sub/.env.test"), "DOTENV_PUBLIC_KEY_TEST");
+        assert_eq!(get_public_key_name_for_file("application.properties"), "dotenv.public.key");
+        assert_eq!(
+            get_public_key_name_for_file("src/main/resources/application-prod.properties"),
+            "dotenv.public.key.prod"
+        );
+        assert_eq!(get_private_key_name_for_file(".env"), "DOTENV_PRIVATE_KEY");
+        assert_eq!(get_private_key_name_for_file("configs/.env.stage"), "DOTENV_PRIVATE_KEY_STAGE");
+        assert_eq!(
+            get_private_key_name_for_file("application-prod.properties"),
+            "DOTENV_PRIVATE_KEY_PROD"
+        );
+    }
+
+    #[test]
+    fn test_public_key_name_detection() {
+        assert!(is_public_key_name("DOTENV_PUBLIC_KEY"));
+        assert!(is_public_key_name("DOTENV_PUBLIC_KEY_PROD"));
+        assert!(is_public_key_name("dotenv.public.key.prod"));
+        assert!(!is_public_key_name("DOTENV_PRIVATE_KEY"));
+        assert!(is_public_key_included("A=1\nDOTENV_PUBLIC_KEY_DEV=\"02ab\"\n"));
+        assert!(is_public_key_included("dotenv.public.key=02ab\n"));
+        assert!(!is_public_key_included("A=1\nB=2\n"));
+    }
+
+    #[test]
+    fn test_is_valid_env_key() {
+        for key in ["A", "_A", "API_TOKEN", "a1_b2"] {
+            assert!(is_valid_env_key(key), "{key}");
+        }
+        for key in ["", "1A", "A-B", "A.B", "A B", "A=B", "ÄPI"] {
+            assert!(!is_valid_env_key(key), "{key}");
+        }
+    }
+
+    #[test]
+    fn test_is_remote_env_file() {
+        assert!(is_remote_env_file("https://example.com/.env"));
+        assert!(is_remote_env_file("http://localhost:8080/.env"));
+        assert!(!is_remote_env_file(".env"));
+        assert!(!is_remote_env_file("/etc/https/.env"));
+    }
+
+    #[test]
+    fn test_construct_env_file_header() {
+        let header = construct_env_file_header(
+            "DOTENV_PUBLIC_KEY_PROD",
+            "02abc",
+            &Some("backend".into()),
+            &Some("demo".into()),
+        );
+        assert!(header.starts_with("# ---\n# uuid: "), "{header}");
+        assert!(header.contains("# name: demo\n# group: backend\n# ---\n"), "{header}");
+        assert!(header.contains("DOTENV_PUBLIC_KEY_PROD=\"02abc\""), "{header}");
+        // default name and group, the uuid is unique
+        let default_header = construct_env_file_header("DOTENV_PUBLIC_KEY", "02abc", &None, &None);
+        assert!(default_header.contains("# name: project_name\n# group: group_name\n"));
+        assert_ne!(
+            default_header,
+            construct_env_file_header("DOTENV_PUBLIC_KEY", "02abc", &None, &None)
+        );
+        // the header is parsed as metadata, and the public key as an entry
+        let entries: HashMap<String, String> = dotenvy::from_read_iter(default_header.as_bytes())
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(entries.get("DOTENV_PUBLIC_KEY").map(String::as_str), Some("02abc"));
+    }
+
+    #[test]
+    fn test_list_env_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("sub/deeper")).unwrap();
+        for name in [
+            ".env",
+            ".env.prod",
+            ".env.keys",
+            ".env.vault",
+            ".envrc",
+            "app.env",
+            "sub/.env.test",
+            "sub/deeper/.env.dev",
+        ] {
+            fs::write(root.join(name), "A=1\n").unwrap();
+        }
+        let names = |max_depth: usize, profile: &Option<String>| {
+            let mut names: Vec<String> = list_env_files(root, max_depth, profile)
+                .iter()
+                .map(|e| {
+                    e.path()
+                        .strip_prefix(root)
+                        .unwrap()
+                        .to_string_lossy()
+                        .replace('\\', "/")
+                })
+                .collect();
+            names.sort();
+            names
+        };
+        assert_eq!(names(1, &None), vec![".env", ".env.prod"]);
+        assert_eq!(
+            names(32, &None),
+            vec![".env", ".env.prod", "sub/.env.test", "sub/deeper/.env.dev"]
+        );
+        assert_eq!(names(32, &Some("test".into())), vec!["sub/.env.test"]);
+    }
+
+    #[test]
+    fn test_content_has_key_and_export_prefix() {
+        let content = "# KEY=commented\nexport API_TOKEN=1\n  PORT = 8080\nAPI_TOKEN_2=2\n";
+        assert!(content_has_key(content, "API_TOKEN"));
+        assert!(content_has_key(content, "PORT"));
+        assert!(!content_has_key(content, "KEY"));
+        assert!(!content_has_key(content, "API"));
+
+        assert!(line_has_export_prefix(".env", "export A=1"));
+        assert!(!line_has_export_prefix(".env", "A=1"));
+        assert!(line_has_export_prefix("env.sh", "# export A=1"));
+        assert!(!line_has_export_prefix("application.properties", "export A=1"));
+    }
+
+    #[test]
+    fn test_entry_line_count() {
+        let lines = ["A=\"line1", "line2", "end\"", "B=1"];
+        assert_eq!(entry_line_count(".env", &lines, 0), 3);
+        assert_eq!(entry_line_count(".env", &lines, 3), 1);
+        // escaped quote doesn't close a double-quoted value
+        let lines = [r#"A="x\""#, "y\"", "B=2"];
+        assert_eq!(entry_line_count(".env", &lines, 0), 2);
+        // single-quoted values don't process escapes
+        let lines = [r"A='x\'", "B=2"];
+        assert_eq!(entry_line_count(".env", &lines, 0), 1);
+        // unclosed quote: only the line itself
+        let lines = ["A=\"never closed", "B=2"];
+        assert_eq!(entry_line_count(".env", &lines, 0), 1);
+        // .properties continuation lines
+        let lines = [r"a=1 \", r"  2 \", "  3", "b=4"];
+        assert_eq!(entry_line_count("app.properties", &lines, 0), 3);
+        let lines = [r"a=1 \\", "b=4"];
+        assert_eq!(entry_line_count("app.properties", &lines, 0), 1);
+    }
+
+    #[test]
+    fn test_split_assignment() {
+        assert_eq!(split_assignment(".env", "A=1"), Some(("", "A", "1")));
+        assert_eq!(
+            split_assignment(".env", "  export  API_TOKEN = \"x\""),
+            Some(("  export  ", "API_TOKEN", "\"x\""))
+        );
+        assert_eq!(split_assignment(".env", "EMPTY="), Some(("", "EMPTY", "")));
+        for line in ["", "   ", "# A=1", "  # A=1", "no separator", "=value"] {
+            assert_eq!(split_assignment(".env", line), None, "{line:?}");
+        }
+        let props = "application.properties";
+        assert_eq!(split_assignment(props, "a.b=1"), Some(("", "a.b", "1")));
+        assert_eq!(split_assignment(props, "a.b: 1"), Some(("", "a.b", "1")));
+        assert_eq!(split_assignment(props, "a.b 1"), Some(("", "a.b", "1")));
+        assert_eq!(split_assignment(props, "  a.b = 1"), Some(("  ", "a.b", "1")));
+        // `export` is not a prefix in .properties files
+        assert_eq!(split_assignment(props, "export=1"), Some(("", "export", "1")));
+        assert_eq!(split_assignment(props, "! comment"), None);
+    }
+
+    #[test]
+    fn test_is_encrypted_value_text() {
+        assert!(is_encrypted_value_text("encrypted:abc"));
+        assert!(is_encrypted_value_text("\"encrypted:abc\""));
+        assert!(is_encrypted_value_text("'encrypted:abc'"));
+        assert!(!is_encrypted_value_text("\"has encrypted: inside\""));
+        assert!(!is_encrypted_value_text("plain"));
     }
 }
