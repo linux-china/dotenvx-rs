@@ -1022,7 +1022,14 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             format!("✔ {file_name} file created with the private key({private_key_short}...)")
                 .green()
         );
-        append_to_ignores(KEYS_FILE_NAME);
+        // update the ignore files next to the keys file (e.g. `$HOME` for `g_` profiles),
+        // not the current directory (review #26)
+        let keys_dir = env_keys_file
+            .as_ref()
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        append_to_ignores(keys_dir, file_name);
     } else {
         let env_keys_content = fs::read_to_string(&env_keys_file).unwrap();
         let existing_private_key = get_key_value_in_content(&env_keys_content, private_key_name);
@@ -1281,28 +1288,44 @@ fn append_ignore_entry(content: &str, file_name: &str) -> Option<String> {
     Some(new_content)
 }
 
-pub fn append_to_ignores(file_name: &str) {
-    // git repository but no .gitignore file
-    if Path::new(".git").exists() && !Path::new(".gitignore").exists() {
-        fs::write(".gitignore", format!("{file_name}\n")).unwrap();
-    }
-    let ignore_files = [".gitignore", ".dockerignore", ".aiignore"];
-    for ignore_file in &ignore_files {
-        let path = PathBuf::from(ignore_file);
-        if path.exists() {
-            let content = fs::read_to_string(&path).unwrap_or_default();
-            if let Some(new_content) = append_ignore_entry(&content, file_name) {
-                fs::write(&path, new_content).expect("Failed to write to ignore file");
-                println!(
-                    "{}",
-                    format!("✔ {file_name} added to {ignore_file}").green()
-                );
-            } else {
-                println!(
-                    "{}",
-                    format!("✔ {file_name} already exists in {ignore_file}").green()
-                );
+/// Add `file_name` to the `.gitignore`/`.dockerignore`/`.aiignore` files in `dir`.
+///
+/// A `.gitignore` is created only when `dir` is a git work tree root (`dir/.git` exists).
+/// Failures are reported as warnings and never abort the caller (review #26).
+pub fn append_to_ignores(dir: &Path, file_name: &str) {
+    for ignore_file in [".gitignore", ".dockerignore", ".aiignore"] {
+        let path = dir.join(ignore_file);
+        let content = if path.exists() {
+            match fs::read_to_string(&path) {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!(
+                        "{}",
+                        format!("⚠ failed to read {}: {e}", path.display()).yellow()
+                    );
+                    continue;
+                }
             }
+        } else if ignore_file == ".gitignore" && dir.join(".git").exists() {
+            String::new()
+        } else {
+            continue;
+        };
+        match append_ignore_entry(&content, file_name) {
+            Some(new_content) => match fs::write(&path, new_content) {
+                Ok(()) => println!(
+                    "{}",
+                    format!("✔ {file_name} added to {}", path.display()).green()
+                ),
+                Err(e) => eprintln!(
+                    "{}",
+                    format!("⚠ failed to add {file_name} to {}: {e}", path.display()).yellow()
+                ),
+            },
+            None => println!(
+                "{}",
+                format!("✔ {file_name} already exists in {}", path.display()).green()
+            ),
         }
     }
 }
@@ -1645,6 +1668,33 @@ mod tests {
         assert_eq!(new_mode, 0o600);
         assert_eq!(old_mode, 0o600);
         assert_eq!(old_content, "new");
+    }
+
+    #[test]
+    fn test_append_to_ignores_uses_given_dir() {
+        let dir = std::env::temp_dir().join(format!("dotenvx_ignores_{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(dir.join(".git")).unwrap();
+        fs::write(dir.join(".dockerignore"), "target").unwrap();
+        append_to_ignores(&dir, ".env.keys");
+        assert_eq!(fs::read_to_string(dir.join(".gitignore")).unwrap(), ".env.keys\n");
+        assert_eq!(
+            fs::read_to_string(dir.join(".dockerignore")).unwrap(),
+            "target\n.env.keys\n"
+        );
+        assert!(!dir.join(".aiignore").exists());
+        // idempotent
+        append_to_ignores(&dir, ".env.keys");
+        assert_eq!(fs::read_to_string(dir.join(".gitignore")).unwrap(), ".env.keys\n");
+        // no .git: no .gitignore created
+        let plain = dir.join("plain");
+        fs::create_dir_all(&plain).unwrap();
+        append_to_ignores(&plain, ".env.keys");
+        assert!(!plain.join(".gitignore").exists());
+        // a directory named .gitignore makes the write fail: warn, don't panic
+        let broken = dir.join("broken");
+        fs::create_dir_all(broken.join(".gitignore")).unwrap();
+        append_to_ignores(&broken, ".env.keys");
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
