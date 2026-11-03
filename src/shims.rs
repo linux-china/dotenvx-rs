@@ -56,12 +56,19 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
             }
         }
         let mut new_command_args: Vec<String> = vec![];
-        if command_name == "mysql" || command_name == "mysql.exe" {
-            new_command_args.extend(get_mysql_args());
+        let mut extra_envs: Vec<(String, String)> = vec![];
+        let db_invocation = if command_name == "mysql" || command_name == "mysql.exe" {
+            Some(get_mysql_args())
         } else if command_name == "psql" || command_name == "psql.exe" {
-            new_command_args.extend(get_psql_args());
+            Some(get_psql_args())
         } else if command_name == "redis-cli" || command_name == "redis-cli.exe" {
-            new_command_args.extend(get_redis_args());
+            Some(get_redis_args())
+        } else {
+            None
+        };
+        if let Some(inv) = db_invocation {
+            new_command_args.extend(inv.args);
+            extra_envs.extend(inv.envs);
         } else if command_name == "mongosh" || command_name == "mongosh.exe" {
             new_command_args.extend(get_mongodb_args());
         } else if command_name == "duckdb" || command_name == "duckdb.exe" {
@@ -80,6 +87,7 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
         command
             .envs(env::vars())
             .env(SHIM_DEPTH_ENV, next_depth.to_string())
+            .envs(extra_envs)
             .args(&new_command_args)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
@@ -305,134 +313,143 @@ fn inject_spring_boot(profile: &Option<String>) {
     }
 }
 
-fn get_mysql_args() -> Vec<String> {
-    let mut args: Vec<String> = vec![];
-    let mut mysql_url =
-        env::var("MYSQL_URL").unwrap_or(env::var("DATABASE_URL").unwrap_or_default());
-    if !mysql_url.is_empty() {
-        if mysql_url.starts_with("jdbc:") {
-            mysql_url = mysql_url.trim_start_matches("jdbc:").to_string();
-        }
-        if mysql_url.starts_with("mysql:") || mysql_url.starts_with("mariadb:") {
-            if let Ok(parsed_url) = url::Url::parse(&mysql_url) {
-                if let Some(host) = parsed_url.host_str() {
-                    args.push("-h".to_string());
-                    args.push(host.to_string());
-                }
-                if let Some(port) = parsed_url.port() {
-                    args.push("-P".to_string());
-                    args.push(port.to_string());
-                }
-                if !parsed_url.username().is_empty() {
-                    args.push("-u".to_string());
-                    args.push(parsed_url.username().to_string());
-                } else if let Ok(db_user) = env::var("DB_USER") {
-                    args.push("-u".to_string());
-                    args.push(db_user);
-                }
-                if let Some(password) = parsed_url.password() {
-                    args.push(format!("--password={password}"));
-                } else if let Ok(db_password) = env::var("DB_PASSWORD") {
-                    args.push(format!("--password={db_password}"));
-                }
-                let db_name = parsed_url.path().trim_start_matches('/');
-                if !db_name.is_empty() {
-                    args.push(db_name.to_string());
-                }
-            }
-        }
-    }
-    args
+/// Extra arguments and environment variables a shim adds to the real command.
+///
+/// Secrets go into `envs`, never `args`: command-line arguments are visible to every
+/// local user through `ps` / `/proc/<pid>/cmdline`.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct ShimInvocation {
+    args: Vec<String>,
+    envs: Vec<(String, String)>,
 }
 
-fn get_psql_args() -> Vec<String> {
-    let mut args: Vec<String> = vec![];
-    let mut pg_url =
-        env::var("POSTGRES_URL").unwrap_or(env::var("DATABASE_URL").unwrap_or_default());
-    if !pg_url.is_empty() {
-        if pg_url.starts_with("jdbc:") {
-            pg_url = pg_url.trim_start_matches("jdbc:").to_string();
-        }
-        if pg_url.starts_with("postgres:") || pg_url.starts_with("postgresql:") {
-            if let Ok(parsed_url) = url::Url::parse(&pg_url) {
-                if let Some(host) = parsed_url.host_str() {
-                    args.push("-h".to_string());
-                    args.push(host.to_string());
-                }
-                if let Some(port) = parsed_url.port() {
-                    args.push("-p".to_string());
-                    args.push(port.to_string());
-                }
-                if !parsed_url.username().is_empty() {
-                    args.push("-U".to_string());
-                    args.push(parsed_url.username().to_string());
-                } else if let Ok(db_user) = env::var("DB_USER") {
-                    args.push("-U".to_string());
-                    args.push(db_user);
-                }
-                if let Some(password) = parsed_url.password() {
-                    // args.push(format!("--password={password}"));
-                    unsafe {
-                        env::set_var("PGPASSWORD", password);
-                    }
-                } else if let Ok(db_password) = env::var("DB_PASSWORD") {
-                    // args.push(format!("--password={db_password}"));
-                    unsafe {
-                        env::set_var("PGPASSWORD", db_password);
-                    }
-                }
-                let db_name = parsed_url.path().trim_start_matches('/');
-                if !db_name.is_empty() {
-                    args.push(db_name.to_string());
-                }
-            }
-        }
-    }
-    args
+fn get_mysql_args() -> ShimInvocation {
+    let url = env::var("MYSQL_URL").unwrap_or(env::var("DATABASE_URL").unwrap_or_default());
+    mysql_invocation(&url, env::var("DB_USER").ok(), env::var("DB_PASSWORD").ok())
 }
 
-fn get_redis_args() -> Vec<String> {
-    let mut args: Vec<String> = vec![];
-    if let Ok(redis_url) = env::var("REDIS_URL") {
-        if redis_url.starts_with("redis:") || redis_url.starts_with("rediss:") {
-            if let Ok(parsed_url) = url::Url::parse(&redis_url) {
-                if let Some(host) = parsed_url.host_str() {
-                    args.push("-h".to_string());
-                    args.push(host.to_string());
-                }
-                if let Some(port) = parsed_url.port() {
-                    args.push("-p".to_string());
-                    args.push(port.to_string());
-                }
-                let mut username = parsed_url.username().to_string();
-                let mut password = parsed_url.password().unwrap_or_default().to_string();
-                if let Ok(redis_password) = env::var("REDIS_PASSWORD") {
-                    password = redis_password;
-                }
-                if let Ok(redis_user) = env::var("REDIS_USER") {
-                    username = redis_user;
-                }
-                if !username.is_empty() && !password.is_empty() {
-                    args.push("-u".to_string());
-                    args.push(username);
-                    args.push("-a".to_string());
-                    args.push(password);
-                } else if !username.is_empty() && password.is_empty() {
-                    args.push("-u".to_string());
-                    args.push(username);
-                } else if username.is_empty() && !password.is_empty() {
-                    args.push("-a".to_string());
-                    args.push(password);
-                }
-                let db_index = parsed_url.path().trim_start_matches('/').to_string();
-                if !db_index.is_empty() {
-                    args.push("-n".to_string());
-                    args.push(db_index);
-                }
-            }
-        }
+/// Builds the mysql arguments; the password is passed through `MYSQL_PWD`.
+fn mysql_invocation(
+    url: &str,
+    db_user: Option<String>,
+    db_password: Option<String>,
+) -> ShimInvocation {
+    let mut inv = ShimInvocation::default();
+    let url = url.strip_prefix("jdbc:").unwrap_or(url);
+    if !(url.starts_with("mysql:") || url.starts_with("mariadb:")) {
+        return inv;
     }
-    args
+    let Ok(parsed_url) = url::Url::parse(url) else {
+        return inv;
+    };
+    if let Some(host) = parsed_url.host_str() {
+        inv.args.extend(["-h".to_string(), host.to_string()]);
+    }
+    if let Some(port) = parsed_url.port() {
+        inv.args.extend(["-P".to_string(), port.to_string()]);
+    }
+    if !parsed_url.username().is_empty() {
+        inv.args
+            .extend(["-u".to_string(), parsed_url.username().to_string()]);
+    } else if let Some(db_user) = db_user {
+        inv.args.extend(["-u".to_string(), db_user]);
+    }
+    if let Some(password) = parsed_url.password().map(str::to_string).or(db_password) {
+        inv.envs.push(("MYSQL_PWD".to_string(), password));
+    }
+    let db_name = parsed_url.path().trim_start_matches('/');
+    if !db_name.is_empty() {
+        inv.args.push(db_name.to_string());
+    }
+    inv
+}
+
+fn get_psql_args() -> ShimInvocation {
+    let url = env::var("POSTGRES_URL").unwrap_or(env::var("DATABASE_URL").unwrap_or_default());
+    psql_invocation(&url, env::var("DB_USER").ok(), env::var("DB_PASSWORD").ok())
+}
+
+/// Builds the psql arguments; the password is passed through `PGPASSWORD`.
+fn psql_invocation(
+    url: &str,
+    db_user: Option<String>,
+    db_password: Option<String>,
+) -> ShimInvocation {
+    let mut inv = ShimInvocation::default();
+    let url = url.strip_prefix("jdbc:").unwrap_or(url);
+    if !(url.starts_with("postgres:") || url.starts_with("postgresql:")) {
+        return inv;
+    }
+    let Ok(parsed_url) = url::Url::parse(url) else {
+        return inv;
+    };
+    if let Some(host) = parsed_url.host_str() {
+        inv.args.extend(["-h".to_string(), host.to_string()]);
+    }
+    if let Some(port) = parsed_url.port() {
+        inv.args.extend(["-p".to_string(), port.to_string()]);
+    }
+    if !parsed_url.username().is_empty() {
+        inv.args
+            .extend(["-U".to_string(), parsed_url.username().to_string()]);
+    } else if let Some(db_user) = db_user {
+        inv.args.extend(["-U".to_string(), db_user]);
+    }
+    if let Some(password) = parsed_url.password().map(str::to_string).or(db_password) {
+        inv.envs.push(("PGPASSWORD".to_string(), password));
+    }
+    let db_name = parsed_url.path().trim_start_matches('/');
+    if !db_name.is_empty() {
+        inv.args.push(db_name.to_string());
+    }
+    inv
+}
+
+fn get_redis_args() -> ShimInvocation {
+    let Ok(url) = env::var("REDIS_URL") else {
+        return ShimInvocation::default();
+    };
+    redis_invocation(
+        &url,
+        env::var("REDIS_USER").ok(),
+        env::var("REDIS_PASSWORD").ok(),
+    )
+}
+
+/// Builds the redis-cli arguments; the password is passed through `REDISCLI_AUTH`.
+fn redis_invocation(
+    url: &str,
+    redis_user: Option<String>,
+    redis_password: Option<String>,
+) -> ShimInvocation {
+    let mut inv = ShimInvocation::default();
+    if !(url.starts_with("redis:") || url.starts_with("rediss:")) {
+        return inv;
+    }
+    let Ok(parsed_url) = url::Url::parse(url) else {
+        return inv;
+    };
+    if let Some(host) = parsed_url.host_str() {
+        inv.args.extend(["-h".to_string(), host.to_string()]);
+    }
+    if let Some(port) = parsed_url.port() {
+        inv.args.extend(["-p".to_string(), port.to_string()]);
+    }
+    let username = redis_user.unwrap_or_else(|| parsed_url.username().to_string());
+    let password =
+        redis_password.unwrap_or_else(|| parsed_url.password().unwrap_or_default().to_string());
+    if !username.is_empty() {
+        // `-u` is redis-cli's URI option; the ACL user name is `--user`.
+        inv.args.extend(["--user".to_string(), username]);
+    }
+    if !password.is_empty() {
+        inv.envs.push(("REDISCLI_AUTH".to_string(), password));
+    }
+    let db_index = parsed_url.path().trim_start_matches('/');
+    if !db_index.is_empty() {
+        inv.args.extend(["-n".to_string(), db_index.to_string()]);
+    }
+    inv
 }
 
 fn get_mongodb_args() -> Vec<String> {
@@ -693,6 +710,50 @@ mod tests {
         // only dotenvx entries -> not found
         let paths = std::env::join_paths([&a, &b, &c, &d]).unwrap();
         assert_eq!(find_command_path_in("mysql", &paths, root, Some(&dotenvx)), None);
+    }
+
+    fn env_pair(k: &str, v: &str) -> (String, String) {
+        (k.to_string(), v.to_string())
+    }
+
+    fn has_secret(inv: &ShimInvocation, secret: &str) -> bool {
+        inv.args.iter().any(|a| a.contains(secret))
+    }
+
+    #[test]
+    fn test_mysql_password_not_in_args() {
+        let inv = mysql_invocation("jdbc:mysql://root:s3cret@db:3306/app", None, None);
+        assert_eq!(inv.args, ["-h", "db", "-P", "3306", "-u", "root", "app"]);
+        assert_eq!(inv.envs, [env_pair("MYSQL_PWD", "s3cret")]);
+        // fallback to DB_USER / DB_PASSWORD
+        let inv = mysql_invocation("mysql://db/app", Some("u".into()), Some("fallback".into()));
+        assert!(!has_secret(&inv, "fallback"));
+        assert_eq!(inv.envs, [env_pair("MYSQL_PWD", "fallback")]);
+        assert!(mysql_invocation("postgres://db/app", None, None) == ShimInvocation::default());
+    }
+
+    #[test]
+    fn test_psql_password_not_in_args() {
+        let inv = psql_invocation("postgres://pg:s3cret@db:5432/app", None, None);
+        assert_eq!(inv.args, ["-h", "db", "-p", "5432", "-U", "pg", "app"]);
+        assert_eq!(inv.envs, [env_pair("PGPASSWORD", "s3cret")]);
+    }
+
+    #[test]
+    fn test_redis_password_not_in_args() {
+        let inv = redis_invocation("redis://alice:s3cret@cache:6380/2", None, None);
+        assert_eq!(
+            inv.args,
+            ["-h", "cache", "-p", "6380", "--user", "alice", "-n", "2"]
+        );
+        assert_eq!(inv.envs, [env_pair("REDISCLI_AUTH", "s3cret")]);
+        // password only, overridden by REDIS_PASSWORD
+        let inv = redis_invocation("redis://:old@cache", None, Some("new".into()));
+        assert_eq!(inv.args, ["-h", "cache"]);
+        assert_eq!(inv.envs, [env_pair("REDISCLI_AUTH", "new")]);
+        // no credentials
+        let inv = redis_invocation("redis://cache", None, None);
+        assert!(inv.envs.is_empty());
     }
 
     #[test]
