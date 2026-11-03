@@ -3,7 +3,7 @@ use crate::commands::model::{KeyPair, get_signature, sign_and_update_env_file_co
 use crate::commands::{
     EcKeyPair, construct_env_file_header, dotenv_keys_files_for_env_file, get_env_file_arg,
     get_private_key_for_file, get_private_key_name_for_file, get_public_key_for_file,
-    get_public_key_name_for_file, is_public_key_name, read_dotenv_file, trim_private_key,
+    get_public_key_name_for_file, is_env_file_name, is_public_key_name, read_public_key_from_file, read_dotenv_file, trim_private_key,
     write_key_pair, write_private_key_to_file,
 };
 use clap::ArgMatches;
@@ -73,13 +73,24 @@ fn rotate_env_file(env_file: &str, profile: &Option<String>) -> Result<(), Strin
     }
 
     let file_profile = get_profile_name_from_file(env_file).or_else(|| profile.clone());
+    // the old key may still be used by other env files (shared `.env.keys`), make sure it stays
+    // in the global key store before anything is replaced (review 2.6)
+    if let Some(old_sk) = old_private_key.as_deref() {
+        backup_old_key_pair(old_sk, &file_profile)
+            .map_err(|e| format!("failed to back up the old private key, nothing changed: {e}"))?;
+    }
     let key_pair = KeyPair::new(&new_pk, &new_sk, &file_profile);
     // persist the new private key before the file encrypted with it, so it can never be lost
     write_key_pair(&key_pair).map_err(|e| format!("failed to save the new private key: {e}"))?;
     write_file_atomic(env_file, new_content.as_bytes()).map_err(|e| e.to_string())?;
 
     let private_key_name = get_private_key_name_for_file(env_file);
-    let keys_files = keys_files_to_update(env_file, &private_key_name, old_private_key.as_deref());
+    let (keys_files, held_old_key) =
+        keys_files_to_update(env_file, &private_key_name, old_private_key.as_deref());
+    // only a `.env.keys` that held the old key is overwritten, other files may depend on it
+    if held_old_key && let Some(old_pk) = old_public_key.as_deref() {
+        warn_shared_key_users(env_file, old_pk, &keys_files);
+    }
     for keys_file in &keys_files {
         if let Err(e) = write_private_key_to_file(keys_file, &private_key_name, &key_pair, true) {
             // the new key is already in the global key store, decryption still works
@@ -121,6 +132,96 @@ fn rotate_env_file(env_file: &str, profile: &Option<String>) -> Result<(), Strin
     Ok(())
 }
 
+/// Store the old key pair in the global key store (no-op if it's already there).
+fn backup_old_key_pair(old_private_key: &str, profile: &Option<String>) -> Result<(), String> {
+    let old_pair = EcKeyPair::from_secret_key(old_private_key).map_err(|e| e.to_string())?;
+    let mut old_key_pair = KeyPair::new(&old_pair.get_pk_hex(), old_private_key, profile);
+    old_key_pair.comment = Some("backup before rotate".to_owned());
+    write_key_pair(&old_key_pair).map_err(|e| e.to_string())
+}
+
+/// Other env files that still declare `old_public_key`, searched in the directories of `env_file`
+/// and of the `.env.keys` files being updated (and their sub directories, up to 2 levels).
+fn find_shared_key_users(
+    env_file: &str,
+    old_public_key: &str,
+    keys_files: &[PathBuf],
+) -> Vec<PathBuf> {
+    let env_path = Path::new(env_file);
+    let canonical = |p: &Path| fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let self_path = canonical(env_path);
+    let mut roots: Vec<PathBuf> = keys_files
+        .iter()
+        .filter_map(|f| f.parent().map(Path::to_path_buf))
+        .collect();
+    roots.push(env_path.parent().map(Path::to_path_buf).unwrap_or_default());
+    let mut found: Vec<PathBuf> = Vec::new();
+    for root in roots {
+        let root = if root.as_os_str().is_empty() {
+            PathBuf::from(".")
+        } else {
+            root
+        };
+        let walker = walkdir::WalkDir::new(&root)
+            .max_depth(3)
+            .into_iter()
+            .filter_entry(|e| {
+                e.depth() == 0
+                    || !e.file_type().is_dir()
+                    || !matches!(
+                        e.file_name().to_str(),
+                        Some(".git" | "target" | "node_modules")
+                    )
+            });
+        for entry in walker.filter_map(|e| e.ok()) {
+            let Some(name) = entry.file_name().to_str() else {
+                continue;
+            };
+            if !entry.file_type().is_file()
+                || !(is_env_file_name(name) || name.ends_with(".properties"))
+            {
+                continue;
+            }
+            let path = canonical(entry.path());
+            if path == self_path || found.contains(&path) {
+                continue;
+            }
+            let Some(path_str) = path.to_str() else {
+                continue;
+            };
+            if read_public_key_from_file(path_str)
+                .ok()
+                .flatten()
+                .is_some_and(|pk| pk == old_public_key)
+            {
+                found.push(path);
+            }
+        }
+    }
+    found
+}
+
+fn warn_shared_key_users(env_file: &str, old_public_key: &str, keys_files: &[PathBuf]) {
+    let users = find_shared_key_users(env_file, old_public_key, keys_files);
+    if users.is_empty() {
+        return;
+    }
+    let files = users
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    eprintln!(
+        "{}",
+        format!(
+            "Warning: the old key pair({}...) is still used by: {files}. The old private key is kept in the global key store (.env.keys.json) only, \
+             other machines can not decrypt these files anymore, please rotate them too",
+            &old_public_key[0..old_public_key.len().min(8)]
+        )
+        .yellow()
+    );
+}
+
 /// Entries as written in the file, without decryption. Duplicated keys are all kept.
 fn read_raw_entries(
     env_file: &str,
@@ -139,11 +240,12 @@ fn read_raw_entries(
 /// `.env.keys` files that held the old private key of `env_file` (next to the file, then cwd).
 /// If none holds it, the nearest `.env.keys` that has no such key name yet gets the new key;
 /// an unrelated key with the same name is never overwritten.
+/// The flag tells whether the returned files held the old private key.
 fn keys_files_to_update(
     env_file: &str,
     private_key_name: &str,
     old_private_key: Option<&str>,
-) -> Vec<PathBuf> {
+) -> (Vec<PathBuf>, bool) {
     let profile_name = get_profile_name_from_file(env_file);
     let candidates = dotenv_keys_files_for_env_file(env_file, &profile_name);
     let stored_key = |keys_file: &PathBuf| {
@@ -158,13 +260,14 @@ fn keys_files_to_update(
         .cloned()
         .collect();
     if !matched.is_empty() {
-        return matched;
+        return (matched, true);
     }
-    candidates
+    let fallback = candidates
         .into_iter()
         .find(|f| f.exists() && stored_key(f).is_none())
         .into_iter()
-        .collect()
+        .collect();
+    (fallback, false)
 }
 
 struct RotatedContent {

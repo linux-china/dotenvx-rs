@@ -120,11 +120,9 @@ impl DotenvxKeyStore {
         changed
     }
 
+    #[cfg(test)]
     pub fn find_private_key(&self, public_key: &str) -> Option<String> {
-        if let Some(key_pair) = self.keys.get(public_key) {
-            return Some(key_pair.private_key.clone());
-        }
-        None
+        self.keys.get(public_key).map(|kp| kp.private_key.clone())
     }
 
     pub fn remove_private_key(&mut self, key: &str) -> bool {

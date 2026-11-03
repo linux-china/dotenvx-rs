@@ -6,8 +6,8 @@ use colored::Colorize;
 use colored_json::to_colored_json_auto;
 use csv::WriterBuilder;
 use dotenvx_rs::common::{
-    find_dotenv_keys_file, find_dotenv_keys_file_by_path, find_env_file_path,
-    get_profile_name_from_file,
+    KEYS_FILE_NAME, find_env_file_path, get_dotenv_keys_file_path, get_profile_name_from_file,
+    trim_private_key,
 };
 use java_properties::PropertiesIter;
 use serde_json::json;
@@ -42,9 +42,7 @@ pub mod link;
 pub mod linter;
 pub mod sync;
 
-const KEYS_FILE_NAME: &str = ".env.keys";
-
-pub use dotenvx_rs::common::get_dotenvx_home;
+pub use dotenvx_rs::common::{get_dotenvx_home, get_private_key_name};
 
 pub fn is_sensitive_key(key_name: &str) -> bool {
     let encrypted_patterns = [
@@ -70,11 +68,10 @@ pub fn is_sensitive_key(key_name: &str) -> bool {
     false
 }
 
+/// Private key of the public key in the global key store (falls back to the key store on a USB disk),
+/// same lookup as the library.
 pub fn find_private_key_from_home(public_key_hex: &str) -> Option<String> {
-    if let Ok(key_store) = DotenvxKeyStore::load_global() {
-        return key_store.find_private_key(public_key_hex);
-    }
-    None
+    dotenvx_rs::common::find_private_key_in_global_store(public_key_hex)
 }
 
 pub fn find_all_keys() -> HashMap<String, KeyPair> {
@@ -271,84 +268,23 @@ pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::e
     get_private_key_for_public_key(&public_key, &profile_name, Some(env_file))
 }
 
-/// Find the private key for `public_key`. Lookup order, shared by every private key lookup (review #16):
-/// 1. `DOTENV_PRIVATE_KEY_{PROFILE}` environment variable
-/// 2. `.env.keys`: the one next to (or above) `env_file` first, then the one from cwd upward
-/// 3. the global key store (`.env.keys.json`)
-/// 4. `DOTENV_PRIVATE_KEY` environment variable as the last resort for profiles
-///
-/// Every candidate is verified against `public_key`, a mismatched key is skipped.
+/// Find the private key for `public_key`, every candidate is verified against `public_key`.
+/// The lookup is shared with the library (`run`, shims), see [`dotenvx_rs::common::find_private_key`] for the order.
 pub fn get_private_key_for_public_key(
     public_key: &str,
     profile_name: &Option<String>,
     env_file: Option<&str>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let env_key_name = get_private_key_name(profile_name);
-    let mut candidates: Vec<String> = Vec::new();
-    if let Ok(private_key) = env::var(&env_key_name) {
-        candidates.push(private_key);
-    }
-    let keys_files = match env_file {
-        Some(env_file) => dotenv_keys_files_for_env_file(env_file, profile_name),
-        None => get_dotenv_keys_file_path(profile_name)
-            .into_iter()
-            .collect(),
-    };
-    for keys_file in keys_files {
-        if let Ok(entries) = read_dotenv_file(&keys_file)
-            && let Some(private_key) = entries.get(&env_key_name)
-        {
-            candidates.push(private_key.trim_matches('"').to_owned());
-        }
-    }
-    if let Some(private_key) = find_private_key_from_home(public_key) {
-        candidates.push(private_key);
-    }
-    if env_key_name != "DOTENV_PRIVATE_KEY"
-        && let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY")
-    {
-        candidates.push(private_key);
-    }
-    for private_key in candidates {
-        let private_key = trim_private_key(private_key);
-        if is_private_key_for(&private_key, public_key) {
-            return Ok(private_key);
-        }
-    }
-    let target = env_file.map(|f| format!(" of {f}")).unwrap_or_default();
-    Err(format!(
-        "Private key not found for public key {public_key}{target}: checked ${env_key_name}, .env.keys and the global key store"
-    )
-    .into())
+    Ok(dotenvx_rs::common::find_private_key(
+        Some(public_key),
+        profile_name,
+        env_file.map(Path::new),
+    )?)
 }
 
-fn is_private_key_for(private_key: &str, public_key: &str) -> bool {
-    EcKeyPair::from_input(private_key)
-        .map(|kp| kp.get_pk_hex() == public_key)
-        .unwrap_or(false)
-}
-
-/// `.env.keys` files to search for `env_file`: the one next to (or above) the file first, then the one from cwd.
+/// `.env.keys` files to search for `env_file`, see [`dotenvx_rs::common::dotenv_keys_files_for_env_file`].
 fn dotenv_keys_files_for_env_file(env_file: &str, profile_name: &Option<String>) -> Vec<PathBuf> {
-    let mut files: Vec<PathBuf> = Vec::new();
-    if let Some(file_dir) = Path::new(env_file).parent()
-        && let Ok(file_dir) = fs::canonicalize(if file_dir.as_os_str().is_empty() {
-            Path::new(".")
-        } else {
-            file_dir
-        })
-        && let Some(keys_file) = find_dotenv_keys_file_by_path(&file_dir)
-    {
-        files.push(keys_file);
-    }
-    if let Some(keys_file) = get_dotenv_keys_file_path(profile_name)
-        && !files
-            .iter()
-            .any(|f| fs::canonicalize(&keys_file).is_ok_and(|k| &k == f))
-    {
-        files.push(keys_file);
-    }
-    files
+    dotenvx_rs::common::dotenv_keys_files_for_env_file(Path::new(env_file), profile_name)
 }
 
 /// read-only: find the private key for the profile, never generate a new one.
@@ -363,16 +299,6 @@ pub fn get_private_key(
     let env_key_name = get_private_key_name(profile_name);
     lookup_private_key(profile_name)?
         .ok_or_else(|| format!("Private key not found: {env_key_name}").into())
-}
-
-fn get_dotenv_keys_file_path(profile_name: &Option<String>) -> Option<PathBuf> {
-    if let Some(profile) = profile_name
-        && profile.starts_with("g_")
-    {
-        dirs::home_dir().map(|home| home.join(KEYS_FILE_NAME))
-    } else {
-        find_dotenv_keys_file()
-    }
 }
 
 fn lookup_private_key(
@@ -445,14 +371,6 @@ fn is_in_current_dir(path: &Path) -> bool {
     ) {
         (Ok(dir), Ok(cwd)) => dir == cwd,
         _ => false,
-    }
-}
-
-fn trim_private_key(private_key_hex: String) -> String {
-    if private_key_hex.contains("{") {
-        private_key_hex[0..private_key_hex.find('{').unwrap()].to_string()
-    } else {
-        private_key_hex
     }
 }
 
@@ -1248,14 +1166,6 @@ pub fn is_public_key_name(key: &str) -> bool {
 
 pub fn is_public_key_included(file_content: &str) -> bool {
     file_content.contains("DOTENV_PUBLIC_KEY") || file_content.contains("dotenv.public.key")
-}
-
-pub fn get_private_key_name(profile_name: &Option<String>) -> String {
-    if let Some(name) = profile_name {
-        format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
-    } else {
-        "DOTENV_PRIVATE_KEY".to_string()
-    }
 }
 
 pub fn get_public_key_name_for_file(env_file: &str) -> String {

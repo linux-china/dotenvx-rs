@@ -915,6 +915,45 @@ fn run_fails_cleanly_when_private_key_is_missing() {
     assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
 }
 
+/// `run` (library) uses the same private key lookup as `decrypt` / `get` (CLI): `.env.keys` next to
+/// the env file first, the global key store detected by its top-level `version` field (review 2.5)
+#[test]
+fn run_uses_same_private_key_lookup_as_cli() {
+    let sb = Sandbox::new();
+    let (sk, pk) = ecies::utils::generate_keypair();
+    let sk_hex = hex::encode(sk.serialize());
+    let pk_hex = hex::encode(pk.serialize_compressed());
+    let encrypted = dotenvx_rs::encrypt_dotenvx_item(&pk_hex, "sub-secret").unwrap();
+    sb.write(
+        "sub/.env",
+        &format!("DOTENV_PUBLIC_KEY=\"{pk_hex}\"\nAPI_TOKEN=\"{encrypted}\"\n"),
+    );
+    sb.write("sub/.env.keys", &format!("DOTENV_PRIVATE_KEY=\"{sk_hex}\"\n"));
+    let script = "printf %s \"$API_TOKEN\"";
+    assert_eq!(sb.ok(&["get", "-f", "sub/.env", "API_TOKEN"]).trim(), r#"API_TOKEN="sub-secret""#);
+    assert_eq!(sb.ok(&["run", "-f", "sub/.env", "--", "sh", "-c", script]), "sub-secret");
+
+    // only the global key store (legacy format, a comment mentions "version") has the private key
+    fs::remove_file(sb.path("sub/.env.keys")).unwrap();
+    fs::create_dir_all(sb.dotenvx_dir()).unwrap();
+    fs::write(
+        sb.dotenvx_dir().join(".env.keys.json"),
+        format!(
+            r#"{{"{pk_hex}":{{"public_key":"{pk_hex}","private_key":"{sk_hex}","comment":"\"version\""}}}}"#
+        ),
+    )
+    .unwrap();
+    assert_eq!(sb.ok(&["get", "-f", "sub/.env", "API_TOKEN"]).trim(), r#"API_TOKEN="sub-secret""#);
+    assert_eq!(sb.ok(&["run", "-f", "sub/.env", "--", "sh", "-c", script]), "sub-secret");
+
+    // without any private key the error tells the reason, not "environment variable not found"
+    fs::remove_dir_all(sb.dotenvx_dir()).unwrap();
+    let output = sb.run(&["run", "-f", "sub/.env", "--", "sh", "-c", script]);
+    assert_eq!(output.status.code(), Some(1));
+    let err = stderr(&output);
+    assert!(err.contains("Private key not found for public key"), "{err}");
+}
+
 // ---------------------------------------------------------------- rotate
 
 #[test]
@@ -940,6 +979,45 @@ fn rotate_replaces_key_pair_and_keeps_values() {
     assert_eq!(sb.ok(&["get", "API_TOKEN"]).trim(), r#"API_TOKEN="s3cr3t""#);
     let keys = parse_json(&sb.ok(&["keypair"]));
     assert_eq!(keys["DOTENV_PUBLIC_KEY"], new_public_key);
+}
+
+#[test]
+fn rotate_shared_key_backs_up_old_key_and_warns() {
+    let sb = Sandbox::new();
+    sb.write(".env.keys", "");
+    sb.ok(&["init"]);
+    sb.ok(&["set", "ROOT_TOKEN", "root-secret"]);
+    let root = sb.read(".env");
+    let old_public_key = raw_value(&root, "DOTENV_PUBLIC_KEY").unwrap();
+    // sub/.env shares the root key pair and the root .env.keys
+    sb.write(
+        "sub/.env",
+        &format!("DOTENV_PUBLIC_KEY=\"{old_public_key}\"\nPLAIN=1\n"),
+    );
+    sb.ok(&["set", "-f", "sub/.env", "SUB_TOKEN", "sub-secret"]);
+    let old_private_key = raw_value(&sb.read(".env.keys"), "DOTENV_PRIVATE_KEY").unwrap();
+
+    let output = sb.run(&["rotate", "-f", "sub/.env"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let err = stderr(&output);
+    assert!(err.contains("still used by"), "{err}");
+    assert!(err.contains(".env"), "{err}");
+    // the root .env.keys got the new key, the old one is kept in the global key store
+    assert_ne!(
+        raw_value(&sb.read(".env.keys"), "DOTENV_PRIVATE_KEY").unwrap(),
+        old_private_key
+    );
+    let store = fs::read_to_string(sb.dotenvx_dir().join(".env.keys.json")).unwrap();
+    assert!(store.contains(&old_public_key));
+    assert!(store.contains(&old_private_key));
+    assert_eq!(
+        sb.ok(&["get", "ROOT_TOKEN"]).trim(),
+        r#"ROOT_TOKEN="root-secret""#
+    );
+    assert_eq!(
+        sb.ok(&["get", "-f", "sub/.env", "SUB_TOKEN"]).trim(),
+        r#"SUB_TOKEN="sub-secret""#
+    );
 }
 
 #[test]

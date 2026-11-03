@@ -1,16 +1,8 @@
-use crate::common::{
-    find_dotenv_keys_file, find_env_file_path, get_dotenvx_home, get_profile_name_from_env,
-    get_profile_name_from_file,
-};
-use anyhow::anyhow;
+use crate::common::{find_env_file_path, get_profile_name_from_env, get_profile_name_from_file};
 use base64ct::{Base64, Encoding};
-use chrono::{DateTime, Local};
-use dirs::home_dir;
 use env::set_var;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
-use std::env::VarError;
 use std::io::{self, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
@@ -24,7 +16,8 @@ pub fn dotenv() -> dotenvy::Result<()> {
     } else {
         ".env".to_owned()
     };
-    let env_file_path = find_env_file_path(&env::current_dir().map_err(dotenvy::Error::Io)?, &env_file);
+    let env_file_path =
+        find_env_file_path(&env::current_dir().map_err(dotenvy::Error::Io)?, &env_file);
     if let Some(path) = env_file_path {
         return from_path_with_dotenvx(&path, true);
     }
@@ -41,7 +34,8 @@ pub fn dotenv_entries() -> dotenvy::Result<HashMap<String, String>> {
         ".env".to_owned()
     };
     let mut entries = HashMap::new();
-    let env_file_path = find_env_file_path(&env::current_dir().map_err(dotenvy::Error::Io)?, &env_file);
+    let env_file_path =
+        find_env_file_path(&env::current_dir().map_err(dotenvy::Error::Io)?, &env_file);
     if let Some(path) = env_file_path {
         if let Ok(items) = from_path_iter(path) {
             for (key, value) in items {
@@ -52,21 +46,14 @@ pub fn dotenv_entries() -> dotenvy::Result<HashMap<String, String>> {
     Ok(entries)
 }
 
+/// same as [`dotenv`]: find .env (or .env.{profile}) from current directory to root directory
 pub fn dotenv_override() -> dotenvy::Result<()> {
-    // load profile env
-    let profile_name = get_profile_name_from_env();
-    let env_file = if let Some(name) = &profile_name {
-        format!(".env.{name}")
-    } else {
-        ".env".to_owned()
-    };
-    from_path_with_dotenvx(&env_file, true)
+    dotenv()
 }
 
 pub fn dotenv_iter<P: AsRef<Path>>() -> dotenvy::Result<Vec<(String, String)>> {
-    let profile_name: Option<String> = None;
     let public_key = get_public_key(".env");
-    let private_key = get_private_key(&public_key, &profile_name).ok();
+    let private_key = private_key_for_file(&public_key, &None, Path::new(".env"));
     let mut items: Vec<(String, String)> = vec![];
     for x in dotenvy::dotenv_iter()? {
         let (key, value) = x?;
@@ -88,7 +75,7 @@ pub fn from_path_override<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<()> {
 pub fn from_path_iter<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<Vec<(String, String)>> {
     let profile_name = profile_name_of_path(env_file.as_ref());
     let public_key = get_public_key(&env_file);
-    let private_key = get_private_key(&public_key, &profile_name).ok();
+    let private_key = private_key_for_file(&public_key, &profile_name, env_file.as_ref());
     let mut items: Vec<(String, String)> = vec![];
     for x in dotenvy::from_path_iter(env_file)? {
         let (key, value) = x?;
@@ -124,7 +111,7 @@ pub fn from_filename_iter<P: AsRef<Path>>(filename: P) -> dotenvy::Result<Vec<(S
     let mut items: Vec<(String, String)> = vec![];
     let profile_name = profile_name_of_path(filename.as_ref());
     let public_key = get_public_key(&filename);
-    let private_key = get_private_key(&public_key, &profile_name).ok();
+    let private_key = private_key_for_file(&public_key, &profile_name, filename.as_ref());
     for x in dotenvy::from_filename_iter(filename)? {
         let (key, value) = x?;
         let plain_value = check_and_decrypt(&private_key, value)?;
@@ -141,7 +128,8 @@ pub fn from_read_iter<R: Read>(reader: R) -> dotenvy::Result<Vec<(String, String
     let mut items: Vec<(String, String)> = vec![];
     let entries = dotenvy::from_read_iter(reader).collect::<dotenvy::Result<Vec<_>>>()?;
     let public_key = get_public_key_from_entries(&entries);
-    let private_key = get_private_key(&public_key, &get_profile_name_from_env()).ok();
+    let private_key =
+        get_private_key(&public_key, &get_profile_name_from_env()).map_err(|e| e.to_string());
     for (key, value) in entries {
         let plain_value = check_and_decrypt(&private_key, value)?;
         items.push((key, plain_value));
@@ -155,18 +143,16 @@ fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dot
         if dotenv_content.contains("encrypted:") {
             let public_key = get_public_key(&env_file);
             let profile_name = profile_name_of_path(env_file.as_ref());
-            if let Ok(private_key) = get_private_key(&public_key, &profile_name) {
-                for item in dotenvy::from_filename_iter(&env_file)? {
-                    let (key, value) = item?;
-                    let env_value = if value.starts_with("encrypted:") {
-                        decrypt_dotenvx_item(&private_key, &value)?
-                    } else {
-                        value
-                    };
-                    set_env_var(&key, env_value, is_override);
-                }
-            } else {
-                return Err(dotenvy::Error::EnvVar(VarError::NotPresent));
+            let private_key = private_key_for_file(&public_key, &profile_name, env_file.as_ref())
+                .map_err(private_key_not_found)?;
+            for item in dotenvy::from_filename_iter(&env_file)? {
+                let (key, value) = item?;
+                let env_value = if value.starts_with("encrypted:") {
+                    decrypt_dotenvx_item(&private_key, &value)?
+                } else {
+                    value
+                };
+                set_env_var(&key, env_value, is_override);
             }
         } else if is_override {
             dotenvy::from_filename_override(&env_file)?;
@@ -197,219 +183,56 @@ fn from_read_with_dotenvx<R: Read>(reader: R) -> dotenvy::Result<()> {
     let entries = dotenvy::from_read_iter(reader).collect::<dotenvy::Result<Vec<_>>>()?;
     let public_key = get_public_key_from_entries(&entries);
     let profile_name = get_profile_name_from_env();
-    if let Ok(private_key) = get_private_key(&public_key, &profile_name) {
-        for (key, value) in entries {
-            let env_value = if value.starts_with("encrypted:") {
-                decrypt_dotenvx_item(&private_key, &value)?
-            } else {
-                value
-            };
-            set_env_var(&key, env_value, true);
-        }
-    } else {
-        return Err(dotenvy::Error::EnvVar(VarError::NotPresent));
+    let private_key = get_private_key(&public_key, &profile_name)
+        .map_err(|e| private_key_not_found(e.to_string()))?;
+    for (key, value) in entries {
+        let env_value = if value.starts_with("encrypted:") {
+            decrypt_dotenvx_item(&private_key, &value)?
+        } else {
+            value
+        };
+        set_env_var(&key, env_value, true);
     }
     Ok(())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct DotenvxKeyStore {
-    pub version: String,
-    pub metadata: HashMap<String, String>,
-    pub keys: HashMap<String, KeyPair>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct KeyPair {
-    pub public_key: String,
-    pub private_key: String,
-    pub path: Option<String>,
-    pub group: Option<String>,
-    pub name: Option<String>,
-    pub profile: Option<String>,
-    pub comment: Option<String>,
-    pub timestamp: Option<DateTime<Local>>,
-}
-
-impl DotenvxKeyStore {
-    pub fn load_global() -> anyhow::Result<DotenvxKeyStore> {
-        if let Some(env_keys_json_file) = Self::get_global_key_store_path() {
-            let file_content = std::fs::read_to_string(env_keys_json_file)?;
-            return if file_content.contains("\"version\"") {
-                Ok(serde_json::from_str(&file_content)?)
-            } else {
-                let keys: HashMap<String, KeyPair> = serde_json::from_str(&file_content)?;
-                let mut metadata = HashMap::new();
-                metadata.insert("uuid".to_owned(), uuid::Uuid::now_v7().to_string());
-                Ok(DotenvxKeyStore {
-                    version: "0.1.0".to_string(),
-                    metadata,
-                    keys,
-                })
-            };
-        }
-        Err(anyhow!("Global key store(.env.keys.json) not found!"))
-    }
-
-    fn get_global_key_store_path() -> Option<PathBuf> {
-        let dotenvx_home = get_dotenvx_home();
-        let env_keys_json_file = dotenvx_home.join(".env.keys.json");
-        if env_keys_json_file.exists() {
-            return Some(env_keys_json_file);
-        } else if let Some(env_keys_json_file_from_usb) = Self::find_key_store_from_usb_disk() {
-            return Some(env_keys_json_file_from_usb);
-        }
-        None
-    }
-
-    // The function is only included in the build when compiling for macOS
-    #[cfg(target_os = "macos")]
-    fn find_key_store_from_usb_disk() -> Option<PathBuf> {
-        let key_store_path = PathBuf::from("/Volumes/Dotenvx/.dotenv.keys.json");
-        if key_store_path.exists() {
-            return Some(key_store_path);
-        }
-        None
-    }
-
-    #[cfg(target_os = "windows")]
-    fn find_key_store_from_usb_disk() -> Option<PathBuf> {
-        None
-    }
-
-    #[cfg(target_os = "linux")]
-    fn find_key_store_from_usb_disk() -> Option<PathBuf> {
-        let file = PathBuf::from("/proc/mounts");
-        if !file.exists() {
-            return None;
-        }
-        if let Ok(file_content) = std::fs::read_to_string(&file) {
-            for line in file_content.lines() {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 2 {
-                    let device = parts[0];
-                    let mount_point = parts[1];
-                    // Check for USB devices (common patterns)
-                    if device.contains("/dev/sd") || device.contains("/dev/disk/by-id/usb") {
-                        let file = PathBuf::from(&format!("{mount_point}/.dotenv/.env.keys.json"));
-                        if file.exists() {
-                            return Some(file);
-                        }
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    pub fn find_private_key(&self, public_key: &str) -> Option<String> {
-        if let Some(key_pair) = self.keys.get(public_key) {
-            return Some(trim_private_key(key_pair.private_key.clone()));
-        }
-        None
-    }
-}
-
-/// Find the private key for the profile. Lookup order (same as the CLI, review #16):
-/// `DOTENV_PRIVATE_KEY_{PROFILE}` env var, `.env.keys` (cwd upward, `$HOME/.env.keys` for `g_` profiles),
-/// the global key store, then `DOTENV_PRIVATE_KEY` for profiles (only when verified by `public_key`).
-/// When `public_key` is given, every candidate must match it.
+/// Find the private key. `public_key` is the public key declared by the env file: when given, the private key
+/// must match it. The lookup is shared with the CLI, see [`crate::common::find_private_key`] for the order;
+/// `.env.keys` is searched from the current directory upward.
 pub fn get_private_key(
     public_key: &Option<String>,
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let env_key_name = if let Some(name) = profile_name {
-        format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
-    } else {
-        "DOTENV_PRIVATE_KEY".to_string()
-    };
-    let mut candidates: Vec<String> = Vec::new();
-    if let Ok(private_key) = env::var(&env_key_name) {
-        candidates.push(private_key);
-    }
-    let dotenv_keys_file = if let Some(profile) = profile_name
-        && profile.starts_with("g_")
-    {
-        home_dir().map(|home| home.join(".env.keys"))
-    } else {
-        find_dotenv_keys_file()
-    };
-    if let Some(dotenv_file_path) = dotenv_keys_file
-        && dotenv_file_path.exists()
-    {
-        let env_key_prefix = format!("{env_key_name}=");
-        let dotenv_content = std::fs::read_to_string(dotenv_file_path)?;
-        if let Some(line) = dotenv_content
-            .lines()
-            .map(str::trim)
-            .find(|line| line.starts_with(&env_key_prefix))
-        {
-            candidates.push(
-                line[env_key_prefix.len()..]
-                    .trim()
-                    .trim_matches('"')
-                    .to_owned(),
-            );
-        }
-    }
-    if let Some(public_key_hex) = public_key
-        && let Ok(global_store) = DotenvxKeyStore::load_global()
-        && let Some(private_key) = global_store.find_private_key(public_key_hex)
-    {
-        candidates.push(private_key);
-    }
-    if profile_name.is_some()
-        && public_key.is_some()
-        && let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY")
-    {
-        candidates.push(private_key);
-    }
-    for private_key in candidates {
-        let private_key = trim_private_key(private_key);
-        match public_key {
-            None => return Ok(private_key),
-            Some(public_key_hex)
-                if public_key_of(&private_key).as_deref() == Some(public_key_hex.as_str()) =>
-            {
-                return Ok(private_key);
-            }
-            _ => {}
-        }
-    }
-    match public_key {
-        Some(public_key_hex) => {
-            Err(format!("Private key not found for public key {public_key_hex}: checked ${env_key_name}, .env.keys and the global key store").into())
-        }
-        None => Err(format!("Private key not found: {env_key_name}").into()),
-    }
+    Ok(crate::common::find_private_key(
+        public_key.as_deref(),
+        profile_name,
+        None,
+    )?)
 }
 
-/// compressed public key (hex) of the private key, `None` if the private key is invalid
-fn public_key_of(private_key_hex: &str) -> Option<String> {
-    let sk_bytes = hex::decode(private_key_hex.trim()).ok()?;
-    let sk = ecies::SecretKey::parse_slice(&sk_bytes).ok()?;
-    Some(hex::encode(
-        ecies::PublicKey::from_secret_key(&sk).serialize_compressed(),
-    ))
+/// Same as [`get_private_key`], but the `.env.keys` next to (or above) `env_file` is searched first.
+fn private_key_for_file(
+    public_key: &Option<String>,
+    profile_name: &Option<String>,
+    env_file: &Path,
+) -> Result<String, String> {
+    crate::common::find_private_key(public_key.as_deref(), profile_name, Some(env_file))
 }
 
-fn trim_private_key(private_key_hex: String) -> String {
-    match private_key_hex.find('{') {
-        Some(pos) => private_key_hex[..pos].to_string(),
-        None => private_key_hex,
-    }
+/// `dotenvy::Error::Io` with `ErrorKind::NotFound` and the reason, instead of a bare `EnvVar(NotPresent)`
+fn private_key_not_found(message: String) -> dotenvy::Error {
+    dotenvy::Error::Io(io::Error::new(ErrorKind::NotFound, message))
 }
 
 // if the encrypted text starts with "encrypted:", it will decrypt it
 fn check_and_decrypt(
-    private_key: &Option<String>,
+    private_key: &Result<String, String>,
     encrypted_text: String,
 ) -> dotenvy::Result<String> {
     if let Some(tripped_value) = encrypted_text.strip_prefix("encrypted:") {
-        if let Some(private_key) = private_key {
-            decrypt_dotenvx_item(private_key, tripped_value)
-        } else {
-            Err(dotenvy::Error::EnvVar(VarError::NotPresent))
+        match private_key {
+            Ok(private_key) => decrypt_dotenvx_item(private_key, tripped_value),
+            Err(message) => Err(private_key_not_found(message.clone())),
         }
     } else {
         Ok(encrypted_text)
@@ -496,12 +319,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "depends on the global key store of this machine"]
-    fn test_load_global() {
-        DotenvxKeyStore::load_global().unwrap();
-    }
-
-    #[test]
     #[ignore = "needs the private key of the repository's .env"]
     fn test_ecies_decrypt() {
         let encrypted_text = "encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7";
@@ -580,7 +397,10 @@ mod tests {
         let public_key = "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0";
         let private_key = get_private_key(&Some(public_key.to_string()), &None)
             .expect("Failed to get a private key");
-        assert_eq!(public_key_of(&private_key).as_deref(), Some(public_key));
+        assert_eq!(
+            crate::common::public_key_of_private_key(&private_key).as_deref(),
+            Some(public_key)
+        );
     }
 
     #[test]
@@ -589,7 +409,10 @@ mod tests {
         let (other_sk, _) = ecies::utils::generate_keypair();
         let sk_hex = hex::encode(sk.serialize());
         let pk_hex = hex::encode(pk.serialize_compressed());
-        assert_eq!(public_key_of(&sk_hex).as_deref(), Some(pk_hex.as_str()));
+        assert_eq!(
+            crate::common::public_key_of_private_key(&sk_hex).as_deref(),
+            Some(pk_hex.as_str())
+        );
         let profile = format!("t{}", uuid::Uuid::now_v7().simple());
         let key_name = format!("DOTENV_PRIVATE_KEY_{}", profile.to_uppercase());
         let profile_name = Some(profile);
@@ -602,11 +425,5 @@ mod tests {
             sk_hex
         );
         unsafe { env::remove_var(&key_name) };
-    }
-
-    #[test]
-    #[ignore = "depends on the global key store of this machine"]
-    fn test_keystore() {
-        DotenvxKeyStore::load_global().expect("Failed to load global keystore");
     }
 }
