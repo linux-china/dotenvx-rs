@@ -2,7 +2,7 @@ use crate::commands::crypt_util::{encrypt_env_item, EcKeyPair};
 use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    construct_env_file_header, escape_shell_value, get_private_key_name_for_file, get_public_key_for_file,
+    construct_env_file_header, dotenv_double_quote, get_private_key_name_for_file, get_public_key_for_file,
     get_public_key_name_for_file, is_sensitive_key, write_key_pair, write_private_key_to_file,
     KEYS_FILE_NAME,
 };
@@ -114,7 +114,7 @@ pub fn sync_command(command_matches: &ArgMatches) {
                     let encrypted_value = encrypt_env_item(&target_public_key, value).unwrap();
                     absent_variables.push(format!("{key}=\"{encrypted_value}\""));
                 } else {
-                    absent_variables.push(format!("{}=\"{}\"", key, escape_shell_value(value)));
+                    absent_variables.push(format!("{key}={}", dotenv_double_quote(value)));
                 }
             }
         }

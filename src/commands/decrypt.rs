@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::model::EnvFile;
 use crate::commands::{
-    adjust_env_key, escape_shell_value, get_env_file_arg, get_private_key_for_file,
+    adjust_env_key, dotenv_double_quote, get_env_file_arg, get_private_key_for_file,
     get_public_key_from_text_file, is_remote_env_file, read_content_from_dotenv_url,
     read_dotenv_url, std_output,
 };
@@ -80,8 +80,8 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         if line.contains("encrypted:") {
             let key = line.split('=').next().unwrap().trim();
             if let Some(value) = entries.get(key) {
-                let new_value = escape_shell_value(value);
-                new_lines.push(format!("{key}=\"{new_value}\""));
+                let new_value = dotenv_double_quote(value);
+                new_lines.push(format!("{key}={new_value}"));
                 is_changed = true;
             } else {
                 // If the key is not in the entries, we keep the original line

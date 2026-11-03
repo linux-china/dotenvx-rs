@@ -809,20 +809,31 @@ pub fn adjust_env_key(key: &str, env_file: &str) -> String {
         key.to_string()
     }
 }
-pub fn escape_shell_value(value: &str) -> String {
-    use shlex::try_quote;
-    let new_value = if let Ok(escaped_value) = try_quote(value) {
-        escaped_value.to_string()
-    } else {
-        value.to_string()
-    };
-    if new_value.starts_with('\'') && new_value.ends_with('\'') {
-        new_value[1..new_value.len() - 1].to_string()
-    } else if new_value.starts_with('"') && new_value.ends_with('"') {
-        new_value[1..new_value.len() - 1].to_string()
-    } else {
-        new_value
+/// Quote a value for a POSIX shell `export K=...` line.
+///
+/// The whole value is wrapped in single quotes, so nothing inside (`$`, `` ` ``, `"`, `\`,
+/// newlines) is interpreted by the shell; an embedded `'` is written as `'\''`.
+pub fn shell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', r"'\''"))
+}
+
+/// Quote a value as a double-quoted `.env` value that dotenvy parses back to `value` unchanged.
+///
+/// Escapes `\`, `"`, `$` (to prevent variable substitution) and newlines.
+pub fn dotenv_double_quote(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len() + 2);
+    escaped.push('"');
+    for c in value.chars() {
+        match c {
+            '\\' => escaped.push_str(r"\\"),
+            '"' => escaped.push_str(r#"\""#),
+            '$' => escaped.push_str(r"\$"),
+            '\n' => escaped.push_str(r"\n"),
+            _ => escaped.push(c),
+        }
     }
+    escaped.push('"');
+    escaped
 }
 
 pub fn append_to_ignores(file_name: &str) {
@@ -890,7 +901,7 @@ pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
             println!("{}", to_colored_json_auto(&json_value).unwrap());
         } else if *fmt == "shell" {
             for (key, value) in entries {
-                println!("export {}=\"{}\"", key, escape_shell_value(value));
+                println!("export {key}={}", shell_single_quote(value));
             }
         } else if *fmt == "csv" {
             let mut wtr = WriterBuilder::new()
@@ -908,7 +919,7 @@ pub fn std_output(entries: &HashMap<String, String>, format: &Option<&String>) {
             }
         } else {
             for (key, value) in entries {
-                println!("{}=\"{}\"", key, escape_shell_value(value));
+                println!("{key}={}", dotenv_double_quote(value));
             }
         }
     }
@@ -997,5 +1008,76 @@ mod tests {
             "028d59ff8bc98e7bfb7d7a0a6f511a653907cd3135db9ead01f293bcb7beb3ecd3",
         );
         println!("private key: {private_key:?}")
+    }
+
+    use crate::commands::crypt_util::{decrypt_env_item, encrypt_env_item};
+
+    const TRICKY_VALUES: &[&str] = &[
+        "$(touch /tmp/dotenvx_pwned)",
+        "`id`",
+        "$HOME",
+        "${HOME}",
+        r#"a"b"#,
+        "it's",
+        "'",
+        "''",
+        r"back\slash",
+        r"trailing\",
+        r"\n literal",
+        "line1\nline2",
+        "tab\tand space",
+        "mixed '$x' \"`y`\" \\ end",
+        "",
+    ];
+
+    fn parse_dotenv_line(line: &str) -> String {
+        let entries: Vec<(String, String)> = dotenvy::from_read_iter(line.as_bytes())
+            .collect::<Result<_, _>>()
+            .unwrap_or_else(|e| panic!("failed to parse {line:?}: {e}"));
+        assert_eq!(entries.len(), 1, "line {line:?}");
+        entries[0].1.clone()
+    }
+
+    /// `set` writes `K=<dotenv_double_quote>`; `get` / `encrypt` read the file back with dotenvy.
+    #[test]
+    fn test_dotenv_double_quote_round_trip() {
+        for value in TRICKY_VALUES {
+            let line = format!("K={}", dotenv_double_quote(value));
+            assert_eq!(parse_dotenv_line(&line), *value, "set -> get for {line:?}");
+        }
+    }
+
+    /// decrypt (write plaintext back) -> encrypt (re-read with dotenvy and encrypt) keeps the value.
+    #[test]
+    fn test_decrypt_encrypt_round_trip() {
+        let pair = EcKeyPair::generate();
+        let (pk, sk) = (pair.get_pk_hex(), pair.get_sk_hex());
+        for value in TRICKY_VALUES {
+            let encrypted = encrypt_env_item(&pk, value).unwrap();
+            let decrypted = decrypt_env_item(&sk, &encrypted).unwrap();
+            let line = format!("K={}", dotenv_double_quote(&decrypted));
+            let plain = parse_dotenv_line(&line);
+            let re_encrypted = encrypt_env_item(&pk, &plain).unwrap();
+            assert_eq!(decrypt_env_item(&sk, &re_encrypted).unwrap(), *value);
+        }
+    }
+
+    /// `--format shell` output must not execute anything under `eval` and must keep the value.
+    #[cfg(unix)]
+    #[test]
+    fn test_shell_single_quote_eval() {
+        for value in TRICKY_VALUES {
+            let script = format!("export K={}", shell_single_quote(value));
+            let output = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(r#"eval "$1" && printf '%s' "$K""#)
+                .arg("sh")
+                .arg(&script)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "script {script:?} failed");
+            assert_eq!(String::from_utf8(output.stdout).unwrap(), *value, "script {script:?}");
+        }
+        assert!(!Path::new("/tmp/dotenvx_pwned").exists());
     }
 }

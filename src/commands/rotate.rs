@@ -2,7 +2,7 @@ use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::encrypt::encrypt_env_entries;
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    escape_shell_value, get_env_file_arg, get_private_key_name_for_file, write_key_pair,
+    dotenv_double_quote, get_env_file_arg, get_private_key_name_for_file, write_key_pair,
     write_private_key_to_file, write_public_key_to_file, EcKeyPair, KEYS_FILE_NAME,
 };
 use clap::ArgMatches;
@@ -21,8 +21,8 @@ pub fn rotate_command(command_matches: &ArgMatches, profile: &Option<String>) {
             if line.contains("encrypted:") {
                 let key = line.split('=').next().unwrap().trim();
                 if let Some(value) = entries.get(key) {
-                    let new_value = escape_shell_value(value);
-                    plain_lines.push(format!("{key}=\"{new_value}\""));
+                    let new_value = dotenv_double_quote(value);
+                    plain_lines.push(format!("{key}={new_value}"));
                 }
             } else {
                 plain_lines.push(line.to_string());
