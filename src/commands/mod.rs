@@ -542,8 +542,8 @@ pub fn create_env_file<P: AsRef<Path>>(
             .to_string();
     }
     let header_text = if file_name.ends_with(".properties") && env_file.as_ref().exists() {
-        let mut app_name: Option<String> = group.clone();
-        let mut app_group: Option<String> = name.clone();
+        let mut app_name: Option<String> = name.clone();
+        let mut app_group: Option<String> = group.clone();
         let f = File::open(&env_file).unwrap();
         let reader = BufReader::new(f);
         PropertiesIter::new(reader)
