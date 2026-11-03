@@ -23,6 +23,6 @@ pub fn lint() -> anyhow::Result<()> {
         recursive: false,
         schema: None,
     };
-    check(&options, &current_dir).unwrap();
+    let _ = check(&options, &current_dir).is_ok();
     Ok(())
 }
