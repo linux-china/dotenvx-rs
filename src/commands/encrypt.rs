@@ -3,7 +3,7 @@ use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
     adjust_env_key, construct_env_file_header, entry_line_count, get_env_file_arg,
     get_or_create_public_key_for_file, get_private_key_for_file, get_public_key_name_for_file,
-    is_encrypted_value_text, is_public_key_included, is_public_key_name, split_assignment,
+    content_has_key, is_encrypted_value_text, is_public_key_name, split_assignment,
     update_env_file, write_public_key_to_file,
 };
 use clap::ArgMatches;
@@ -105,19 +105,25 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             println!("{}", format!("✔ sign added for ({env_file})").green());
         }
     } else {
-        let mut new_file_content = if is_public_key_included(&file_content) {
+        // use the exact public key name for this file, the same check as `update_env_file`, see review #4:
+        // a `DOTENV_PUBLIC_KEY_PROD` entry in `.env` must not count as `.env`'s own `DOTENV_PUBLIC_KEY`
+        let public_key_name = get_public_key_name_for_file(&env_file);
+        let new_file_content = if content_has_key(&file_content, &public_key_name) {
             new_lines.join("\n")
         } else {
-            // append public key to .env file if it does not exist
-            let public_key_name = get_public_key_name_for_file(&env_file);
+            // add the public key header to the env file if it does not exist
             construct_env_file_header(&public_key_name, &public_key, &None, &None)
                 + "\n"
                 + &new_lines.join("\n")
         };
         if is_sign_required {
-            new_file_content = add_or_replace_signature(&env_file, &new_file_content).unwrap();
+            // signing must be the last step before writing: the content is not changed afterward
+            let signed = add_or_replace_signature(&env_file, &new_file_content).unwrap();
+            let signed = if signed.ends_with('\n') { signed } else { signed + "\n" };
+            fs::write(&env_file_path, signed.as_bytes()).unwrap();
+        } else {
+            update_env_file(&env_file, &public_key, &new_file_content);
         }
-        update_env_file(&env_file, &public_key, &new_file_content);
         if is_sign_required {
             println!(
                 "{}",

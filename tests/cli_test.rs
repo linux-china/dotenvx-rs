@@ -794,6 +794,29 @@ fn sign_and_verify_profile_file() {
     assert!(sb.ok(&["verify", "-f", ".env.prod"]).contains("is valid"));
 }
 
+/// review #4 (2.1): `.env` only declares `DOTENV_PUBLIC_KEY_PROD`, the header must be added
+/// before signing, not inserted in front of the signed content afterward.
+#[test]
+fn encrypt_sign_with_only_other_profile_public_key_stays_valid() {
+    let sb = Sandbox::new();
+    sb.ok(&["init", "-f", ".env.prod"]);
+    let prod_public_key = raw_value(&sb.read(".env.prod"), "DOTENV_PUBLIC_KEY_PROD").unwrap();
+    fs::remove_file(sb.path(".env.prod")).unwrap();
+    sb.write(
+        ".env",
+        &format!("DOTENV_PUBLIC_KEY_PROD=\"{prod_public_key}\"\nB=2\n"),
+    );
+    sb.ok(&["encrypt", "--sign"]);
+    let content = sb.read(".env");
+    assert_eq!(content.matches("# ---").count(), 2, "{content}");
+    assert_eq!(content.matches("# sign: ").count(), 1, "{content}");
+    assert!(
+        content.lines().filter(|l| l.starts_with("DOTENV_PUBLIC_KEY=")).count() == 1,
+        "{content}"
+    );
+    assert!(sb.ok(&["verify"]).contains("is valid"));
+}
+
 #[test]
 fn verify_fails_for_unsigned_or_missing_file() {
     let sb = Sandbox::new();
