@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
-use std::io::{ErrorKind, Read};
+use std::io::{self, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 /// load/decrypt .env file recursively from current directory to root directory
@@ -24,7 +24,7 @@ pub fn dotenv() -> dotenvy::Result<()> {
     } else {
         ".env".to_owned()
     };
-    let env_file_path = find_env_file_path(&env::current_dir().unwrap(), &env_file);
+    let env_file_path = find_env_file_path(&env::current_dir().map_err(dotenvy::Error::Io)?, &env_file);
     if let Some(path) = env_file_path {
         return from_path_with_dotenvx(&path, true);
     }
@@ -41,7 +41,7 @@ pub fn dotenv_entries() -> dotenvy::Result<HashMap<String, String>> {
         ".env".to_owned()
     };
     let mut entries = HashMap::new();
-    let env_file_path = find_env_file_path(&env::current_dir().unwrap(), &env_file);
+    let env_file_path = find_env_file_path(&env::current_dir().map_err(dotenvy::Error::Io)?, &env_file);
     if let Some(path) = env_file_path {
         if let Ok(items) = from_path_iter(path) {
             for (key, value) in items {
@@ -86,8 +86,7 @@ pub fn from_path_override<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<()> {
 }
 
 pub fn from_path_iter<P: AsRef<Path>>(env_file: P) -> dotenvy::Result<Vec<(String, String)>> {
-    let env_file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
-    let profile_name = get_profile_name_from_file(env_file_name);
+    let profile_name = profile_name_of_path(env_file.as_ref());
     let public_key = get_public_key(&env_file);
     let private_key = get_private_key(&public_key, &profile_name).ok();
     let mut items: Vec<(String, String)> = vec![];
@@ -123,8 +122,7 @@ pub fn from_filename_override<P: AsRef<Path>>(filename: P) -> dotenvy::Result<Pa
 
 pub fn from_filename_iter<P: AsRef<Path>>(filename: P) -> dotenvy::Result<Vec<(String, String)>> {
     let mut items: Vec<(String, String)> = vec![];
-    let env_file_name = filename.as_ref().file_name().unwrap().to_str().unwrap();
-    let profile_name = get_profile_name_from_file(env_file_name);
+    let profile_name = profile_name_of_path(filename.as_ref());
     let public_key = get_public_key(&filename);
     let private_key = get_private_key(&public_key, &profile_name).ok();
     for x in dotenvy::from_filename_iter(filename)? {
@@ -141,9 +139,7 @@ pub fn from_read<R: Read>(reader: R) -> dotenvy::Result<()> {
 
 pub fn from_read_iter<R: Read>(reader: R) -> dotenvy::Result<Vec<(String, String)>> {
     let mut items: Vec<(String, String)> = vec![];
-    let entries = dotenvy::from_read_iter(reader)
-        .map(|x| x.unwrap())
-        .collect::<Vec<_>>();
+    let entries = dotenvy::from_read_iter(reader).collect::<dotenvy::Result<Vec<_>>>()?;
     let public_key = get_public_key_from_entries(&entries);
     let private_key = get_private_key(&public_key, &get_profile_name_from_env()).ok();
     for (key, value) in entries {
@@ -155,11 +151,10 @@ pub fn from_read_iter<R: Read>(reader: R) -> dotenvy::Result<Vec<(String, String
 
 fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dotenvy::Result<()> {
     if env_file.as_ref().exists() {
-        let dotenv_content = std::fs::read_to_string(&env_file).unwrap();
+        let dotenv_content = std::fs::read_to_string(&env_file).map_err(dotenvy::Error::Io)?;
         if dotenv_content.contains("encrypted:") {
             let public_key = get_public_key(&env_file);
-            let env_file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
-            let profile_name = get_profile_name_from_file(env_file_name);
+            let profile_name = profile_name_of_path(env_file.as_ref());
             if let Ok(private_key) = get_private_key(&public_key, &profile_name) {
                 for item in dotenvy::from_filename_iter(&env_file)? {
                     let (key, value) = item?;
@@ -183,17 +178,12 @@ fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dot
 }
 
 fn get_public_key<P: AsRef<Path>>(env_file: P) -> Option<String> {
-    if let Ok(mut result) = dotenvy::from_path_iter(env_file) {
-        return result
-            .find(|x| {
-                x.as_ref()
-                    .map(|(key, _)| key.starts_with("DOTENV_PUBLIC_KEY"))
-                    .unwrap_or(false)
-            })
-            .map(|x| x.unwrap().1)
-            .map(|key| key.trim_matches(|c| c == '"' || c == '\'').to_string());
-    }
-    None
+    // stop at the first error: reading a directory yields `Err` forever, `find` would never return
+    let entries = dotenvy::from_path_iter(env_file)
+        .ok()?
+        .map_while(Result::ok)
+        .collect::<Vec<_>>();
+    get_public_key_from_entries(&entries)
 }
 
 fn get_public_key_from_entries(entries: &[(String, String)]) -> Option<String> {
@@ -204,9 +194,7 @@ fn get_public_key_from_entries(entries: &[(String, String)]) -> Option<String> {
 }
 
 fn from_read_with_dotenvx<R: Read>(reader: R) -> dotenvy::Result<()> {
-    let entries = dotenvy::from_read_iter(reader)
-        .map(|x| x.unwrap())
-        .collect::<Vec<_>>();
+    let entries = dotenvy::from_read_iter(reader).collect::<dotenvy::Result<Vec<_>>>()?;
     let public_key = get_public_key_from_entries(&entries);
     let profile_name = get_profile_name_from_env();
     if let Ok(private_key) = get_private_key(&public_key, &profile_name) {
@@ -406,10 +394,9 @@ fn public_key_of(private_key_hex: &str) -> Option<String> {
 }
 
 fn trim_private_key(private_key_hex: String) -> String {
-    if private_key_hex.contains("{") {
-        private_key_hex[0..private_key_hex.find('{').unwrap()].to_string()
-    } else {
-        private_key_hex
+    match private_key_hex.find('{') {
+        Some(pos) => private_key_hex[..pos].to_string(),
+        None => private_key_hex,
     }
 }
 
@@ -432,23 +419,40 @@ fn check_and_decrypt(
 /// decrypt dotenvx encrypted item with the given private key
 /// the encrypted text can be with or without the "encrypted:" prefix
 pub fn decrypt_dotenvx_item(private_key: &str, encrypted_text: &str) -> dotenvy::Result<String> {
-    let encrypted_bytes = if let Some(stripped_value) = encrypted_text.strip_prefix("encrypted:") {
-        crate::common::decode_base64_lenient(stripped_value).unwrap()
-    } else {
-        crate::common::decode_base64_lenient(encrypted_text).unwrap()
-    };
-    let sk = hex::decode(private_key).unwrap();
-    let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes).unwrap();
-    Ok(String::from_utf8(decrypted_bytes).unwrap())
+    let base64_text = encrypted_text
+        .strip_prefix("encrypted:")
+        .unwrap_or(encrypted_text);
+    let encrypted_bytes = crate::common::decode_base64_lenient(base64_text)
+        .map_err(|e| invalid_data(format!("invalid base64 in encrypted value: {e}")))?;
+    let sk = hex::decode(private_key.trim())
+        .map_err(|e| invalid_data(format!("invalid private key hex: {e}")))?;
+    let decrypted_bytes = ecies::decrypt(&sk, &encrypted_bytes)
+        .map_err(|e| invalid_data(format!("failed to decrypt value: {e}")))?;
+    String::from_utf8(decrypted_bytes)
+        .map_err(|e| invalid_data(format!("decrypted value is not valid UTF-8: {e}")))
 }
 
 /// encrypt dotenvx item with the given public key
 /// the returned encrypted text is with the "encrypted:" prefix
 pub fn encrypt_dotenvx_item(public_key: &str, plain_text: &str) -> dotenvy::Result<String> {
-    let pk = hex::decode(public_key).unwrap();
-    let encrypted_bytes = ecies::encrypt(&pk, plain_text.as_bytes()).unwrap();
+    let pk = hex::decode(public_key.trim())
+        .map_err(|e| invalid_data(format!("invalid public key hex: {e}")))?;
+    let encrypted_bytes = ecies::encrypt(&pk, plain_text.as_bytes())
+        .map_err(|e| invalid_data(format!("failed to encrypt value: {e}")))?;
     let base64_text = Base64::encode_string(&encrypted_bytes);
     Ok(format!("encrypted:{base64_text}"))
+}
+
+/// `dotenvy::Error::Io` with `ErrorKind::InvalidData`, used for bad keys / corrupted ciphertext
+fn invalid_data(message: String) -> dotenvy::Error {
+    dotenvy::Error::Io(io::Error::new(ErrorKind::InvalidData, message))
+}
+
+/// profile name from the file name of the path, `None` if the path has no (UTF-8) file name, e.g. `..`
+fn profile_name_of_path(path: &Path) -> Option<String> {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .and_then(get_profile_name_from_file)
 }
 
 fn set_env_var(key: &str, env_value: String, is_override: bool) {
@@ -532,6 +536,41 @@ mod tests {
         let items: HashMap<String, String> = items.unwrap().into_iter().collect();
         assert_eq!(items.get("HELLO").map(String::as_str), Some("World"));
         assert_eq!(items.get("PLAIN").map(String::as_str), Some("text"));
+    }
+
+    #[test]
+    fn test_decrypt_corrupted_value_returns_error() {
+        let (sk, pk) = ecies::utils::generate_keypair();
+        let sk_hex = hex::encode(sk.serialize());
+        let pk_hex = hex::encode(pk.serialize_compressed());
+        let encrypted = encrypt_dotenvx_item(&pk_hex, "hello").unwrap();
+        // flip the first base64 char of the ciphertext: B -> C (invalid ephemeral public key)
+        let corrupted = encrypted.replacen("encrypted:B", "encrypted:C", 1);
+        let err = decrypt_dotenvx_item(&sk_hex, &corrupted).unwrap_err();
+        assert!(matches!(err, dotenvy::Error::Io(ref e) if e.kind() == ErrorKind::InvalidData));
+        // invalid base64 / private key / public key
+        assert!(decrypt_dotenvx_item(&sk_hex, "encrypted:%%%").is_err());
+        assert!(decrypt_dotenvx_item("not-hex", &encrypted).is_err());
+        assert!(encrypt_dotenvx_item("not-hex", "hello").is_err());
+        assert!(encrypt_dotenvx_item("00", "hello").is_err());
+        // the wrong private key fails instead of panicking
+        let (other_sk, _) = ecies::utils::generate_keypair();
+        assert!(decrypt_dotenvx_item(&hex::encode(other_sk.serialize()), &encrypted).is_err());
+    }
+
+    #[test]
+    fn test_from_read_iter_parse_error_returns_error() {
+        let result = from_read_iter(Cursor::new("A='unterminated\n".as_bytes()));
+        assert!(matches!(result, Err(dotenvy::Error::LineParse(..))));
+        assert!(from_read(Cursor::new("A='unterminated\n".as_bytes())).is_err());
+    }
+
+    #[test]
+    fn test_path_without_file_name_does_not_panic() {
+        assert_eq!(profile_name_of_path(Path::new("..")), None);
+        assert_eq!(profile_name_of_path(Path::new("/")), None);
+        assert!(from_path_iter("..").is_err());
+        assert!(from_filename_iter("..").is_err());
     }
 
     #[test]

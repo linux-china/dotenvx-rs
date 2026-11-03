@@ -92,11 +92,13 @@ pub fn run_shim(command_name: &str, command_args: &[String]) -> i32 {
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
-        let mut child = command
-            .spawn()
-            .expect("DOTENV-CMD-500: failed to run command");
-        let status = child.wait().expect("DOTENV-CMD-500: failed to run command");
-        get_exit_code(&status)
+        match command.spawn().and_then(|mut child| child.wait()) {
+            Ok(status) => get_exit_code(&status),
+            Err(e) => {
+                eprintln!("DOTENV-CMD-500: failed to run command {command_name}: {e}");
+                1
+            }
+        }
     } else {
         eprintln!("Command not found: {command_name}");
         127

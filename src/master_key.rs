@@ -46,15 +46,29 @@ fn run_dotenvx_command(dotentvx_args: &Vec<String>) {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .args(dotentvx_args);
-    let mut child = command
-        .spawn()
-        .expect("DOTENV-CMD-500: failed to run command");
-    let exit_code = child
-        .wait()
-        .expect("DOTENV-CMD-500: failed to run command")
-        .code()
-        .unwrap();
+    let exit_code = match command.spawn().and_then(|mut child| child.wait()) {
+        Ok(status) => exit_code_of(&status),
+        Err(e) => {
+            eprintln!("DOTENV-CMD-500: failed to run command dotenvx: {e}");
+            1
+        }
+    };
     std::process::exit(exit_code);
+}
+
+/// exit code of the child, `128 + signal` when it was killed by a signal (Unix)
+fn exit_code_of(status: &std::process::ExitStatus) -> i32 {
+    if let Some(code) = status.code() {
+        return code;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return 128 + signal;
+        }
+    }
+    1
 }
 
 fn reset_profile(raw_args: &mut Vec<String>) {
