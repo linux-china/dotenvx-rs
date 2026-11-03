@@ -218,7 +218,7 @@ const LEGACY_P_COST: u32 = 1;
 
 /// Upper bounds for parameters read from a file, so a crafted file cannot make us
 /// allocate unbounded memory or spin forever.
-const MAX_M_COST: u32 = 4 * 1024 * 1024; // 4 GiB
+const MAX_M_COST: u32 = 256 * 1024; // 256 MiB (KiB units), well above KDF_M_COST
 const MAX_T_COST: u32 = 64;
 const MAX_P_COST: u32 = 64;
 
@@ -500,6 +500,13 @@ mod tests {
         assert_eq!(plain, b"Hello World\n");
         assert!(decrypt_bytes(&encrypted, "wrong").is_err());
         Ok(())
+    }
+
+    #[test]
+    fn test_derive_aes_key_rejects_large_m_cost() {
+        let salt = [0u8; SALT_LEN];
+        let err = derive_aes_key("pwd", &salt, MAX_M_COST + 1, 1, 1).unwrap_err();
+        assert!(err.to_string().contains("out of range"));
     }
 
     #[test]

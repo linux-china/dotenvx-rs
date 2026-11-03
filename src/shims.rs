@@ -685,8 +685,9 @@ fn get_duckdb_args() -> Vec<String> {
         }
     }
     if encrypt_db_included {
-        // OpenSSL versions are much faster due to hardware acceleration
-        misc_sql_sentences.push("LOAD httpfs;".to_string());
+        // OpenSSL versions are much faster due to hardware acceleration; httpfs must be
+        // loaded before the encrypted ATTACH so the OpenSSL implementation is used.
+        misc_sql_sentences.insert(0, "LOAD httpfs;".to_string());
     }
     if !misc_sql_sentences.is_empty() {
         args.push("--cmd".to_string());

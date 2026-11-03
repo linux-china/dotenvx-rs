@@ -1,10 +1,13 @@
 use crate::commands::crypt_util::write_file_atomic;
 use crate::commands::encrypt::add_or_replace_signature;
 use crate::commands::model::{extract_front_matter, get_signature};
-use crate::commands::{get_dotenvx_home, is_sensitive_key, list_env_files};
+use crate::commands::linter::lint;
+use crate::commands::{
+    entry_line_count, get_dotenvx_home, get_public_key_name_for_file, is_encrypted_value_text,
+    is_sensitive_key, list_env_files, split_assignment,
+};
 use clap::ArgMatches;
 use colored::Colorize;
-use dotenvx_rs::common::get_profile_name_from_file;
 use std::env::current_dir;
 use std::path::{Path, PathBuf};
 
@@ -17,70 +20,89 @@ pub fn doctor_command(command_matches: &ArgMatches) {
         let file_name = env_file.file_name().to_str().unwrap();
         let file_path = env_file.path();
         println!("Checking {file_name}:");
-        let file_content = std::fs::read_to_string(file_path).unwrap();
-        let public_key_line = file_content
-            .lines()
-            .find(|x| x.starts_with("DOTENV_PUBLIC_KEY"));
-        if let Some(public_key_line) = public_key_line {
-            let public_key_found = public_key_line.split('=').next().unwrap_or("").trim();
-            let profile = get_profile_name_from_file(file_name);
-            if let Some(profile_name) = profile {
-                let public_key_name = format!("DOTENV_PUBLIC_KEY_{}", profile_name.to_uppercase());
-                if public_key_found != public_key_name {
-                    eprintln!("{}",
-                         format!("Warning: The public key in {file_name} does not match the expected format: {public_key_name}").red()
-                    );
-                }
-            } else if public_key_found != "DOTENV_PUBLIC_KEY" {
-                eprintln!("{}",
-                    format!("Warning: The public key in {file_name} does not match the expected format: DOTENV_PUBLIC_KEY").red()
-                );
+        let file_content = match std::fs::read_to_string(file_path) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("{}", format!("Warning: failed to read {file_name}: {e}").red());
+                continue;
             }
-            // check front matter: report only, `--fix` writes the file, see review #12
-            if !has_front_matter_id(&file_content) {
-                if fix {
-                    fix_front_matter(file_name, file_path, &file_content);
-                } else {
-                    eprintln!(
-                        "{}",
-                        format!(
-                            "Warning: no metadata(front matter) uuid in {file_name}, run `dotenvx doctor --fix` to add it."
-                        )
-                        .yellow()
-                    );
-                }
-            }
-            // check sensitive key name with plain value
-            for line in file_content.lines() {
-                if line.starts_with('#')
-                    || line.starts_with("DOTENV_PUBLIC_KEY")
-                    || line.trim().is_empty()
-                    || !line.contains('=')
-                    || line.contains("encrypted:")
-                {
-                    continue;
-                }
-                let key_name = line.split('=').next().unwrap().trim().to_uppercase();
-                if is_sensitive_key(&key_name) {
-                    eprintln!(
-                        "{}",
-                        format!(
-                            "Warning: Sensitive key '{key_name}' in {file_name} has a plain value.",
-                        )
-                        .red()
-                    );
-                }
-            }
-        } else {
+        };
+        let report = check_env_content(file_name, &file_content);
+        if !report.public_key_found {
             eprintln!(
                 "{}",
                 format!("Warning: no public key found in {file_name}").red()
             );
+            continue;
+        }
+        for warning in &report.key_warnings {
+            eprintln!("{}", warning.red());
+        }
+        // check front matter: report only, `--fix` writes the file, see review #12
+        if !has_front_matter_id(&file_content) {
+            if fix {
+                fix_front_matter(file_name, file_path, &file_content);
+            } else {
+                eprintln!(
+                    "{}",
+                    format!(
+                        "Warning: no metadata(front matter) uuid in {file_name}, run `dotenvx doctor --fix` to add it."
+                    )
+                    .yellow()
+                );
+            }
         }
     }
     println!();
     println!("Run linter now...");
-    //lint().unwrap();
+    if let Err(e) = lint() {
+        eprintln!("{}", format!("Warning: failed to lint env files: {e}").red());
+    }
+}
+
+/// Result of checking the content of one env file.
+#[derive(Debug, Default)]
+struct EnvCheckReport {
+    /// Whether a `DOTENV_PUBLIC_KEY*` (`dotenv.public.key*` for `.properties`) entry exists.
+    public_key_found: bool,
+    /// Warnings about the public key name and sensitive keys with plain values.
+    key_warnings: Vec<String>,
+}
+
+/// Normalize a key name for public key detection: `.properties` keys use `dotenv.public.key`.
+fn is_public_key_name(key: &str) -> bool {
+    key.to_uppercase()
+        .replace('.', "_")
+        .starts_with("DOTENV_PUBLIC_KEY")
+}
+
+/// Check the content of an env file entry by entry: `export ` prefixes and `.properties` syntax
+/// are understood, and continuation lines of multi-line values are skipped.
+fn check_env_content(file_name: &str, content: &str) -> EnvCheckReport {
+    let mut report = EnvCheckReport::default();
+    let expected_public_key_name = get_public_key_name_for_file(file_name);
+    let lines: Vec<&str> = content.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let line_count = entry_line_count(file_name, &lines, i).max(1);
+        if let Some((_, key, value_text)) = split_assignment(file_name, lines[i]) {
+            if is_public_key_name(key) {
+                if !report.public_key_found && key != expected_public_key_name {
+                    report.key_warnings.push(format!(
+                        "Warning: The public key in {file_name} does not match the expected format: {expected_public_key_name}"
+                    ));
+                }
+                report.public_key_found = true;
+            } else if !is_encrypted_value_text(value_text) && is_sensitive_key(key) {
+                report.key_warnings.push(format!(
+                    "Warning: Sensitive key '{}' in {file_name} has a plain value.",
+                    key.to_uppercase()
+                ));
+            }
+        }
+        i += line_count;
+    }
+    report
 }
 
 /// Whether the file starts with a front matter block that declares `uuid` or `id`.
@@ -197,6 +219,40 @@ fn check_key_files_permissions() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_check_env_content_export_public_key() {
+        let report = check_env_content(".env", "export DOTENV_PUBLIC_KEY=\"02ab\"\nA=1\n");
+        assert!(report.public_key_found);
+        assert!(report.key_warnings.is_empty());
+    }
+
+    #[test]
+    fn test_check_env_content_properties() {
+        let content = "dotenv.public.key.properties=02ab\ndb.password=encrypted:xx\napp.token: plain\n";
+        let report = check_env_content(".env.properties", content);
+        assert!(report.public_key_found);
+        assert_eq!(report.key_warnings.len(), 1, "{:?}", report.key_warnings);
+        assert!(report.key_warnings[0].contains("APP.TOKEN"));
+    }
+
+    #[test]
+    fn test_check_env_content_multiline_value() {
+        // continuation lines that look like `KEY=value` must not be checked as entries
+        let content = "DOTENV_PUBLIC_KEY=\"02ab\"\nCERT=\"line1\nPRIVATE_KEY=inside\n\"\nAPI_TOKEN=\"encrypted:xx\"\nDB_PASSWORD=plain\n";
+        let report = check_env_content(".env", content);
+        assert!(report.public_key_found);
+        assert_eq!(report.key_warnings.len(), 1, "{:?}", report.key_warnings);
+        assert!(report.key_warnings[0].contains("DB_PASSWORD"));
+    }
+
+    #[test]
+    fn test_check_env_content_wrong_public_key_name() {
+        let report = check_env_content(".env.prod", "DOTENV_PUBLIC_KEY=\"02ab\"\n");
+        assert!(report.public_key_found);
+        assert!(report.key_warnings[0].contains("DOTENV_PUBLIC_KEY_PROD"));
+        assert!(!check_env_content(".env", "A=1\n").public_key_found);
+    }
 
     #[test]
     fn test_has_front_matter_id() {
