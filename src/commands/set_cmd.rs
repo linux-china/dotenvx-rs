@@ -1,6 +1,6 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::framework::detect_framework;
-use crate::commands::{adjust_env_key, create_env_file, dotenv_double_quote, get_env_file_arg, shell_single_quote, get_or_create_public_key_for_file, is_sensitive_key, is_valid_env_key, update_env_file};
+use crate::commands::{adjust_env_key, create_env_file, line_has_key, dotenv_double_quote, get_env_file_arg, shell_single_quote, get_or_create_public_key_for_file, is_sensitive_key, is_valid_env_key, update_env_file};
 use arboard::Clipboard;
 use clap::ArgMatches;
 use std::io::Read;
@@ -115,12 +115,15 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
             "Added {key} to {env_file} with {} mode",
             if encrypt_mode { "encrypted" } else { "plain" }
         );
-    } else if env_file_content.contains(&format!("{key}=")) {
+    } else if env_file_content
+        .lines()
+        .any(|line| line_defines_key(&env_file, line, &key))
+    {
         // Update existing key
         let new_content = env_file_content
             .lines()
             .map(|line| {
-                if line.starts_with(&format!("{key}=")) {
+                if line_defines_key(&env_file, line, &key) {
                     pair.clone()
                 } else {
                     line.to_string()
@@ -148,6 +151,19 @@ pub fn validate_key_name(key: &str, env_file: &str) -> bool {
     } else {
         true
     }
+}
+
+/// 按 key 精确匹配一行，兼容 `.sh`/`.toml`（`# K=...`）和 `.xml`（`<!-- K=... -->`）中的写法
+fn line_defines_key(env_file: &str, line: &str, key: &str) -> bool {
+    let trimmed = line.trim_start();
+    let line = if env_file.ends_with(".xml") {
+        trimmed.strip_prefix("<!--").unwrap_or(trimmed)
+    } else if env_file.ends_with(".sh") || env_file.ends_with(".toml") {
+        trimmed.strip_prefix('#').unwrap_or(trimmed)
+    } else {
+        trimmed
+    };
+    line_has_key(line, key)
 }
 
 fn adjust_pair_for_file(env_file: &str, pair: String) -> String {

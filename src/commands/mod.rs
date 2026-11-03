@@ -482,7 +482,7 @@ pub fn create_env_file<P: AsRef<Path>>(
     };
     if env_file.as_ref().exists() {
         let file_content = fs::read_to_string(&env_file).unwrap();
-        if !file_content.contains(&env_pub_key_name) {
+        if !content_has_key(&file_content, &env_pub_key_name) {
             let file_content = format!("{}\n{}", header_text.trim(), file_content);
             fs::write(&env_file, file_content.as_bytes()).unwrap();
             println!(
@@ -516,8 +516,8 @@ pub fn create_env_file<P: AsRef<Path>>(
 
 pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &str) {
     let file_name = env_file.as_ref().file_name().unwrap().to_str().unwrap();
-    if (file_name.ends_with(".properties") && !content.contains("dotenv.public.key"))
-        || (file_name.starts_with(".env") && !content.contains("DOTENV_PUBLIC_KEY"))
+    if (file_name.ends_with(".properties") || file_name.starts_with(".env"))
+        && !content_has_key(content, &get_public_key_name_for_file(file_name))
     {
         let header = construct_env_file_header(
             &get_public_key_name_for_file(file_name),
@@ -532,6 +532,27 @@ pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &
     } else {
         fs::write(&env_file, format!("{content}\n")).unwrap();
     }
+}
+
+/// 判断一行是否定义了 `key`（精确匹配 key 名，允许 `export ` 前缀和 `=` 两侧空白）
+pub fn line_has_key(line: &str, key: &str) -> bool {
+    let l = line.trim_start();
+    let l = l.strip_prefix("export ").unwrap_or(l).trim_start();
+    l.strip_prefix(key)
+        .is_some_and(|rest| rest.trim_start().starts_with('='))
+}
+
+/// 判断文本中是否有某一行定义了 `key`
+pub fn content_has_key(content: &str, key: &str) -> bool {
+    content.lines().any(|line| line_has_key(line, key))
+}
+
+/// 读取 `key` 对应的值（去掉两侧引号），不存在返回 None
+fn get_key_value_in_content(content: &str, key: &str) -> Option<String> {
+    content.lines().find(|line| line_has_key(line, key)).map(|line| {
+        let value = line.split_once('=').map(|(_, v)| v).unwrap_or("").trim();
+        value.trim_matches(|c| c == '"' || c == '\'').to_string()
+    })
 }
 
 pub fn construct_env_file_header(
@@ -581,15 +602,16 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
         return Ok(());
     } else {
         let env_file_content = fs::read_to_string(&env_file).unwrap();
-        if !env_file_content.contains(&env_pub_key_name) {
+        let existing_public_key = get_key_value_in_content(&env_file_content, &env_pub_key_name);
+        if existing_public_key.is_none() {
             let file_content = format!("{}\n{}", header_text.trim(), env_file_content);
             fs::write(&env_file, file_content.as_bytes())?;
             println!("{}", format!("✔ public key added in {file_name}").green());
-        } else if !env_file_content.contains(public_key) {
+        } else if existing_public_key.as_deref() != Some(public_key) {
             // update existing public key
             let mut new_content = String::new();
             for line in env_file_content.lines() {
-                if line.starts_with(&env_pub_key_name) {
+                if line_has_key(line, &env_pub_key_name) {
                     new_content.push_str(&format!("{env_pub_key_name}=\"{public_key}\"\n"));
                 } else {
                     new_content.push_str(line);
@@ -654,8 +676,9 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
         append_to_ignores(KEYS_FILE_NAME);
     } else {
         let env_keys_content = fs::read_to_string(&env_keys_file).unwrap();
+        let existing_private_key = get_key_value_in_content(&env_keys_content, private_key_name);
         // no key in the file, we add it
-        if !env_keys_content.contains(private_key_name) {
+        if existing_private_key.is_none() {
             let new_content = format!(
                 "{}\n{}=\"{}\"\n",
                 env_keys_content.trim(),
@@ -667,11 +690,11 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
                 "{}",
                 format!("✔ private key({private_key_short}...) added in {file_name}").green()
             );
-        } else if !env_keys_content.contains(private_key_value) {
+        } else if existing_private_key.as_deref() != Some(private_key_value.as_str()) {
             // update existing private key
             let mut new_content = String::new();
             for line in env_keys_content.lines() {
-                if line.starts_with(&format!("{private_key_name}=")) {
+                if line_has_key(line, private_key_name) {
                     new_content.push_str(&format!("{private_key_name}=\"{private_key_value}\"\n"));
                 } else {
                     new_content.push_str(line);
@@ -938,6 +961,56 @@ pub fn is_valid_env_key(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_line_has_key_exact_match() {
+        assert!(line_has_key("DOTENV_PUBLIC_KEY=\"abc\"", "DOTENV_PUBLIC_KEY"));
+        assert!(line_has_key("  export KEY = 1", "KEY"));
+        assert!(!line_has_key("DOTENV_PUBLIC_KEY_PROD=\"abc\"", "DOTENV_PUBLIC_KEY"));
+        assert!(!line_has_key("MY_KEY=1", "KEY"));
+        assert!(!line_has_key("# KEY=1", "KEY"));
+        assert!(content_has_key("A=1\nKEY=2\n", "KEY"));
+        assert!(!content_has_key("MY_KEY=1\nKEY_2=2\n", "KEY"));
+    }
+
+    #[test]
+    fn test_write_public_key_keeps_profile_key() {
+        let dir = std::env::temp_dir().join(format!("dotenvx_pk_test_{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(&dir).unwrap();
+        let env_file = dir.join(".env");
+        fs::write(&env_file, "DOTENV_PUBLIC_KEY_PROD=\"prod_pub\"\nA=1\n").unwrap();
+        write_public_key_to_file(&env_file, "default_pub").unwrap();
+        let content = fs::read_to_string(&env_file).unwrap();
+        assert!(content.contains("DOTENV_PUBLIC_KEY_PROD=\"prod_pub\""));
+        assert!(content.contains("DOTENV_PUBLIC_KEY=\"default_pub\""));
+        // update the default key, profile key stays
+        write_public_key_to_file(&env_file, "default_pub2").unwrap();
+        let content = fs::read_to_string(&env_file).unwrap();
+        assert!(content.contains("DOTENV_PUBLIC_KEY_PROD=\"prod_pub\""));
+        assert!(content.contains("DOTENV_PUBLIC_KEY=\"default_pub2\""));
+        assert!(!content.contains("default_pub\""));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_write_private_key_with_profile_key_present() {
+        // write_private_key_to_file also writes the global key store, only run when isolated
+        if std::env::var("DOTENVX_DIR").is_err() {
+            eprintln!("skip: DOTENVX_DIR not set");
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("dotenvx_sk_test_{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(&dir).unwrap();
+        let keys_file = dir.join(".env.keys");
+        fs::write(&keys_file, "DOTENV_PRIVATE_KEY_PROD=\"prod_sk\"\n").unwrap();
+        let mut key_pair = KeyPair::new("default_pub_test", "default_sk_test", &None);
+        key_pair.path = Some(dir.to_string_lossy().to_string());
+        write_private_key_to_file(&keys_file, "DOTENV_PRIVATE_KEY", &key_pair).unwrap();
+        let content = fs::read_to_string(&keys_file).unwrap();
+        assert!(content.contains("DOTENV_PRIVATE_KEY_PROD=\"prod_sk\""));
+        assert!(content.contains("DOTENV_PRIVATE_KEY=\"default_sk_test\""));
+        fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[cfg(unix)]
     #[test]
