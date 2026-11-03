@@ -72,7 +72,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             println!("{}", format!("✔ no changes ({env_file})").green());
         } else {
             let new_content = add_or_replace_signature(&env_file, &file_content).unwrap();
-            fs::write(&env_file_path, new_content.as_bytes()).unwrap();
+            crate::commands::write_env_file(&env_file_path, new_content.as_bytes()).unwrap();
             println!("{}", format!("✔ sign added for ({env_file})").green());
         }
     } else {
@@ -95,7 +95,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             } else {
                 signed + "\n"
             };
-            fs::write(&env_file_path, signed.as_bytes()).unwrap();
+            crate::commands::write_env_file(&env_file_path, signed.as_bytes()).unwrap();
         } else {
             update_env_file(&env_file, &public_key, &new_file_content);
         }

@@ -318,11 +318,47 @@ fn decrypt_legacy_bytes(encrypted: &[u8], password: &str) -> anyhow::Result<Vec<
 
 /// Write `bytes` to `path` atomically: write a 0600 `<path>.tmp` in the same directory,
 /// fsync it, then rename it over `path`. A crash never leaves a half-written `path`.
+/// For files holding secrets (private keys, decrypted plaintext): the result is always 0600.
 pub fn write_file_atomic<P: AsRef<Path>>(path: P, bytes: &[u8]) -> anyhow::Result<()> {
-    let path = path.as_ref();
+    let path = resolve_symlink(path.as_ref());
+    replace_atomically(&path, bytes, 0o600, false)?;
+    crate::commands::restrict_file_permissions(&path);
+    Ok(())
+}
+
+/// Write `bytes` to `path` atomically like [`write_file_atomic`], for files that are not
+/// secret (env files holding ciphertext, signatures): an existing file keeps its permissions,
+/// a new file is created with the default permissions (0666 minus umask).
+pub fn write_file_atomic_keep_mode<P: AsRef<Path>>(path: P, bytes: &[u8]) -> anyhow::Result<()> {
+    let path = resolve_symlink(path.as_ref());
+    replace_atomically(&path, bytes, 0o666, true)
+}
+
+/// Write through a symlink (e.g. `.env -> ../shared/.env`) instead of replacing the link itself.
+fn resolve_symlink(path: &Path) -> std::path::PathBuf {
+    match fs::symlink_metadata(path) {
+        Ok(meta) if meta.file_type().is_symlink() => {
+            fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+        }
+        _ => path.to_path_buf(),
+    }
+}
+
+fn replace_atomically(
+    path: &Path,
+    bytes: &[u8],
+    new_file_mode: u32,
+    keep_mode: bool,
+) -> anyhow::Result<()> {
     let tmp_path = tmp_path_of(path);
     let result = (|| -> anyhow::Result<()> {
-        write_and_sync(&tmp_path, bytes)?;
+        write_and_sync_with_mode(&tmp_path, bytes, new_file_mode)?;
+        #[cfg(unix)]
+        if let (true, Ok(meta)) = (keep_mode, fs::metadata(path)) {
+            fs::set_permissions(&tmp_path, meta.permissions())?;
+        }
+        #[cfg(not(unix))]
+        let _ = keep_mode;
         fs::rename(&tmp_path, path)?;
         sync_parent_dir(path);
         Ok(())
@@ -330,9 +366,7 @@ pub fn write_file_atomic<P: AsRef<Path>>(path: P, bytes: &[u8]) -> anyhow::Resul
     if result.is_err() {
         let _ = fs::remove_file(&tmp_path);
     }
-    result?;
-    crate::commands::restrict_file_permissions(path);
-    Ok(())
+    result
 }
 
 /// Encrypt `plain_bytes` into `output_file` safely: the ciphertext is written to
@@ -393,15 +427,24 @@ fn tmp_path_of(path: &Path) -> std::path::PathBuf {
     path.with_file_name(name)
 }
 
-/// Create (or truncate) `path` as owner-only, write `bytes` and fsync.
+/// Create `path` as owner-only, write `bytes` and fsync.
 fn write_and_sync(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+    write_and_sync_with_mode(path, bytes, 0o600)
+}
+
+/// Create `path` with `mode` (Unix, subject to umask), write `bytes` and fsync.
+/// A leftover file from an interrupted write is removed first, so `mode` always applies.
+fn write_and_sync_with_mode(path: &Path, bytes: &[u8], mode: u32) -> anyhow::Result<()> {
+    let _ = fs::remove_file(path);
     let mut options = fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
+    options.write(true).create_new(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
+        options.mode(mode);
     }
+    #[cfg(not(unix))]
+    let _ = mode;
     let mut file: File = options.open(path)?;
     file.write_all(bytes)?;
     file.sync_all()?;
@@ -442,6 +485,50 @@ pub fn generate_totp_password(totp_url: &str) -> anyhow::Result<String> {
 mod tests {
     use super::*;
     use testresult::TestResult;
+
+    #[cfg(unix)]
+    fn mode_of(path: &Path) -> u32 {
+        use std::os::unix::fs::PermissionsExt;
+        fs::metadata(path).unwrap().permissions().mode() & 0o777
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_write_file_atomic_keep_mode() -> TestResult {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir()?;
+        let env_file = dir.path().join(".env");
+        fs::write(&env_file, "A=1\n")?;
+        fs::set_permissions(&env_file, fs::Permissions::from_mode(0o640))?;
+        // a leftover tmp from an interrupted write must not break the next write
+        fs::write(dir.path().join(".env.tmp"), "garbage")?;
+        write_file_atomic_keep_mode(&env_file, b"A=2\n")?;
+        assert_eq!(fs::read_to_string(&env_file)?, "A=2\n");
+        assert_eq!(mode_of(&env_file), 0o640);
+        assert!(!dir.path().join(".env.tmp").exists());
+        // new file: default permissions, not 0600
+        let new_file = dir.path().join(".env.prod");
+        write_file_atomic_keep_mode(&new_file, b"B=1\n")?;
+        assert_eq!(fs::read_to_string(&new_file)?, "B=1\n");
+        assert_ne!(mode_of(&new_file), 0o600);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_write_file_atomic_private_and_symlink() -> TestResult {
+        let dir = tempfile::tempdir()?;
+        let real = dir.path().join("shared.keys");
+        fs::write(&real, "old")?;
+        let link = dir.path().join(".env.keys");
+        std::os::unix::fs::symlink(&real, &link)?;
+        write_file_atomic(&link, b"DOTENV_PRIVATE_KEY=\"k\"\n")?;
+        // the link is kept and the target is updated as 0600
+        assert!(fs::symlink_metadata(&link)?.file_type().is_symlink());
+        assert_eq!(fs::read_to_string(&real)?, "DOTENV_PRIVATE_KEY=\"k\"\n");
+        assert_eq!(mode_of(&real), 0o600);
+        Ok(())
+    }
 
     #[test]
     fn test_signature_and_verify() {

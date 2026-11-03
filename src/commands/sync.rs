@@ -202,7 +202,7 @@ fn sync_to_new_target(source: &str, target: &str) {
             .green()
         );
     }
-    if let Err(e) = fs::write(target_file_path, new_content.as_bytes()) {
+    if let Err(e) = crate::commands::write_env_file(target_file_path, new_content.as_bytes()) {
         fail(format!("failed to write {target}: {e}"));
     }
     println!(
@@ -306,7 +306,7 @@ fn sync_to_existing_target(source: &str, target: &str) {
         "{target_file_content}{separator}{}\n",
         absent_variables.join("\n")
     );
-    if let Err(e) = fs::write(target, new_content.as_bytes()) {
+    if let Err(e) = crate::commands::write_env_file(target, new_content.as_bytes()) {
         fail(format!("failed to write {target}: {e}"));
     }
     resign_env_file_if_signed(target, &target_file_content);

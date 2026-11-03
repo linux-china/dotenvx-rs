@@ -101,23 +101,16 @@ pub fn restrict_file_permissions<P: AsRef<Path>>(path: P) {
 }
 
 /// Write a file holding secrets (private keys, decrypted plaintext) without ever exposing it
-/// to other users: a new file is created as 0600 directly (not umask-default then chmod), and
-/// an existing file is restricted to 0600 BEFORE the new content is written.
+/// to other users, atomically: the content goes to a new 0600 `<path>.tmp`, is fsynced and then
+/// renamed over `path`, so an interruption never leaves an empty or half-written file (see review #7).
 pub fn write_private_file<P: AsRef<Path>>(path: P, bytes: &[u8]) -> io::Result<()> {
-    let path = path.as_ref();
-    if path.exists() {
-        restrict_file_permissions(path);
-    }
-    let mut options = fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(path)?;
-    io::Write::write_all(&mut file, bytes)?;
-    Ok(())
+    crypt_util::write_file_atomic(path, bytes).map_err(io::Error::other)
+}
+
+/// Rewrite an env file (ciphertext, public keys, signatures) atomically, keeping the existing
+/// file's permissions: an interruption never leaves an empty or half-written env file.
+pub fn write_env_file<P: AsRef<Path>>(path: P, bytes: impl AsRef<[u8]>) -> io::Result<()> {
+    crypt_util::write_file_atomic_keep_mode(path, bytes.as_ref()).map_err(io::Error::other)
 }
 
 pub fn write_key_pair(key_pair: &KeyPair) -> anyhow::Result<()> {
@@ -554,7 +547,7 @@ pub fn create_env_file<P: AsRef<Path>>(
         let file_content = fs::read_to_string(&env_file).unwrap();
         if !content_has_key(&file_content, &env_pub_key_name) {
             let file_content = format!("{}\n{}", header_text.trim(), file_content);
-            fs::write(&env_file, file_content.as_bytes()).unwrap();
+            write_env_file(&env_file, file_content.as_bytes()).unwrap();
             println!(
                 "{}",
                 format!("✔ A new public key added in {file_name} file").green()
@@ -573,9 +566,9 @@ pub fn create_env_file<P: AsRef<Path>>(
             }
         }
         if file_content.ends_with("\n") {
-            fs::write(&env_file, file_content.trim_start().as_bytes()).unwrap();
+            write_env_file(&env_file, file_content.trim_start().as_bytes()).unwrap();
         } else {
-            fs::write(
+            write_env_file(
                 &env_file,
                 format!("{}\n", file_content.trim_start()).as_bytes(),
             )
@@ -596,11 +589,11 @@ pub fn update_env_file<P: AsRef<Path>>(env_file: P, public_key: &str, content: &
             &None,
         );
         let new_content = format!("{}\n{}\n", header.trim(), content.trim());
-        fs::write(&env_file, new_content).unwrap();
+        write_env_file(&env_file, new_content).unwrap();
     } else if content.ends_with("\n") {
-        fs::write(&env_file, content).unwrap();
+        write_env_file(&env_file, content).unwrap();
     } else {
-        fs::write(&env_file, format!("{content}\n")).unwrap();
+        write_env_file(&env_file, format!("{content}\n")).unwrap();
     }
 }
 
@@ -830,7 +823,7 @@ pub fn resign_env_file_if_signed(env_file: &str, original_content: &str) {
             } else {
                 format!("{signed}\n")
             };
-            fs::write(env_file, signed).map_err(|e| e.into())
+            write_env_file(env_file, signed).map_err(|e| e.into())
         });
     match result {
         Ok(()) => println!("{}", format!("✔ signature updated ({env_file})").green()),
@@ -894,7 +887,7 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
     let header_text = construct_env_file_header(&env_pub_key_name, public_key, &None, &None);
     // file does not exist, and we create it
     if !env_file.as_ref().exists() {
-        fs::write(&env_file, header_text.trim_start().as_bytes())?;
+        write_env_file(&env_file, header_text.trim_start().as_bytes())?;
         println!(
             "{}",
             format!("✔ {file_name} file created with the public key").green()
@@ -905,7 +898,7 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
         let existing_public_key = get_key_value_in_content(&env_file_content, &env_pub_key_name);
         if existing_public_key.is_none() {
             let file_content = format!("{}\n{}", header_text.trim(), env_file_content);
-            fs::write(&env_file, file_content.as_bytes())?;
+            write_env_file(&env_file, file_content.as_bytes())?;
             println!("{}", format!("✔ public key added in {file_name}").green());
         } else if existing_public_key.as_deref() != Some(public_key) {
             // update existing public key
@@ -918,7 +911,7 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
                     new_content.push('\n');
                 }
             }
-            fs::write(&env_file, new_content.as_bytes())?;
+            write_env_file(&env_file, new_content.as_bytes())?;
             println!(
                 "{}",
                 format!("✔ public key({public_key_short}...) updated in {file_name}").green()

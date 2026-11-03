@@ -31,7 +31,7 @@ pub fn del_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
     }
     if let Some(new_content) = remove_key_entries(&env_file_content, &env_file, &key) {
-        if let Err(e) = fs::write(&env_file, new_content) {
+        if let Err(e) = crate::commands::write_env_file(&env_file, new_content) {
             eprintln!("Error: failed to write {env_file}: {e}");
             std::process::exit(1);
         }
