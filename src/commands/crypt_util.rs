@@ -133,9 +133,7 @@ pub fn sign_message(private_key: &str, message: &str) -> anyhow::Result<String> 
     let sk_bytes = hex::decode(check_sk_hex(private_key))?;
     let signing_key = SigningKey::from_slice(&sk_bytes)
         .map_err(|_| anyhow::anyhow!("Invalid private key format"))?;
-    let (signature, _) = signing_key
-        .sign_prehash_recoverable(&message_hash)
-        .map_err(|e| anyhow::anyhow!("Failed to sign message: {e}"))?;
+    let (signature, _) = signing_key.sign_prehash_recoverable(&message_hash);
     Ok(Base64::encode_string(&signature.to_bytes()))
 }
 
@@ -149,9 +147,7 @@ pub fn sign_message_bytes(private_key: &str, message: &str) -> anyhow::Result<Ve
     let sk_bytes = hex::decode(check_sk_hex(private_key))?;
     let signing_key = SigningKey::from_slice(&sk_bytes)
         .map_err(|_| anyhow::anyhow!("Invalid private key format"))?;
-    let (signature, _) = signing_key
-        .sign_prehash_recoverable(&message_hash)
-        .map_err(|e| anyhow::anyhow!("Failed to sign message: {e}"))?;
+    let (signature, _) = signing_key.sign_prehash_recoverable(&message_hash);
     Ok(signature.to_bytes().to_vec())
 }
 
