@@ -10,7 +10,7 @@ use clap::ArgMatches;
 use colored_json::Paint;
 use glob::Pattern;
 use java_properties::PropertiesIter;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
@@ -28,11 +28,10 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         write_public_key_to_file(&env_file_path, &public_key).unwrap();
         return;
     }
-    let mut is_changed = false;
     let file_content = fs::read_to_string(&env_file_path).unwrap();
     // resolve the public key only once for the whole command
     let public_key = get_or_create_public_key_for_file(&env_file).unwrap();
-    let mut entries = match encrypt_env_entries(&env_file, &public_key) {
+    let entries = match encrypt_env_entries(&env_file, &public_key) {
         Ok(entries) => entries,
         Err(e) => {
             eprintln!("Error: failed to parse {env_file}: {e}");
@@ -40,49 +39,14 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
     };
     let mut hint = format!(".env file({env_file})");
-    if let Some(keys) = env_keys {
-        let patterns: Vec<Pattern> = keys
-            .map(|x| adjust_env_key(x, &env_file))
-            .map(|x| Pattern::new(&x).unwrap())
-            .collect();
-        entries.retain(|key, _| patterns.iter().any(|pattern| pattern.matches(key)));
+    let patterns: Option<Vec<Pattern>> = env_keys.map(|keys| {
         hint = format!("keys in .env file: {env_file}");
-    }
-    // only entries encrypted by this run are rewritten, every other line is kept verbatim (review #1)
-    let is_properties = env_file.ends_with(".properties");
-    let lines: Vec<&str> = file_content.lines().collect();
-    let mut new_lines: Vec<String> = Vec::new();
-    let mut i = 0;
-    while i < lines.len() {
-        let line = lines[i];
-        let assignment = split_assignment(&env_file, line);
-        let line_count = if assignment.is_some() {
-            entry_line_count(&env_file, &lines, i)
-        } else {
-            1
-        };
-        let replacement = assignment.and_then(|(prefix, key, value_text)| {
-            if is_public_key_name(key) || is_encrypted_value_text(value_text) {
-                return None;
-            }
-            let encrypted = entries.get(key).filter(|v| v.starts_with("encrypted:"))?;
-            Some(if is_properties {
-                format!("{prefix}{key}={encrypted}")
-            } else {
-                format!("{prefix}{key}=\"{encrypted}\"")
-            })
-        });
-        if let Some(new_line) = replacement {
-            new_lines.push(new_line);
-            is_changed = true;
-            i += line_count;
-        } else {
-            // keep the whole entry, continuation lines of a multi-line value included
-            let end = (i + line_count).min(lines.len());
-            new_lines.extend(lines[i..end].iter().map(|l| l.to_string()));
-            i = end;
-        }
-    }
+        keys.map(|x| adjust_env_key(x, &env_file))
+            .map(|x| Pattern::new(&x).unwrap())
+            .collect()
+    });
+    let (new_lines, is_changed) =
+        encrypt_content(&env_file, &file_content, entries, patterns.as_deref());
     if is_stdout {
         let new_content = new_lines.join("\n");
         if is_sign_required {
@@ -135,6 +99,99 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     }
 }
 
+/// Replace every assignment of `file_content` whose value was encrypted by this run, keep every
+/// other line verbatim (review #1). `entries` are the parsed entries in file order, duplicates
+/// included: each occurrence of a key gets the encrypted text of its own value, not the last one
+/// (review #15). Returns the new lines and whether anything changed.
+fn encrypt_content(
+    env_file: &str,
+    file_content: &str,
+    entries: Vec<(String, String)>,
+    patterns: Option<&[Pattern]>,
+) -> (Vec<String>, bool) {
+    let mut values: HashMap<String, VecDeque<String>> = HashMap::new();
+    for (key, value) in entries {
+        values.entry(key).or_default().push_back(value);
+    }
+    let is_properties = env_file.ends_with(".properties");
+    let lines: Vec<&str> = file_content.lines().collect();
+    let mut new_lines: Vec<String> = Vec::new();
+    let mut is_changed = false;
+    let mut i = 0;
+    while i < lines.len() {
+        let assignment = split_assignment(env_file, lines[i]);
+        let line_count = if assignment.is_some() {
+            entry_line_count(env_file, &lines, i)
+        } else {
+            1
+        };
+        let end = (i + line_count).min(lines.len());
+        let replacement = assignment.and_then(|(prefix, key, value_text)| {
+            // consume this occurrence's value even when the line is kept, so that later
+            // occurrences of the same key stay aligned with the parser
+            let encrypted = values.get_mut(key).and_then(VecDeque::pop_front)?;
+            if is_public_key_name(key)
+                || is_encrypted_value_text(value_text)
+                || !encrypted.starts_with("encrypted:")
+                || patterns.is_some_and(|ps| !ps.iter().any(|p| p.matches(key)))
+            {
+                return None;
+            }
+            if is_properties {
+                return Some(format!("{prefix}{key}={encrypted}"));
+            }
+            // keep the trailing inline comment, which may sit on the last line of a multi-line value
+            let mut entry_value = value_text.to_string();
+            for line in &lines[i + 1..end] {
+                entry_value.push('\n');
+                entry_value.push_str(line);
+            }
+            Some(match inline_comment(&entry_value) {
+                Some(comment) => format!("{prefix}{key}=\"{encrypted}\" {comment}"),
+                None => format!("{prefix}{key}=\"{encrypted}\""),
+            })
+        });
+        if let Some(new_line) = replacement {
+            new_lines.push(new_line);
+            is_changed = true;
+        } else {
+            // keep the whole entry, continuation lines of a multi-line value included
+            new_lines.extend(lines[i..end].iter().map(|l| l.to_string()));
+        }
+        i = end;
+    }
+    (new_lines, is_changed)
+}
+
+/// The trailing inline comment (`# note`) of a .env entry, `value_text` is the raw text after `=`.
+fn inline_comment(value_text: &str) -> Option<&str> {
+    let rest = match value_text.chars().next() {
+        Some(quote @ ('"' | '\'')) => {
+            let mut chars = value_text.char_indices().skip(1);
+            let mut end = None;
+            while let Some((idx, c)) = chars.next() {
+                if c == '\\' && quote == '"' {
+                    chars.next();
+                } else if c == quote {
+                    end = Some(idx + 1);
+                    break;
+                }
+            }
+            &value_text[end?..]
+        }
+        // an unquoted value ends at the first `#` that follows a whitespace
+        _ => {
+            let start = value_text
+                .char_indices()
+                .find(|&(idx, c)| c == '#' && value_text[..idx].ends_with(char::is_whitespace))?
+                .0;
+            &value_text[start..]
+        }
+    };
+    let comment = rest.trim();
+    comment.starts_with('#').then_some(comment)
+}
+
 /// Sign `env_file_content` with the private key that matches `env_file` (resolved by the file name,
 /// not by the CLI `-p` profile), see review #6.
 pub fn add_or_replace_signature(
@@ -148,8 +205,9 @@ pub fn add_or_replace_signature(
 pub fn encrypt_env_entries(
     env_file: &str,
     public_key: &str,
-) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-    let mut entries: HashMap<String, String> = HashMap::new();
+) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
+    // in file order, duplicated keys included (review #15)
+    let mut entries: Vec<(String, String)> = Vec::new();
     if env_file.ends_with(".properties") {
         let encrypted_patterns = [
             "password",
@@ -174,12 +232,12 @@ pub fn encrypt_env_entries(
                     .any(|pattern| key.contains(pattern))
                 {
                     let encrypted_text = encrypt_env_item(public_key, &value).unwrap();
-                    entries.insert(key, encrypted_text);
+                    entries.push((key, encrypted_text));
                 } else {
-                    entries.insert(key, value);
+                    entries.push((key, value));
                 }
             } else {
-                entries.insert(key, value);
+                entries.push((key, value));
             }
         })?;
     } else {
@@ -188,9 +246,9 @@ pub fn encrypt_env_entries(
             // encrypt the value if it is not already encrypted or key contains _PLAIN
             if !key.contains("_PLAIN") && !value.starts_with("encrypted:") {
                 let encrypted_text = encrypt_env_item(public_key, value)?;
-                entries.insert(key.clone(), encrypted_text);
+                entries.push((key.clone(), encrypted_text));
             } else {
-                entries.insert(key.clone(), value.clone());
+                entries.push((key.clone(), value.clone()));
             }
         }
     }
@@ -214,7 +272,10 @@ mod tests {
             format!("API_TOKEN=s3cr3t\nAPP_NAME=demo\nHOST_PLAIN=localhost\nOLD=\"{already}\"\n"),
         )
         .unwrap();
-        let entries = encrypt_env_entries(env_file.to_str().unwrap(), &pk).unwrap();
+        let entries: HashMap<_, _> = encrypt_env_entries(env_file.to_str().unwrap(), &pk)
+            .unwrap()
+            .into_iter()
+            .collect();
         // every value of a .env file is encrypted, except `_PLAIN` keys
         for (key, plain) in [("API_TOKEN", "s3cr3t"), ("APP_NAME", "demo")] {
             let encrypted = &entries[key];
@@ -237,7 +298,10 @@ mod tests {
             "server.port=8080\ndb.password=secret1\napi.token: token1\n",
         )
         .unwrap();
-        let entries = encrypt_env_entries(env_file.to_str().unwrap(), &pk).unwrap();
+        let entries: HashMap<_, _> = encrypt_env_entries(env_file.to_str().unwrap(), &pk)
+            .unwrap()
+            .into_iter()
+            .collect();
         assert_eq!(entries["server.port"], "8080");
         assert_eq!(
             decrypt_env_item(&sk, &entries["db.password"]).unwrap(),
@@ -247,6 +311,72 @@ mod tests {
             decrypt_env_item(&sk, &entries["api.token"]).unwrap(),
             "token1"
         );
+    }
+
+    fn decrypted_lines(sk: &str, lines: &[String]) -> Vec<String> {
+        lines
+            .iter()
+            .map(|line| match line.split_once("\"encrypted:") {
+                Some((head, rest)) => {
+                    let (token, tail) = rest.split_once('"').unwrap();
+                    let plain = decrypt_env_item(sk, &format!("encrypted:{token}")).unwrap();
+                    format!("{head}<{plain}>{tail}")
+                }
+                None => line.clone(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_encrypt_content_duplicated_keys_and_inline_comments() {
+        let kp = EcKeyPair::generate();
+        let (pk, sk) = (kp.get_pk_hex(), kp.get_sk_hex());
+        let dir = tempfile::tempdir().unwrap();
+        let env_file = dir.path().join(".env");
+        let content = "X=first\nX=second # note\nexport Q=\"a #b\" # quoted\nM=\"l1\nl2\" # multi\nX=third\n";
+        fs::write(&env_file, content).unwrap();
+        let env_file = env_file.to_str().unwrap();
+        let entries = encrypt_env_entries(env_file, &pk).unwrap();
+        let (lines, changed) = encrypt_content(env_file, content, entries, None);
+        assert!(changed);
+        assert_eq!(
+            decrypted_lines(&sk, &lines),
+            vec![
+                "X=<first>",
+                "X=<second> # note",
+                "export Q=<a #b> # quoted",
+                "M=<l1\nl2> # multi",
+                "X=<third>",
+            ]
+        );
+    }
+
+    #[test]
+    fn test_encrypt_content_key_filter_keeps_alignment() {
+        let kp = EcKeyPair::generate();
+        let (pk, sk) = (kp.get_pk_hex(), kp.get_sk_hex());
+        let dir = tempfile::tempdir().unwrap();
+        let env_file = dir.path().join(".env");
+        let already = encrypt_env_item(&pk, "old").unwrap();
+        let content = format!("A=\"{already}\"\nB=1\nA=new\n");
+        fs::write(&env_file, &content).unwrap();
+        let env_file = env_file.to_str().unwrap();
+        let entries = encrypt_env_entries(env_file, &pk).unwrap();
+        let patterns = [Pattern::new("A").unwrap()];
+        let (lines, _) = encrypt_content(env_file, &content, entries, Some(&patterns));
+        assert_eq!(
+            decrypted_lines(&sk, &lines),
+            vec!["A=<old>", "B=1", "A=<new>"]
+        );
+    }
+
+    #[test]
+    fn test_inline_comment() {
+        assert_eq!(inline_comment("value # note"), Some("# note"));
+        assert_eq!(inline_comment("value#not"), None);
+        assert_eq!(inline_comment("\"a \\\" # b\" # c"), Some("# c"));
+        assert_eq!(inline_comment("'a # b'"), None);
+        assert_eq!(inline_comment("plain"), None);
     }
 
     #[test]
