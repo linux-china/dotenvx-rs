@@ -2,8 +2,8 @@ use crate::commands::framework::detect_framework;
 use crate::commands::model::KeyPair;
 use crate::commands::{
     EcKeyPair, KEYS_FILE_NAME, create_env_file, get_dotenvx_home, get_env_file_arg,
-    get_private_key_name, get_private_key_name_for_file, is_public_key_included, write_key_pair,
-    write_key_pairs, write_private_key_to_file,
+    get_private_key_name, get_private_key_name_for_file, is_public_key_included,
+    private_key_exists_in_file, write_key_pair, write_key_pairs, write_private_key_to_file,
 };
 use clap::ArgMatches;
 use colored::Colorize;
@@ -43,6 +43,18 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
             pair = format!("{}=\"{}\"", "key1", "value1");
         }
     }
+    // `sub/.env`, `app.env`, `configs/.env` all map to `DOTENV_PRIVATE_KEY`: never replace an existing key (review #1)
+    let private_key_name = get_private_key_name_for_file(&env_file);
+    if private_key_exists_in_file(KEYS_FILE_NAME, &private_key_name) {
+        eprintln!(
+            "{}",
+            format!(
+                "{private_key_name} already exists in {KEYS_FILE_NAME}, refusing to overwrite it. Please use another env file name or run init in the directory of {env_file}."
+            )
+            .red()
+        );
+        std::process::exit(1);
+    }
     create_env_file(&env_file, &public_key, Some(&pair), &group_arg, &name_arg);
     let env_file_path = PathBuf::from(&env_file)
         .canonicalize()
@@ -58,8 +70,15 @@ pub fn init_command(command_matches: &ArgMatches, profile: &Option<String>) {
     );
     key_pair.path = Some(env_file_path);
     if PathBuf::from(KEYS_FILE_NAME).exists() {
-        let private_key_name = get_private_key_name_for_file(&env_file);
-        write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
+        if let Err(e) =
+            write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair, false)
+        {
+            eprintln!(
+                "{}",
+                format!("Failed to write private key to {KEYS_FILE_NAME}: {e}").red()
+            );
+            std::process::exit(1);
+        }
     } else {
         // write to global .env.keys.json file, no local .env.key file generated
         write_key_pair(&key_pair).unwrap();

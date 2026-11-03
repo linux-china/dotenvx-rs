@@ -4,7 +4,7 @@ use crate::commands::model::KeyPair;
 use crate::commands::{
     KEYS_FILE_NAME, construct_env_file_header, dotenv_double_quote, get_dotenvx_home,
     get_private_key_name_for_file, get_public_key_for_file, get_public_key_name_for_file,
-    is_sensitive_key, write_key_pair, write_private_key_to_file,
+    is_sensitive_key, private_key_exists_in_file, write_key_pair, write_private_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
@@ -31,6 +31,14 @@ pub fn sync_command(command_matches: &ArgMatches) {
     }
     let target_file_exists = target_file_path.exists();
     if !target_file_exists {
+        // `sub/.env` maps to `DOTENV_PRIVATE_KEY` too: never replace an existing key (review #1)
+        let private_key_name = get_private_key_name_for_file(&target);
+        if private_key_exists_in_file(KEYS_FILE_NAME, &private_key_name) {
+            eprintln!(
+                "{private_key_name} already exists in {KEYS_FILE_NAME}, refusing to overwrite it. Please use another target file name or run sync in the directory of {target}."
+            );
+            std::process::exit(1);
+        }
         // create target env file if it does not exist
         let kp = EcKeyPair::generate();
         let new_public_key = kp.get_pk_hex();
@@ -87,8 +95,12 @@ pub fn sync_command(command_matches: &ArgMatches) {
         key_pair.path = Some(absolute_path.to_string_lossy().to_string());
         if PathBuf::from(KEYS_FILE_NAME).exists() {
             // local .env.keys
-            let private_key_name = get_private_key_name_for_file(&target);
-            write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair).unwrap();
+            if let Err(e) =
+                write_private_key_to_file(KEYS_FILE_NAME, &private_key_name, &key_pair, false)
+            {
+                eprintln!("Failed to write private key to {KEYS_FILE_NAME}: {e}");
+                std::process::exit(1);
+            }
         } else {
             // global key store
             write_key_pair(&key_pair).unwrap();

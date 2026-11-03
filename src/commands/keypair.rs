@@ -76,7 +76,9 @@ pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
             eprintln!("Failed to write public key to {env_file}: {e}");
             std::process::exit(1);
         }
-        if let Err(e) = write_private_key_to_file(&keys_file, &env_private_key_name, &key_pair) {
+        if let Err(e) =
+            write_private_key_to_file(&keys_file, &env_private_key_name, &key_pair, false)
+        {
             eprintln!(
                 "Failed to write private key to {}: {e}",
                 keys_file.display()

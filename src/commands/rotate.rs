@@ -81,7 +81,7 @@ fn rotate_env_file(env_file: &str, profile: &Option<String>) -> Result<(), Strin
     let private_key_name = get_private_key_name_for_file(env_file);
     let keys_files = keys_files_to_update(env_file, &private_key_name, old_private_key.as_deref());
     for keys_file in &keys_files {
-        if let Err(e) = write_private_key_to_file(keys_file, &private_key_name, &key_pair) {
+        if let Err(e) = write_private_key_to_file(keys_file, &private_key_name, &key_pair, true) {
             // the new key is already in the global key store, decryption still works
             eprintln!(
                 "{}",

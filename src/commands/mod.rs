@@ -420,7 +420,7 @@ pub fn get_or_create_private_key(
         Some(path) if is_global_profile(profile_name) || is_in_current_dir(&path) => path,
         _ => PathBuf::from(KEYS_FILE_NAME),
     };
-    write_private_key_to_file(&file_path, &env_key_name, &key_pair)?;
+    write_private_key_to_file(&file_path, &env_key_name, &key_pair, false)?;
     // make sure the new private key is persisted, otherwise values encrypted with it can never be decrypted
     match lookup_private_key(profile_name)? {
         Some(saved_key) if saved_key == private_key_hex => Ok(saved_key),
@@ -735,7 +735,9 @@ pub fn content_has_key(content: &str, key: &str) -> bool {
 fn strip_embedded_pair_prefix<'a>(env_file: &str, line: &'a str) -> &'a str {
     let trimmed = line.trim_start();
     if env_file.ends_with(".xml") {
-        trimmed.strip_prefix("<!--").map_or(trimmed, str::trim_start)
+        trimmed
+            .strip_prefix("<!--")
+            .map_or(trimmed, str::trim_start)
     } else if env_file.ends_with(".sh") || env_file.ends_with(".toml") {
         trimmed.strip_prefix('#').map_or(trimmed, str::trim_start)
     } else {
@@ -823,9 +825,7 @@ pub fn entry_line_count(env_file: &str, lines: &[&str], start: usize) -> usize {
 pub fn split_assignment<'a>(env_file: &str, line: &'a str) -> Option<(&'a str, &'a str, &'a str)> {
     let is_properties = env_file.ends_with(".properties");
     let trimmed = line.trim_start();
-    if trimmed.is_empty()
-        || trimmed.starts_with('#')
-        || (is_properties && trimmed.starts_with('!'))
+    if trimmed.is_empty() || trimmed.starts_with('#') || (is_properties && trimmed.starts_with('!'))
     {
         return None;
     }
@@ -840,9 +840,7 @@ pub fn split_assignment<'a>(env_file: &str, line: &'a str) -> Option<(&'a str, &
     let (key, rest) = if is_properties {
         let end = body.find(['=', ':', ' ', '\t'])?;
         let rest = body[end..].trim_start();
-        let rest = rest
-            .strip_prefix(['=', ':'])
-            .map_or(rest, str::trim_start);
+        let rest = rest.strip_prefix(['=', ':']).map_or(rest, str::trim_start);
         (&body[..end], rest)
     } else {
         let (key, rest) = body.split_once('=')?;
@@ -941,15 +939,21 @@ pub fn resign_env_file_if_signed(env_file: &str, original_content: &str) {
         .map_err(|e| e.into())
         .and_then(|content| encrypt::add_or_replace_signature(env_file, &content))
         .and_then(|signed| {
-            let signed = if signed.ends_with('\n') { signed } else { format!("{signed}\n") };
+            let signed = if signed.ends_with('\n') {
+                signed
+            } else {
+                format!("{signed}\n")
+            };
             fs::write(env_file, signed).map_err(|e| e.into())
         });
     match result {
         Ok(()) => println!("{}", format!("✔ signature updated ({env_file})").green()),
         Err(e) => eprintln!(
             "{}",
-            format!("Warning: failed to re-sign {env_file}, the existing signature is now invalid: {e}")
-                .yellow()
+            format!(
+                "Warning: failed to re-sign {env_file}, the existing signature is now invalid: {e}"
+            )
+            .yellow()
         ),
     }
 }
@@ -1044,10 +1048,27 @@ pub fn write_public_key_to_file<P: AsRef<Path>>(
     Ok(())
 }
 
+/// Whether `env_keys_file` already holds a private key named `private_key_name`.
+pub fn private_key_exists_in_file<P: AsRef<Path>>(
+    env_keys_file: P,
+    private_key_name: &str,
+) -> bool {
+    fs::read_to_string(env_keys_file)
+        .ok()
+        .and_then(|content| get_key_value_in_content(&content, private_key_name))
+        .is_some_and(|value| !value.is_empty())
+}
+
+/// Write the private key to `.env.keys` and the global key store.
+///
+/// An existing private key with the same name but a different value is only replaced when
+/// `overwrite` is true (explicit commands such as `rotate`), and the old key pair is backed up
+/// to the global key store first. Otherwise an error is returned (review #1).
 pub fn write_private_key_to_file<P: AsRef<Path>>(
     env_keys_file: P,
     private_key_name: &str,
     key_pair: &KeyPair,
+    overwrite: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let keys_file_uuid = uuid::Uuid::now_v7().to_string();
     let private_key_value = &key_pair.private_key;
@@ -1101,6 +1122,23 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
                 format!("✔ private key({private_key_short}...) added in {file_name}").green()
             );
         } else if existing_private_key.as_deref() != Some(private_key_value.as_str()) {
+            if !overwrite {
+                return Err(format!(
+                    "{private_key_name} already exists in {} with a different value, refusing to overwrite it",
+                    env_keys_file.as_ref().display()
+                )
+                .into());
+            }
+            // back up the old key pair to the global key store before overwriting it
+            let old_private_key = existing_private_key.unwrap_or_default();
+            let old_pair = EcKeyPair::from_secret_key(&old_private_key).map_err(|e| {
+                format!("invalid existing {private_key_name}, refusing to overwrite it: {e}")
+            })?;
+            let mut old_key_pair =
+                KeyPair::new(&old_pair.get_pk_hex(), &old_private_key, &key_pair.profile);
+            old_key_pair.comment = Some(format!("backup of {private_key_name} before overwrite"));
+            write_key_pair(&old_key_pair)
+                .map_err(|e| format!("failed to back up the old {private_key_name}: {e}"))?;
             // update existing private key
             let mut new_content = String::new();
             for line in env_keys_content.lines() {
@@ -1407,7 +1445,10 @@ pub(crate) mod test_support {
             a == b || matches!((a.canonicalize(), b.canonicalize()), (Ok(x), Ok(y)) if x == y)
         };
         if same(&dir, &real) {
-            eprintln!("skip: DOTENVX_DIR points to the real global store {}", real.display());
+            eprintln!(
+                "skip: DOTENVX_DIR points to the real global store {}",
+                real.display()
+            );
             return None;
         }
         Some(dir)
@@ -1603,7 +1644,7 @@ mod tests {
         fs::write(&keys_file, "DOTENV_PRIVATE_KEY_PROD=\"prod_sk\"\n").unwrap();
         let mut key_pair = KeyPair::new("default_pub_test", "default_sk_test", &None);
         key_pair.path = Some(dir.to_string_lossy().to_string());
-        write_private_key_to_file(&keys_file, "DOTENV_PRIVATE_KEY", &key_pair).unwrap();
+        write_private_key_to_file(&keys_file, "DOTENV_PRIVATE_KEY", &key_pair, false).unwrap();
         let content = fs::read_to_string(&keys_file).unwrap();
         assert!(content.contains("DOTENV_PRIVATE_KEY_PROD=\"prod_sk\""));
         assert!(content.contains("DOTENV_PRIVATE_KEY=\"default_sk_test\""));
@@ -1703,6 +1744,67 @@ mod tests {
     }
 
     #[test]
+    fn test_write_private_key_refuses_to_overwrite() {
+        // write_private_key_to_file also writes the global key store, only run when isolated
+        if test_support::isolated_dotenvx_dir().is_none() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let keys_file = dir.path().join(KEYS_FILE_NAME);
+        let old = EcKeyPair::generate();
+        let old_content = format!("DOTENV_PRIVATE_KEY=\"{}\"\n", old.get_sk_hex());
+        fs::write(&keys_file, &old_content).unwrap();
+        assert!(private_key_exists_in_file(&keys_file, "DOTENV_PRIVATE_KEY"));
+        assert!(!private_key_exists_in_file(
+            &keys_file,
+            "DOTENV_PRIVATE_KEY_PROD"
+        ));
+        let new = EcKeyPair::generate();
+        let key_pair = KeyPair::new(&new.get_pk_hex(), &new.get_sk_hex(), &None);
+        let result = write_private_key_to_file(&keys_file, "DOTENV_PRIVATE_KEY", &key_pair, false);
+        assert!(result.is_err());
+        // the existing private key is untouched, and nothing went to the global store
+        assert_eq!(fs::read_to_string(&keys_file).unwrap(), old_content);
+        assert!(
+            DotenvxKeyStore::load_global()
+                .map_or(true, |store| !store.keys.contains_key(&new.get_pk_hex()))
+        );
+    }
+
+    #[test]
+    fn test_write_private_key_overwrite_backs_up_old_key() {
+        // write_private_key_to_file also writes the global key store, only run when isolated
+        if test_support::isolated_dotenvx_dir().is_none() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let keys_file = dir.path().join(KEYS_FILE_NAME);
+        let old = EcKeyPair::generate();
+        fs::write(
+            &keys_file,
+            format!("DOTENV_PRIVATE_KEY=\"{}\"\n", old.get_sk_hex()),
+        )
+        .unwrap();
+        let new = EcKeyPair::generate();
+        let key_pair = KeyPair::new(&new.get_pk_hex(), &new.get_sk_hex(), &None);
+        write_private_key_to_file(&keys_file, "DOTENV_PRIVATE_KEY", &key_pair, true).unwrap();
+        let content = fs::read_to_string(&keys_file).unwrap();
+        assert!(content.contains(&format!("DOTENV_PRIVATE_KEY=\"{}\"", new.get_sk_hex())));
+        // the old key pair is backed up, clean up both entries in the isolated store
+        let (old_found, new_found) = DotenvxKeyStore::update_global(|store| {
+            let old_found = store
+                .keys
+                .remove(&old.get_pk_hex())
+                .map(|kp| kp.private_key);
+            let new_found = store.keys.remove(&new.get_pk_hex()).is_some();
+            Ok((true, (old_found, new_found)))
+        })
+        .unwrap();
+        assert_eq!(old_found, Some(old.get_sk_hex()));
+        assert!(new_found);
+    }
+
+    #[test]
     fn test_write_private_key() {
         // write_private_key_to_file also writes the global key store, only run when isolated
         let Some(dotenvx_dir) = test_support::isolated_dotenvx_dir() else {
@@ -1714,9 +1816,12 @@ mod tests {
         fs::write(&keys_file, "# keys\n").unwrap();
         let pair = EcKeyPair::generate();
         let key_pair = KeyPair::new(&pair.get_pk_hex(), &pair.get_sk_hex(), &None);
-        write_private_key_to_file(&keys_file, "DOTENV_PRIVATE_KEY_TEST", &key_pair).unwrap();
+        write_private_key_to_file(&keys_file, "DOTENV_PRIVATE_KEY_TEST", &key_pair, false).unwrap();
         let content = fs::read_to_string(&keys_file).unwrap();
-        assert!(content.contains(&format!("DOTENV_PRIVATE_KEY_TEST=\"{}\"", pair.get_sk_hex())));
+        assert!(content.contains(&format!(
+            "DOTENV_PRIVATE_KEY_TEST=\"{}\"",
+            pair.get_sk_hex()
+        )));
         // the key pair went to the isolated global store, remove it again
         assert!(DotenvxKeyStore::global_path().starts_with(&dotenvx_dir));
         let removed = DotenvxKeyStore::update_global(|store| {
@@ -1759,7 +1864,9 @@ mod tests {
         let public_key = "028d59ff8bc98e7bfb7d7a0a6f511a653907cd3135db9ead01f293bcb7beb3ecd3";
         let private_key = find_private_key_from_home(public_key).unwrap();
         assert_eq!(
-            EcKeyPair::from_secret_key(&private_key).unwrap().get_pk_hex(),
+            EcKeyPair::from_secret_key(&private_key)
+                .unwrap()
+                .get_pk_hex(),
             public_key
         );
     }
@@ -1887,25 +1994,43 @@ mod tests {
         assert_eq!(adjust_env_key("db.password", ".env.prod"), "DB_PASSWORD");
         assert_eq!(adjust_env_key("Mixed_Case", ".env"), "MIXED_CASE");
         // .properties keys are kept as they are
-        assert_eq!(adjust_env_key("db.password", "application.properties"), "db.password");
+        assert_eq!(
+            adjust_env_key("db.password", "application.properties"),
+            "db.password"
+        );
     }
 
     #[test]
     fn test_key_names_for_profile_and_file() {
         assert_eq!(get_public_key_name(&None), "DOTENV_PUBLIC_KEY");
-        assert_eq!(get_public_key_name(&Some("prod".into())), "DOTENV_PUBLIC_KEY_PROD");
+        assert_eq!(
+            get_public_key_name(&Some("prod".into())),
+            "DOTENV_PUBLIC_KEY_PROD"
+        );
         assert_eq!(get_private_key_name(&None), "DOTENV_PRIVATE_KEY");
-        assert_eq!(get_private_key_name(&Some("g_default".into())), "DOTENV_PRIVATE_KEY_G_DEFAULT");
+        assert_eq!(
+            get_private_key_name(&Some("g_default".into())),
+            "DOTENV_PRIVATE_KEY_G_DEFAULT"
+        );
 
         assert_eq!(get_public_key_name_for_file(".env"), "DOTENV_PUBLIC_KEY");
-        assert_eq!(get_public_key_name_for_file("sub/.env.test"), "DOTENV_PUBLIC_KEY_TEST");
-        assert_eq!(get_public_key_name_for_file("application.properties"), "dotenv.public.key");
+        assert_eq!(
+            get_public_key_name_for_file("sub/.env.test"),
+            "DOTENV_PUBLIC_KEY_TEST"
+        );
+        assert_eq!(
+            get_public_key_name_for_file("application.properties"),
+            "dotenv.public.key"
+        );
         assert_eq!(
             get_public_key_name_for_file("src/main/resources/application-prod.properties"),
             "dotenv.public.key.prod"
         );
         assert_eq!(get_private_key_name_for_file(".env"), "DOTENV_PRIVATE_KEY");
-        assert_eq!(get_private_key_name_for_file("configs/.env.stage"), "DOTENV_PRIVATE_KEY_STAGE");
+        assert_eq!(
+            get_private_key_name_for_file("configs/.env.stage"),
+            "DOTENV_PRIVATE_KEY_STAGE"
+        );
         assert_eq!(
             get_private_key_name_for_file("application-prod.properties"),
             "DOTENV_PRIVATE_KEY_PROD"
@@ -1918,7 +2043,9 @@ mod tests {
         assert!(is_public_key_name("DOTENV_PUBLIC_KEY_PROD"));
         assert!(is_public_key_name("dotenv.public.key.prod"));
         assert!(!is_public_key_name("DOTENV_PRIVATE_KEY"));
-        assert!(is_public_key_included("A=1\nDOTENV_PUBLIC_KEY_DEV=\"02ab\"\n"));
+        assert!(is_public_key_included(
+            "A=1\nDOTENV_PUBLIC_KEY_DEV=\"02ab\"\n"
+        ));
         assert!(is_public_key_included("dotenv.public.key=02ab\n"));
         assert!(!is_public_key_included("A=1\nB=2\n"));
     }
@@ -1950,8 +2077,14 @@ mod tests {
             &Some("demo".into()),
         );
         assert!(header.starts_with("# ---\n# uuid: "), "{header}");
-        assert!(header.contains("# name: demo\n# group: backend\n# ---\n"), "{header}");
-        assert!(header.contains("DOTENV_PUBLIC_KEY_PROD=\"02abc\""), "{header}");
+        assert!(
+            header.contains("# name: demo\n# group: backend\n# ---\n"),
+            "{header}"
+        );
+        assert!(
+            header.contains("DOTENV_PUBLIC_KEY_PROD=\"02abc\""),
+            "{header}"
+        );
         // default name and group, the uuid is unique
         let default_header = construct_env_file_header("DOTENV_PUBLIC_KEY", "02abc", &None, &None);
         assert!(default_header.contains("# name: project_name\n# group: group_name\n"));
@@ -1963,7 +2096,10 @@ mod tests {
         let entries: HashMap<String, String> = dotenvy::from_read_iter(default_header.as_bytes())
             .map(Result::unwrap)
             .collect();
-        assert_eq!(entries.get("DOTENV_PUBLIC_KEY").map(String::as_str), Some("02abc"));
+        assert_eq!(
+            entries.get("DOTENV_PUBLIC_KEY").map(String::as_str),
+            Some("02abc")
+        );
     }
 
     #[test]
@@ -2016,7 +2152,10 @@ mod tests {
         assert!(line_has_export_prefix(".env", "export A=1"));
         assert!(!line_has_export_prefix(".env", "A=1"));
         assert!(line_has_export_prefix("env.sh", "# export A=1"));
-        assert!(!line_has_export_prefix("application.properties", "export A=1"));
+        assert!(!line_has_export_prefix(
+            "application.properties",
+            "export A=1"
+        ));
     }
 
     #[test]
@@ -2055,9 +2194,15 @@ mod tests {
         assert_eq!(split_assignment(props, "a.b=1"), Some(("", "a.b", "1")));
         assert_eq!(split_assignment(props, "a.b: 1"), Some(("", "a.b", "1")));
         assert_eq!(split_assignment(props, "a.b 1"), Some(("", "a.b", "1")));
-        assert_eq!(split_assignment(props, "  a.b = 1"), Some(("  ", "a.b", "1")));
+        assert_eq!(
+            split_assignment(props, "  a.b = 1"),
+            Some(("  ", "a.b", "1"))
+        );
         // `export` is not a prefix in .properties files
-        assert_eq!(split_assignment(props, "export=1"), Some(("", "export", "1")));
+        assert_eq!(
+            split_assignment(props, "export=1"),
+            Some(("", "export", "1"))
+        );
         assert_eq!(split_assignment(props, "! comment"), None);
     }
 
