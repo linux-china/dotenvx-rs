@@ -1,11 +1,11 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
-    KeyPatterns, compile_key_patterns, construct_env_file_header, content_has_key, entry_line_count,
-    get_env_file_arg, get_or_create_public_key_for_file, get_private_key_for_file,
-    get_public_key_name_for_file, is_encrypted_value_text, is_public_key_name, is_sensitive_key,
-    split_assignment,
-    update_env_file, write_public_key_to_file,
+    KeyPatterns, compile_key_patterns, construct_env_file_header, content_has_key,
+    entry_line_count, get_env_file_arg, get_or_create_public_key_for_file,
+    get_private_key_for_file, get_public_key_name_for_file, is_encrypted_value_text,
+    is_public_key_name, is_sensitive_key, split_assignment, update_env_file,
+    write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;

@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::write_file_atomic;
 use crate::commands::encrypt::add_or_replace_signature;
-use crate::commands::model::{extract_front_matter, get_signature};
 use crate::commands::linter::lint;
+use crate::commands::model::{extract_front_matter, get_signature};
 use crate::commands::{
     entry_line_count, get_dotenvx_home, get_public_key_name_for_file, is_encrypted_value_text,
     is_sensitive_key, list_env_files, split_assignment,
@@ -23,7 +23,10 @@ pub fn doctor_command(command_matches: &ArgMatches) {
         let file_content = match std::fs::read_to_string(file_path) {
             Ok(content) => content,
             Err(e) => {
-                eprintln!("{}", format!("Warning: failed to read {file_name}: {e}").red());
+                eprintln!(
+                    "{}",
+                    format!("Warning: failed to read {file_name}: {e}").red()
+                );
                 continue;
             }
         };
@@ -56,7 +59,10 @@ pub fn doctor_command(command_matches: &ArgMatches) {
     println!();
     println!("Run linter now...");
     if let Err(e) = lint() {
-        eprintln!("{}", format!("Warning: failed to lint env files: {e}").red());
+        eprintln!(
+            "{}",
+            format!("Warning: failed to lint env files: {e}").red()
+        );
     }
 }
 
@@ -229,7 +235,8 @@ mod tests {
 
     #[test]
     fn test_check_env_content_properties() {
-        let content = "dotenv.public.key.properties=02ab\ndb.password=encrypted:xx\napp.token: plain\n";
+        let content =
+            "dotenv.public.key.properties=02ab\ndb.password=encrypted:xx\napp.token: plain\n";
         let report = check_env_content(".env.properties", content);
         assert!(report.public_key_found);
         assert_eq!(report.key_warnings.len(), 1, "{:?}", report.key_warnings);
