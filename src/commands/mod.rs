@@ -5,7 +5,10 @@ use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
 use csv::WriterBuilder;
-use dotenvx_rs::common::{find_dotenv_keys_file, find_env_file_path, get_profile_name_from_file};
+use dotenvx_rs::common::{
+    find_dotenv_keys_file, find_dotenv_keys_file_by_path, find_env_file_path,
+    get_profile_name_from_file,
+};
 use java_properties::PropertiesIter;
 use serde_json::json;
 use std::collections::HashMap;
@@ -209,19 +212,74 @@ pub fn http_agent() -> ureq::Agent {
         .new_agent()
 }
 
+/// Find the private key that matches the public key declared by (or resolved for) `env_file`.
+/// Candidates: `DOTENV_PRIVATE_KEY_{PROFILE}` env var, `.env.keys` (next to the file and from cwd upward),
+/// the global key store, and finally `DOTENV_PRIVATE_KEY`; each candidate is verified against the public key.
 pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let public_key = get_public_key_for_file(env_file)?;
-    if !public_key.is_empty() {
-        return if let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY") {
-            Ok(trim_private_key(private_key))
-        } else if let Some(private_key) = find_private_key_from_home(&public_key) {
-            Ok(trim_private_key(private_key))
-        } else {
-            Err(format!("Private key not found for public key: {}", public_key).into())
-        };
-    }
     let profile_name = get_profile_name_from_file(env_file);
-    get_private_key(&profile_name)
+    let public_key = get_public_key_for_file(env_file)?;
+    if public_key.is_empty() {
+        return get_private_key(&profile_name);
+    }
+    let env_key_name = get_private_key_name(&profile_name);
+    let mut candidates: Vec<String> = Vec::new();
+    if let Ok(private_key) = env::var(&env_key_name) {
+        candidates.push(private_key);
+    }
+    for keys_file in dotenv_keys_files_for_env_file(env_file, &profile_name) {
+        if let Ok(entries) = read_dotenv_file(&keys_file)
+            && let Some(private_key) = entries.get(&env_key_name)
+        {
+            candidates.push(private_key.trim_matches('"').to_owned());
+        }
+    }
+    if let Some(private_key) = find_private_key_from_home(&public_key) {
+        candidates.push(private_key);
+    }
+    if env_key_name != "DOTENV_PRIVATE_KEY"
+        && let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY")
+    {
+        candidates.push(private_key);
+    }
+    for private_key in candidates {
+        let private_key = trim_private_key(private_key);
+        if is_private_key_for(&private_key, &public_key) {
+            return Ok(private_key);
+        }
+    }
+    Err(format!(
+        "Private key not found for public key {public_key} of {env_file}: checked ${env_key_name}, .env.keys and the global key store"
+    )
+    .into())
+}
+
+fn is_private_key_for(private_key: &str, public_key: &str) -> bool {
+    EcKeyPair::from_input(private_key)
+        .map(|kp| kp.get_pk_hex() == public_key)
+        .unwrap_or(false)
+}
+
+/// `.env.keys` files to search for `env_file`: the one next to (or above) the file first, then the one from cwd.
+fn dotenv_keys_files_for_env_file(env_file: &str, profile_name: &Option<String>) -> Vec<PathBuf> {
+    let mut files: Vec<PathBuf> = Vec::new();
+    if let Some(file_dir) = Path::new(env_file).parent()
+        && let Ok(file_dir) = fs::canonicalize(if file_dir.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            file_dir
+        })
+        && let Some(keys_file) = find_dotenv_keys_file_by_path(&file_dir)
+    {
+        files.push(keys_file);
+    }
+    if let Some(keys_file) = get_dotenv_keys_file_path(profile_name)
+        && !files
+            .iter()
+            .any(|f| fs::canonicalize(&keys_file).is_ok_and(|k| &k == f))
+    {
+        files.push(keys_file);
+    }
+    files
 }
 
 /// read-only: find the private key from .env.keys or environment variables, never generate a new one
@@ -322,20 +380,41 @@ fn resolve_public_key_for_file(
     env_file: &str,
     create: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    // the public key declared by the file itself wins
+    if let Some(public_key) = read_public_key_from_file(env_file)? {
+        return Ok(public_key);
+    }
     let profile_name = get_profile_name_from_file(env_file);
-    if env_file.ends_with(".properties") {
-        let file_content = fs::read_to_string(env_file).unwrap();
-        for line in file_content.lines() {
-            if line.starts_with("dotenv.public.key") {
-                return line
-                    .split('=')
-                    .nth(1)
-                    .map(|s| s.trim().to_string())
-                    .ok_or_else(|| "Public key not found in properties file".into());
-            }
+    resolve_public_key(&profile_name, create)
+}
+
+/// Read the public key declared in `env_file`: the key named after the file's profile first,
+/// otherwise the only `DOTENV_PUBLIC_KEY*` / `dotenv.public.key*` entry. `None` if the file doesn't exist.
+fn read_public_key_from_file(env_file: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let path = Path::new(env_file);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let entries = read_dotenv_file(path)?;
+    let clean = |v: &String| v.trim().trim_matches('"').to_owned();
+    if let Some(value) = entries.get(&get_public_key_name_for_file(env_file)) {
+        let value = clean(value);
+        if !value.is_empty() {
+            return Ok(Some(value));
         }
     }
-    resolve_public_key(&profile_name, create)
+    let mut public_keys: Vec<String> = entries
+        .iter()
+        .filter(|(k, _)| is_public_key_name(k))
+        .map(|(_, v)| clean(v))
+        .filter(|v| !v.is_empty())
+        .collect();
+    public_keys.sort();
+    public_keys.dedup();
+    if public_keys.len() == 1 {
+        return Ok(public_keys.pop());
+    }
+    Ok(None)
 }
 
 /// read-only: never generate a new key pair
@@ -961,6 +1040,44 @@ pub fn is_valid_env_key(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_public_and_private_key_from_file_in_sub_dir() {
+        let dir = std::env::temp_dir().join(format!("dotenvx_file_key_test_{}", uuid::Uuid::now_v7()));
+        let sub_dir = dir.join("sub").join("dir");
+        fs::create_dir_all(&sub_dir).unwrap();
+        let kp = EcKeyPair::generate();
+        let other = EcKeyPair::generate();
+        let env_file = sub_dir.join(".env.prod");
+        fs::write(&env_file, format!("DOTENV_PUBLIC_KEY_PROD=\"{}\"\nA=1\n", kp.get_pk_hex())).unwrap();
+        // the key for the profile lives in the .env.keys next to the file, a stale default key is ignored
+        fs::write(
+            sub_dir.join(KEYS_FILE_NAME),
+            format!("DOTENV_PRIVATE_KEY={}\nDOTENV_PRIVATE_KEY_PROD={}\n", other.get_sk_hex(), kp.get_sk_hex()),
+        )
+        .unwrap();
+        let env_file = env_file.to_str().unwrap();
+        assert_eq!(get_public_key_for_file(env_file).unwrap(), kp.get_pk_hex());
+        assert_eq!(get_private_key_for_file(env_file).unwrap(), kp.get_sk_hex());
+        // a file name without profile: its own declared key is used
+        let app_env = sub_dir.join("app.env");
+        fs::write(&app_env, format!("DOTENV_PUBLIC_KEY_PROD={}\n", kp.get_pk_hex())).unwrap();
+        assert_eq!(get_public_key_for_file(app_env.to_str().unwrap()).unwrap(), kp.get_pk_hex());
+        // properties file
+        let props = sub_dir.join("application-prod.properties");
+        fs::write(&props, format!("dotenv.public.key.prod={}\na=1\n", kp.get_pk_hex())).unwrap();
+        assert_eq!(get_public_key_for_file(props.to_str().unwrap()).unwrap(), kp.get_pk_hex());
+        // a private key that doesn't match the public key is rejected
+        fs::write(sub_dir.join(KEYS_FILE_NAME), format!("DOTENV_PRIVATE_KEY_PROD={}\n", other.get_sk_hex())).unwrap();
+        assert!(get_private_key_for_file(env_file).is_err());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_public_key_for_missing_properties_file_no_panic() {
+        let file = std::env::temp_dir().join(format!("dotenvx_missing_{}", uuid::Uuid::now_v7())).join("application.properties");
+        let _ = get_public_key_for_file(file.to_str().unwrap());
+    }
 
     #[test]
     fn test_line_has_key_exact_match() {

@@ -2,7 +2,7 @@ use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
     adjust_env_key, construct_env_file_header, get_env_file_arg, get_private_key,
-    get_or_create_public_key_for_file, get_public_key_name, is_public_key_included, update_env_file,
+    get_or_create_public_key_for_file, get_public_key_name_for_file, is_public_key_included, update_env_file,
     write_public_key_to_file,
 };
 use clap::ArgMatches;
@@ -93,7 +93,7 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
             new_lines.join("\n")
         } else {
             // append public key to .env file if it does not exist
-            let public_key_name = get_public_key_name(profile);
+            let public_key_name = get_public_key_name_for_file(&env_file);
             construct_env_file_header(&public_key_name, &public_key, &None, &None)
                 + "\n"
                 + &new_lines.join("\n")
