@@ -5,7 +5,6 @@ use argon2::password_hash::try_generate_salt;
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
 use colored::Colorize;
-use dotenvx_rs::dotenvx::get_private_key;
 use ecies::utils::generate_keypair;
 use ecies::{PublicKey, SecretKey};
 use k256::ecdsa::{
@@ -104,7 +103,8 @@ pub fn decrypt_env_item(
 }
 
 pub fn decrypt_value(profile: &Option<String>, encrypted_value: &str) {
-    if let Ok(private_key) = get_private_key(&None, profile) {
+    // same lookup as the other commands: verified against the profile's declared public key (review #16)
+    if let Ok(private_key) = crate::commands::get_private_key(profile) {
         if let Ok(plain_text) = decrypt_env_item(check_sk_hex(&private_key), encrypted_value) {
             println!("{plain_text}");
         } else {

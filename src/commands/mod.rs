@@ -261,27 +261,47 @@ pub fn http_agent() -> ureq::Agent {
 }
 
 /// Find the private key that matches the public key declared by (or resolved for) `env_file`.
-/// Candidates: `DOTENV_PRIVATE_KEY_{PROFILE}` env var, `.env.keys` (next to the file and from cwd upward),
-/// the global key store, and finally `DOTENV_PRIVATE_KEY`; each candidate is verified against the public key.
+/// See [`get_private_key_for_public_key`] for the lookup order.
 pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     let profile_name = get_profile_name_from_file(env_file);
     let public_key = get_public_key_for_file(env_file)?;
     if public_key.is_empty() {
         return get_private_key(&profile_name);
     }
-    let env_key_name = get_private_key_name(&profile_name);
+    get_private_key_for_public_key(&public_key, &profile_name, Some(env_file))
+}
+
+/// Find the private key for `public_key`. Lookup order, shared by every private key lookup (review #16):
+/// 1. `DOTENV_PRIVATE_KEY_{PROFILE}` environment variable
+/// 2. `.env.keys`: the one next to (or above) `env_file` first, then the one from cwd upward
+/// 3. the global key store (`.env.keys.json`)
+/// 4. `DOTENV_PRIVATE_KEY` environment variable as the last resort for profiles
+///
+/// Every candidate is verified against `public_key`, a mismatched key is skipped.
+pub fn get_private_key_for_public_key(
+    public_key: &str,
+    profile_name: &Option<String>,
+    env_file: Option<&str>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let env_key_name = get_private_key_name(profile_name);
     let mut candidates: Vec<String> = Vec::new();
     if let Ok(private_key) = env::var(&env_key_name) {
         candidates.push(private_key);
     }
-    for keys_file in dotenv_keys_files_for_env_file(env_file, &profile_name) {
+    let keys_files = match env_file {
+        Some(env_file) => dotenv_keys_files_for_env_file(env_file, profile_name),
+        None => get_dotenv_keys_file_path(profile_name)
+            .into_iter()
+            .collect(),
+    };
+    for keys_file in keys_files {
         if let Ok(entries) = read_dotenv_file(&keys_file)
             && let Some(private_key) = entries.get(&env_key_name)
         {
             candidates.push(private_key.trim_matches('"').to_owned());
         }
     }
-    if let Some(private_key) = find_private_key_from_home(&public_key) {
+    if let Some(private_key) = find_private_key_from_home(public_key) {
         candidates.push(private_key);
     }
     if env_key_name != "DOTENV_PRIVATE_KEY"
@@ -291,12 +311,13 @@ pub fn get_private_key_for_file(env_file: &str) -> Result<String, Box<dyn std::e
     }
     for private_key in candidates {
         let private_key = trim_private_key(private_key);
-        if is_private_key_for(&private_key, &public_key) {
+        if is_private_key_for(&private_key, public_key) {
             return Ok(private_key);
         }
     }
+    let target = env_file.map(|f| format!(" of {f}")).unwrap_or_default();
     Err(format!(
-        "Private key not found for public key {public_key} of {env_file}: checked ${env_key_name}, .env.keys and the global key store"
+        "Private key not found for public key {public_key}{target}: checked ${env_key_name}, .env.keys and the global key store"
     )
     .into())
 }
@@ -330,10 +351,15 @@ fn dotenv_keys_files_for_env_file(env_file: &str, profile_name: &Option<String>)
     files
 }
 
-/// read-only: find the private key from .env.keys or environment variables, never generate a new one
+/// read-only: find the private key for the profile, never generate a new one.
+/// If the profile declares a public key (env file or `DOTENV_PUBLIC_KEY_{PROFILE}`), the private key
+/// must match it, see [`get_private_key_for_public_key`].
 pub fn get_private_key(
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    if let Some(public_key) = declared_public_key(profile_name)? {
+        return get_private_key_for_public_key(&public_key, profile_name, None);
+    }
     let env_key_name = get_private_key_name(profile_name);
     lookup_private_key(profile_name)?
         .ok_or_else(|| format!("Private key not found: {env_key_name}").into())
@@ -361,15 +387,14 @@ fn lookup_private_key(
     } else {
         HashMap::new()
     };
-    // read from .env.keys file
+    // same order as get_private_key_for_public_key: environment variable first, then .env.keys
+    if let Ok(private_key) = env::var(&env_key_name) {
+        return Ok(Some(trim_private_key(private_key)));
+    }
     if let Some(private_key) = key_entries.get(&env_key_name) {
         return Ok(Some(trim_private_key(
             private_key.trim_matches('"').to_owned(),
         )));
-    }
-    // read from environment variables
-    if let Ok(private_key) = env::var(&env_key_name) {
-        return Ok(Some(trim_private_key(private_key)));
     }
     Ok(None)
 }
@@ -389,19 +414,37 @@ pub fn get_or_create_private_key(
     let public_key_hex = key_pair.get_pk_hex();
     let private_key_hex = key_pair.get_sk_hex();
     let key_pair = KeyPair::new(&public_key_hex, &private_key_hex, profile_name);
-    if let Some(file_path) = &dotenv_keys_file_path {
-        write_private_key_to_file(file_path, &env_key_name, &key_pair)?;
-    } else {
-        // if .env.keys file not found, create it in the current directory
-        let file_path = PathBuf::from(KEYS_FILE_NAME);
-        write_private_key_to_file(&file_path, &env_key_name, &key_pair)?;
-    }
+    // `.env.keys` found from cwd upward may belong to a parent (another) project: only reuse the one in cwd,
+    // otherwise create `.env.keys` in the current directory (review #16)
+    let file_path = match dotenv_keys_file_path {
+        Some(path) if is_global_profile(profile_name) || is_in_current_dir(&path) => path,
+        _ => PathBuf::from(KEYS_FILE_NAME),
+    };
+    write_private_key_to_file(&file_path, &env_key_name, &key_pair)?;
     // make sure the new private key is persisted, otherwise values encrypted with it can never be decrypted
     match lookup_private_key(profile_name)? {
         Some(saved_key) if saved_key == private_key_hex => Ok(saved_key),
         _ => {
             Err(format!("Failed to save new private key {env_key_name} to {KEYS_FILE_NAME}").into())
         }
+    }
+}
+
+fn is_global_profile(profile_name: &Option<String>) -> bool {
+    profile_name.as_deref().is_some_and(|p| p.starts_with("g_"))
+}
+
+fn is_in_current_dir(path: &Path) -> bool {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    match (
+        fs::canonicalize(parent),
+        env::current_dir().and_then(fs::canonicalize),
+    ) {
+        (Ok(dir), Ok(cwd)) => dir == cwd,
+        _ => false,
     }
 }
 
@@ -472,19 +515,18 @@ pub fn get_public_key(profile_name: &Option<String>) -> Result<String, Box<dyn s
     resolve_public_key(profile_name, false)
 }
 
-fn resolve_public_key(
+/// The public key declared for the profile: in its env file (`.env.{profile}` from cwd upward,
+/// or under the dotenvx home for `g_` profiles) or in `DOTENV_PUBLIC_KEY_{PROFILE}`. Never derived from a private key.
+fn declared_public_key(
     profile_name: &Option<String>,
-    create: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
     let env_key_name = get_public_key_name(profile_name);
     let env_file_name = if let Some(name) = profile_name {
         format!(".env.{name}")
     } else {
         ".env".to_string()
     };
-    let dotenv_file_path = if let Some(profile) = profile_name
-        && profile.starts_with("g_")
-    {
+    let dotenv_file_path = if is_global_profile(profile_name) {
         get_dotenvx_home().join(env_file_name)
     } else {
         find_env_file_path(&env::current_dir()?, &env_file_name)
@@ -497,10 +539,25 @@ fn resolve_public_key(
     };
     // read from env file
     if let Some(val) = entries.get(&env_key_name) {
-        return Ok(val.trim_matches('"').to_owned());
+        let val = val.trim().trim_matches('"');
+        if !val.is_empty() {
+            return Ok(Some(val.to_owned()));
+        }
     }
     // read from environment variables
-    if let Ok(public_key) = env::var(&env_key_name) {
+    if let Ok(public_key) = env::var(&env_key_name)
+        && !public_key.trim().is_empty()
+    {
+        return Ok(Some(public_key.trim().to_owned()));
+    }
+    Ok(None)
+}
+
+fn resolve_public_key(
+    profile_name: &Option<String>,
+    create: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
+    if let Some(public_key) = declared_public_key(profile_name)? {
         return Ok(public_key);
     }
     // get public key from the default private key
@@ -1166,6 +1223,76 @@ mod tests {
         .unwrap();
         assert!(get_private_key_for_file(env_file).is_err());
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_private_key_lookup_order_and_verification() {
+        let dir =
+            std::env::temp_dir().join(format!("dotenvx_lookup_test_{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(&dir).unwrap();
+        let kp = EcKeyPair::generate();
+        let other = EcKeyPair::generate();
+        // a profile name unique to this test, so the env var doesn't leak into other tests
+        let profile = format!("t{}", uuid::Uuid::now_v7().simple());
+        let profile_name = Some(profile.clone());
+        let key_name = get_private_key_name(&profile_name);
+        let env_file = dir.join(format!(".env.{profile}"));
+        fs::write(&env_file, "A=1\n").unwrap();
+        fs::write(
+            dir.join(KEYS_FILE_NAME),
+            format!("{key_name}={}\n", other.get_sk_hex()),
+        )
+        .unwrap();
+        let env_file = env_file.to_str().unwrap();
+        // .env.keys holds a mismatched key: rejected
+        assert!(
+            get_private_key_for_public_key(&kp.get_pk_hex(), &profile_name, Some(env_file))
+                .is_err()
+        );
+        // a mismatched env var is skipped as well, the matching .env.keys entry is used
+        unsafe { env::set_var(&key_name, other.get_sk_hex()) };
+        fs::write(
+            dir.join(KEYS_FILE_NAME),
+            format!("{key_name}={}\n", kp.get_sk_hex()),
+        )
+        .unwrap();
+        assert_eq!(
+            get_private_key_for_public_key(&kp.get_pk_hex(), &profile_name, Some(env_file))
+                .unwrap(),
+            kp.get_sk_hex()
+        );
+        // the environment variable comes first when both match
+        assert_eq!(
+            get_private_key_for_public_key(&other.get_pk_hex(), &profile_name, Some(env_file))
+                .unwrap(),
+            other.get_sk_hex()
+        );
+        // unverified lookup: environment variable first, same order as the verified lookup
+        assert_eq!(
+            lookup_private_key(&profile_name).unwrap(),
+            Some(other.get_sk_hex())
+        );
+        // a declared public key makes get_private_key verify: the env var doesn't match it
+        let pk_name = get_public_key_name(&profile_name);
+        unsafe { env::set_var(&pk_name, kp.get_pk_hex()) };
+        assert!(get_private_key(&profile_name).is_err());
+        unsafe { env::set_var(&key_name, kp.get_sk_hex()) };
+        assert_eq!(get_private_key(&profile_name).unwrap(), kp.get_sk_hex());
+        unsafe {
+            env::remove_var(&key_name);
+            env::remove_var(&pk_name);
+        }
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_is_in_current_dir() {
+        assert!(is_in_current_dir(Path::new(KEYS_FILE_NAME)));
+        let cwd = env::current_dir().unwrap();
+        assert!(is_in_current_dir(&cwd.join(KEYS_FILE_NAME)));
+        if let Some(parent) = cwd.parent() {
+            assert!(!is_in_current_dir(&parent.join(KEYS_FILE_NAME)));
+        }
     }
 
     #[test]

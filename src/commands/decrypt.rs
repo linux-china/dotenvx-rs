@@ -2,12 +2,12 @@ use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::model::EnvFile;
 use crate::commands::{
     adjust_env_key, dotenv_double_quote, get_env_file_arg, get_private_key_for_file,
-    get_public_key_from_text_file, is_remote_env_file, read_content_from_dotenv_url,
-    read_dotenv_url, std_output,
+    get_private_key_for_public_key, get_public_key_from_text_file, is_remote_env_file,
+    read_content_from_dotenv_url, read_dotenv_url, std_output,
 };
 use clap::ArgMatches;
 use colored::Colorize;
-use dotenvx_rs::dotenvx::get_private_key;
+use dotenvx_rs::common::get_profile_name_from_file;
 use glob::Pattern;
 use java_properties::PropertiesIter;
 use std::collections::HashMap;
@@ -185,7 +185,10 @@ fn verify_signature(env_file_path: &str) {
 
 fn decrypt_normal_text_file(text_file_path: &str) {
     if let Some(public_key) = get_public_key_from_text_file(text_file_path) {
-        if let Ok(private_key) = get_private_key(&Some(public_key.clone()), &None) {
+        let profile_name = get_profile_name_from_file(text_file_path);
+        if let Ok(private_key) =
+            get_private_key_for_public_key(&public_key, &profile_name, Some(text_file_path))
+        {
             if let Ok(file_content) = fs::read_to_string(text_file_path) {
                 file_content.lines().for_each(|line| {
                     if line.contains("encrypted:") {

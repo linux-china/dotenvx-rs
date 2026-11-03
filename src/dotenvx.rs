@@ -322,48 +322,87 @@ impl DotenvxKeyStore {
     }
 }
 
+/// Find the private key for the profile. Lookup order (same as the CLI, review #16):
+/// `DOTENV_PRIVATE_KEY_{PROFILE}` env var, `.env.keys` (cwd upward, `$HOME/.env.keys` for `g_` profiles),
+/// the global key store, then `DOTENV_PRIVATE_KEY` for profiles (only when verified by `public_key`).
+/// When `public_key` is given, every candidate must match it.
 pub fn get_private_key(
     public_key: &Option<String>,
     profile_name: &Option<String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    if let Some(public_key_hex) = public_key {
-        if let Ok(global_store) = DotenvxKeyStore::load_global() {
-            if let Some(private_key) = global_store.find_private_key(public_key_hex) {
-                return Ok(trim_private_key(private_key));
-            }
-        }
-    }
     let env_key_name = if let Some(name) = profile_name {
         format!("DOTENV_PRIVATE_KEY_{}", name.to_uppercase())
     } else {
         "DOTENV_PRIVATE_KEY".to_string()
     };
+    let mut candidates: Vec<String> = Vec::new();
     if let Ok(private_key) = env::var(&env_key_name) {
-        return Ok(trim_private_key(private_key));
+        candidates.push(private_key);
     }
-    let env_key_prefix = format!("{env_key_name}=");
     let dotenv_keys_file = if let Some(profile) = profile_name
         && profile.starts_with("g_")
     {
-        Some(home_dir().unwrap().join(".env.keys"))
+        home_dir().map(|home| home.join(".env.keys"))
     } else {
         find_dotenv_keys_file()
     };
     if let Some(dotenv_file_path) = dotenv_keys_file
         && dotenv_file_path.exists()
     {
+        let env_key_prefix = format!("{env_key_name}=");
         let dotenv_content = std::fs::read_to_string(dotenv_file_path)?;
-        if let Some(dotenv_vault) = dotenv_content
+        if let Some(line) = dotenv_content
             .lines()
+            .map(str::trim)
             .find(|line| line.starts_with(&env_key_prefix))
         {
-            let private_key = dotenv_vault[env_key_prefix.len()..]
-                .trim_matches('"')
-                .to_owned();
-            return Ok(trim_private_key(private_key));
+            candidates.push(
+                line[env_key_prefix.len()..]
+                    .trim()
+                    .trim_matches('"')
+                    .to_owned(),
+            );
         }
     }
-    Err("Private key not found".into())
+    if let Some(public_key_hex) = public_key
+        && let Ok(global_store) = DotenvxKeyStore::load_global()
+        && let Some(private_key) = global_store.find_private_key(public_key_hex)
+    {
+        candidates.push(private_key);
+    }
+    if profile_name.is_some()
+        && public_key.is_some()
+        && let Ok(private_key) = env::var("DOTENV_PRIVATE_KEY")
+    {
+        candidates.push(private_key);
+    }
+    for private_key in candidates {
+        let private_key = trim_private_key(private_key);
+        match public_key {
+            None => return Ok(private_key),
+            Some(public_key_hex)
+                if public_key_of(&private_key).as_deref() == Some(public_key_hex.as_str()) =>
+            {
+                return Ok(private_key);
+            }
+            _ => {}
+        }
+    }
+    match public_key {
+        Some(public_key_hex) => {
+            Err(format!("Private key not found for public key {public_key_hex}: checked ${env_key_name}, .env.keys and the global key store").into())
+        }
+        None => Err(format!("Private key not found: {env_key_name}").into()),
+    }
+}
+
+/// compressed public key (hex) of the private key, `None` if the private key is invalid
+fn public_key_of(private_key_hex: &str) -> Option<String> {
+    let sk_bytes = hex::decode(private_key_hex.trim()).ok()?;
+    let sk = ecies::SecretKey::parse_slice(&sk_bytes).ok()?;
+    Some(hex::encode(
+        ecies::PublicKey::from_secret_key(&sk).serialize_compressed(),
+    ))
 }
 
 fn trim_private_key(private_key_hex: String) -> String {
@@ -488,8 +527,32 @@ mod tests {
 
     #[test]
     fn test_find_private_key() {
-        let public_key = "02336cf0909ec7473e6e45a46aedd998e955bfce282ade31a1fa8168a64b7f659d";
-        get_private_key(&Some(public_key.to_string()), &None).expect("Failed to get a private key");
+        // the public key declared in the project's .env, its private key lives in .env.keys
+        let public_key = "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0";
+        let private_key = get_private_key(&Some(public_key.to_string()), &None)
+            .expect("Failed to get a private key");
+        assert_eq!(public_key_of(&private_key).as_deref(), Some(public_key));
+    }
+
+    #[test]
+    fn test_get_private_key_verifies_public_key() {
+        let (sk, pk) = ecies::utils::generate_keypair();
+        let (other_sk, _) = ecies::utils::generate_keypair();
+        let sk_hex = hex::encode(sk.serialize());
+        let pk_hex = hex::encode(pk.serialize_compressed());
+        assert_eq!(public_key_of(&sk_hex).as_deref(), Some(pk_hex.as_str()));
+        let profile = format!("t{}", uuid::Uuid::now_v7().simple());
+        let key_name = format!("DOTENV_PRIVATE_KEY_{}", profile.to_uppercase());
+        let profile_name = Some(profile);
+        unsafe { env::set_var(&key_name, hex::encode(other_sk.serialize())) };
+        // the mismatched key is never returned for the public key
+        assert!(get_private_key(&Some(pk_hex.clone()), &profile_name).is_err());
+        unsafe { env::set_var(&key_name, &sk_hex) };
+        assert_eq!(
+            get_private_key(&Some(pk_hex), &profile_name).unwrap(),
+            sk_hex
+        );
+        unsafe { env::remove_var(&key_name) };
     }
 
     #[test]
