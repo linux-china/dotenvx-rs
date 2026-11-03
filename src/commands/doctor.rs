@@ -121,8 +121,10 @@ fn fix_front_matter(file_name: &str, file_path: &Path, file_content: &str) {
             Err(e) => {
                 eprintln!(
                     "{}",
-                    format!("Warning: {file_name} is signed but can not be re-signed, skip fixing: {e}")
-                        .red()
+                    format!(
+                        "Warning: {file_name} is signed but can not be re-signed, skip fixing: {e}"
+                    )
+                    .red()
                 );
                 return;
             }
@@ -216,6 +218,9 @@ mod tests {
     #[test]
     fn test_add_front_matter_uuid_into_existing_block() {
         let content = add_front_matter_uuid("# ---\n# name: app\n# sign: xx\n# ---\nA=1\n", "u1");
-        assert_eq!(content, "# ---\n# name: app\n# sign: xx\n# uuid: u1\n# ---\nA=1\n");
+        assert_eq!(
+            content,
+            "# ---\n# name: app\n# sign: xx\n# uuid: u1\n# ---\nA=1\n"
+        );
     }
 }

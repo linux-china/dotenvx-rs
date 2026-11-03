@@ -3,8 +3,8 @@ use crate::commands::model::{KeyPair, get_signature, sign_and_update_env_file_co
 use crate::commands::{
     EcKeyPair, construct_env_file_header, dotenv_keys_files_for_env_file, get_env_file_arg,
     get_private_key_for_file, get_private_key_name_for_file, get_public_key_for_file,
-    get_public_key_name_for_file, is_env_file_name, is_public_key_name, read_public_key_from_file, read_dotenv_file, trim_private_key,
-    write_key_pair, write_private_key_to_file,
+    get_public_key_name_for_file, is_env_file_name, is_public_key_name, read_dotenv_file,
+    read_public_key_from_file, trim_private_key, write_key_pair, write_private_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;

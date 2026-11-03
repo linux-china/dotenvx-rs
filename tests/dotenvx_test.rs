@@ -42,5 +42,8 @@ fn test_generate_secret() {
         .unwrap();
     let url = totp.to_url().unwrap();
     assert!(url.starts_with("otpauth://totp/"), "{url}");
-    assert!(url.contains("john%40example.com") || url.contains("john@example.com"), "{url}");
+    assert!(
+        url.contains("john%40example.com") || url.contains("john@example.com"),
+        "{url}"
+    );
 }

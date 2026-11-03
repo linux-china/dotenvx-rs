@@ -613,7 +613,10 @@ mod tests {
         let content = "# ---\n# uuid: test\n# ---\n\nA=1\nB=2\n";
         let signature = sign_message(&pair.get_sk_hex(), content).unwrap();
         let signed = super::update_signature(content, &signature);
-        assert_eq!(super::get_signature(&signed).as_deref(), Some(signature.as_str()));
+        assert_eq!(
+            super::get_signature(&signed).as_deref(),
+            Some(signature.as_str())
+        );
         let message = super::remove_signature(&signed);
         assert!(verify_signature(&pair.get_pk_hex(), &message, &signature).unwrap());
         // a tampered file fails verification
@@ -661,7 +664,10 @@ mod tests {
         );
         // replacing again keeps a single signature line
         let updated_again = super::update_signature(&updated_content, "second");
-        assert_eq!(super::get_signature(&updated_again).as_deref(), Some("second"));
+        assert_eq!(
+            super::get_signature(&updated_again).as_deref(),
+            Some("second")
+        );
         assert_eq!(updated_again.matches("sign:").count(), 1);
     }
 

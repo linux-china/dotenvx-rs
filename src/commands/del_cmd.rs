@@ -103,6 +103,9 @@ mod tests {
     #[test]
     fn escaped_quote_does_not_close_value() {
         let content = "KEY=\"a\\\"b\nc\"\nC=2\n";
-        assert_eq!(remove_key_lines(content, ".env", "KEY"), Some("C=2\n".to_string()));
+        assert_eq!(
+            remove_key_lines(content, ".env", "KEY"),
+            Some("C=2\n".to_string())
+        );
     }
 }

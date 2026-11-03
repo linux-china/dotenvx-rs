@@ -1,10 +1,10 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
-    adjust_env_key, construct_env_file_header, entry_line_count, get_env_file_arg,
+    adjust_env_key, construct_env_file_header, content_has_key, entry_line_count, get_env_file_arg,
     get_or_create_public_key_for_file, get_private_key_for_file, get_public_key_name_for_file,
-    content_has_key, is_encrypted_value_text, is_public_key_name, split_assignment,
-    update_env_file, write_public_key_to_file,
+    is_encrypted_value_text, is_public_key_name, split_assignment, update_env_file,
+    write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
@@ -83,7 +83,11 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         if is_sign_required {
             // signing must be the last step before writing: the content is not changed afterward
             let signed = add_or_replace_signature(&env_file, &new_file_content).unwrap();
-            let signed = if signed.ends_with('\n') { signed } else { signed + "\n" };
+            let signed = if signed.ends_with('\n') {
+                signed
+            } else {
+                signed + "\n"
+            };
             fs::write(&env_file_path, signed.as_bytes()).unwrap();
         } else {
             update_env_file(&env_file, &public_key, &new_file_content);
@@ -333,7 +337,8 @@ mod tests {
         let (pk, sk) = (kp.get_pk_hex(), kp.get_sk_hex());
         let dir = tempfile::tempdir().unwrap();
         let env_file = dir.path().join(".env");
-        let content = "X=first\nX=second # note\nexport Q=\"a #b\" # quoted\nM=\"l1\nl2\" # multi\nX=third\n";
+        let content =
+            "X=first\nX=second # note\nexport Q=\"a #b\" # quoted\nM=\"l1\nl2\" # multi\nX=third\n";
         fs::write(&env_file, content).unwrap();
         let env_file = env_file.to_str().unwrap();
         let entries = encrypt_env_entries(env_file, &pk).unwrap();

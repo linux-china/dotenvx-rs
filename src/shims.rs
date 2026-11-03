@@ -247,84 +247,100 @@ fn inject_spring_boot(profile: &Option<String>) {
             }
         }
     }
-    if let Some(redis_url) = all_entries.get("spring.data.redis_url") {
-        if !redis_url.is_empty() {
-            unsafe {
-                env::set_var("REDIS_URL", redis_url);
-            }
-        }
-    } else if let Some(redis_host) = all_entries.get("spring.data.redis_host") {
-        let redis_port = "6379".to_string();
-        let redis_port = all_entries
-            .get("spring.data.redis_port")
-            .unwrap_or(&redis_port);
-        let redis_db = "0".to_string();
-        let redis_db = all_entries
-            .get("spring.data.redis_database")
-            .unwrap_or(&redis_db);
-        let schema = "redis".to_string();
-        let schema = if let Some(redis_ssl) = all_entries.get("spring.data.redis.ssl.enabled") {
-            if redis_ssl == "true" {
-                "rediss".to_string()
-            } else {
-                schema
-            }
-        } else {
-            schema
-        };
-        let redis_user = all_entries.get("spring.data.redis.username");
-        let redis_password = all_entries.get("spring.data.redis.password");
-        let redis_url = if let Some(redis_user) = redis_user {
-            if let Some(redis_password) = redis_password {
-                format!(
-                    "{schema}://{redis_user}:{redis_password}@{redis_host}:{redis_port}/{redis_db}"
-                )
-            } else {
-                format!("{schema}://{redis_user}@{redis_host}:{redis_port}/{redis_db}")
-            }
-        } else {
-            format!("{schema}://{redis_host}:{redis_port}/{redis_db}")
-        };
+    if let Some(redis_url) = spring_redis_url(&all_entries) {
         unsafe {
             env::set_var("REDIS_URL", redis_url);
         }
     }
-    if let Some(mongo_uri) = all_entries.get("spring.data.mongodb.uri") {
-        if !mongo_uri.is_empty() {
-            unsafe {
-                env::set_var("MONGODB_URL", mongo_uri);
-            }
-        }
-    } else if let Some(mongo_host) = all_entries.get("spring.data.mongodb.host") {
-        let mongo_port = "27017".to_string();
-        let mongo_port = all_entries
-            .get("spring.data.mongodb.port")
-            .unwrap_or(&mongo_port);
-        let mongo_db = "test".to_string();
-        let mongo_db = all_entries
-            .get("spring.data.mongodb.database")
-            .unwrap_or(&mongo_db);
-        let ssl = "false".to_string();
-        let ssl = all_entries
-            .get("spring.data.mongodb.ssl.enabled")
-            .unwrap_or(&ssl);
-        let mongo_user = all_entries.get("spring.data.mongodb.username");
-        let mongo_password = all_entries.get("spring.data.mongodb.password");
-        let mongo_url = if let Some(mongo_user) = mongo_user {
-            if let Some(mongo_password) = mongo_password {
-                format!(
-                    "mongodb://{mongo_user}:{mongo_password}@{mongo_host}:{mongo_port}/{mongo_db}?ssl={ssl}"
-                )
-            } else {
-                format!("mongodb://{mongo_user}@{mongo_host}:{mongo_port}/{mongo_db}?ssl={ssl}")
-            }
-        } else {
-            format!("mongodb://{mongo_host}:{mongo_port}/{mongo_db}?ssl={ssl}")
-        };
+    if let Some(mongo_url) = spring_mongodb_url(&all_entries) {
         unsafe {
             env::set_var("MONGODB_URL", mongo_url);
         }
     }
+}
+
+/// Characters kept as-is in a URL user name or password: RFC 3986 unreserved characters.
+const USERINFO_ENCODE_SET: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'_')
+    .remove(b'~');
+
+/// Percent-encodes a URL user name or password, e.g. `p@ss` becomes `p%40ss`.
+fn url_encode_userinfo(text: &str) -> String {
+    percent_encoding::utf8_percent_encode(text, USERINFO_ENCODE_SET).to_string()
+}
+
+/// Builds the `user:password@` part of a URL; empty when neither is set.
+fn userinfo(user: Option<&String>, password: Option<&String>) -> String {
+    let user = user
+        .filter(|u| !u.is_empty())
+        .map(|u| url_encode_userinfo(u));
+    let password = password
+        .filter(|p| !p.is_empty())
+        .map(|p| url_encode_userinfo(p));
+    match (user, password) {
+        (Some(user), Some(password)) => format!("{user}:{password}@"),
+        (Some(user), None) => format!("{user}@"),
+        (None, Some(password)) => format!(":{password}@"),
+        (None, None) => String::new(),
+    }
+}
+
+/// Redis URL from Spring Boot's `spring.data.redis.*` properties.
+fn spring_redis_url(entries: &HashMap<String, String>) -> Option<String> {
+    if let Some(url) = entries
+        .get("spring.data.redis.url")
+        .filter(|u| !u.is_empty())
+    {
+        return Some(url.clone());
+    }
+    let host = entries
+        .get("spring.data.redis.host")
+        .filter(|h| !h.is_empty())?;
+    let port = entries
+        .get("spring.data.redis.port")
+        .map_or("6379", String::as_str);
+    let db = entries
+        .get("spring.data.redis.database")
+        .map_or("0", String::as_str);
+    let schema = match entries.get("spring.data.redis.ssl.enabled") {
+        Some(ssl) if ssl == "true" => "rediss",
+        _ => "redis",
+    };
+    // Redis ACL users are optional: `redis://:password@host` authenticates as `default`.
+    let auth = userinfo(
+        entries.get("spring.data.redis.username"),
+        entries.get("spring.data.redis.password"),
+    );
+    Some(format!("{schema}://{auth}{host}:{port}/{db}"))
+}
+
+/// MongoDB URL from Spring Boot's `spring.data.mongodb.*` properties.
+fn spring_mongodb_url(entries: &HashMap<String, String>) -> Option<String> {
+    if let Some(uri) = entries
+        .get("spring.data.mongodb.uri")
+        .filter(|u| !u.is_empty())
+    {
+        return Some(uri.clone());
+    }
+    let host = entries
+        .get("spring.data.mongodb.host")
+        .filter(|h| !h.is_empty())?;
+    let port = entries
+        .get("spring.data.mongodb.port")
+        .map_or("27017", String::as_str);
+    let db = entries
+        .get("spring.data.mongodb.database")
+        .map_or("test", String::as_str);
+    let ssl = entries
+        .get("spring.data.mongodb.ssl.enabled")
+        .map_or("false", String::as_str);
+    // MongoDB has no password-only auth, so a password without a user name is dropped.
+    let user = entries.get("spring.data.mongodb.username");
+    let password = user.and(entries.get("spring.data.mongodb.password"));
+    let auth = userinfo(user, password);
+    Some(format!("mongodb://{auth}{host}:{port}/{db}?ssl={ssl}"))
 }
 
 /// Extra arguments and environment variables a shim adds to the real command.
@@ -335,6 +351,17 @@ fn inject_spring_boot(profile: &Option<String>) {
 struct ShimInvocation {
     args: Vec<String>,
     envs: Vec<(String, String)>,
+}
+
+/// Percent-decodes a URL component such as the user name or password.
+///
+/// `url::Url::username()` / `password()` return the encoded form, e.g. `p%40ss` for `p@ss`.
+/// Falls back to the raw text when the decoded bytes are not valid UTF-8.
+fn url_decode(text: &str) -> String {
+    percent_encoding::percent_decode_str(text)
+        .decode_utf8()
+        .map(|decoded| decoded.into_owned())
+        .unwrap_or_else(|_| text.to_string())
 }
 
 fn get_mysql_args() -> ShimInvocation {
@@ -364,11 +391,11 @@ fn mysql_invocation(
     }
     if !parsed_url.username().is_empty() {
         inv.args
-            .extend(["-u".to_string(), parsed_url.username().to_string()]);
+            .extend(["-u".to_string(), url_decode(parsed_url.username())]);
     } else if let Some(db_user) = db_user {
         inv.args.extend(["-u".to_string(), db_user]);
     }
-    if let Some(password) = parsed_url.password().map(str::to_string).or(db_password) {
+    if let Some(password) = parsed_url.password().map(url_decode).or(db_password) {
         inv.envs.push(("MYSQL_PWD".to_string(), password));
     }
     let db_name = parsed_url.path().trim_start_matches('/');
@@ -405,11 +432,11 @@ fn psql_invocation(
     }
     if !parsed_url.username().is_empty() {
         inv.args
-            .extend(["-U".to_string(), parsed_url.username().to_string()]);
+            .extend(["-U".to_string(), url_decode(parsed_url.username())]);
     } else if let Some(db_user) = db_user {
         inv.args.extend(["-U".to_string(), db_user]);
     }
-    if let Some(password) = parsed_url.password().map(str::to_string).or(db_password) {
+    if let Some(password) = parsed_url.password().map(url_decode).or(db_password) {
         inv.envs.push(("PGPASSWORD".to_string(), password));
     }
     let db_name = parsed_url.path().trim_start_matches('/');
@@ -449,9 +476,9 @@ fn redis_invocation(
     if let Some(port) = parsed_url.port() {
         inv.args.extend(["-p".to_string(), port.to_string()]);
     }
-    let username = redis_user.unwrap_or_else(|| parsed_url.username().to_string());
+    let username = redis_user.unwrap_or_else(|| url_decode(parsed_url.username()));
     let password =
-        redis_password.unwrap_or_else(|| parsed_url.password().unwrap_or_default().to_string());
+        redis_password.unwrap_or_else(|| url_decode(parsed_url.password().unwrap_or_default()));
     if !username.is_empty() {
         // `-u` is redis-cli's URI option; the ACL user name is `--user`.
         inv.args.extend(["--user".to_string(), username]);
@@ -469,7 +496,7 @@ fn redis_invocation(
 fn get_mongodb_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
     if let Ok(mongodb_url) = env::var("MONGODB_URL") {
-        if mongodb_url.starts_with("mongodb:") || mongodb_url.starts_with("mongodbs:") {
+        if mongodb_url.starts_with("mongodb:") || mongodb_url.starts_with("mongodb+srv:") {
             args.push(mongodb_url.to_string());
         }
     }
@@ -898,6 +925,105 @@ mod tests {
         // no credentials
         let inv = redis_invocation("redis://cache", None, None);
         assert!(inv.envs.is_empty());
+    }
+
+    #[test]
+    fn test_url_credentials_are_percent_decoded() {
+        let pwd = |inv: &ShimInvocation| inv.envs[0].1.clone();
+        let inv = mysql_invocation("mysql://us%40er:p%40ss%3Aw%2F%23%25@db/app", None, None);
+        assert_eq!(pwd(&inv), "p@ss:w/#%");
+        assert!(inv.args.contains(&"us@er".to_string()));
+        let inv = psql_invocation("postgres://us%40er:p%40ss@db/app", None, None);
+        assert_eq!(pwd(&inv), "p@ss");
+        assert!(inv.args.contains(&"us@er".to_string()));
+        let inv = redis_invocation("redis://us%40er:p%40ss@cache", None, None);
+        assert_eq!(pwd(&inv), "p@ss");
+        assert!(inv.args.contains(&"us@er".to_string()));
+        // invalid UTF-8 after decoding keeps the raw text
+        let inv = redis_invocation("redis://:p%FFss@cache", None, None);
+        assert_eq!(pwd(&inv), "p%FFss");
+    }
+
+    fn entries(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn test_spring_redis_url() {
+        assert_eq!(spring_redis_url(&entries(&[])), None);
+        assert_eq!(
+            spring_redis_url(&entries(&[("spring.data.redis.url", "redis://h:1/2")])),
+            Some("redis://h:1/2".to_string())
+        );
+        assert_eq!(
+            spring_redis_url(&entries(&[("spring.data.redis.host", "localhost")])),
+            Some("redis://localhost:6379/0".to_string())
+        );
+        let url = spring_redis_url(&entries(&[
+            ("spring.data.redis.host", "cache"),
+            ("spring.data.redis.port", "6380"),
+            ("spring.data.redis.database", "3"),
+            ("spring.data.redis.ssl.enabled", "true"),
+            ("spring.data.redis.username", "app"),
+            ("spring.data.redis.password", "p@ss:w/rd#%"),
+        ]))
+        .unwrap();
+        assert_eq!(url, "rediss://app:p%40ss%3Aw%2Frd%23%25@cache:6380/3");
+        let parsed = url::Url::parse(&url).unwrap();
+        assert_eq!(url_decode(parsed.password().unwrap()), "p@ss:w/rd#%");
+        assert_eq!(parsed.host_str(), Some("cache"));
+        // password without a user name
+        assert_eq!(
+            spring_redis_url(&entries(&[
+                ("spring.data.redis.host", "localhost"),
+                ("spring.data.redis.password", "secret"),
+            ])),
+            Some("redis://:secret@localhost:6379/0".to_string())
+        );
+    }
+
+    #[test]
+    fn test_spring_mongodb_url() {
+        assert_eq!(spring_mongodb_url(&entries(&[])), None);
+        assert_eq!(
+            spring_mongodb_url(&entries(&[(
+                "spring.data.mongodb.uri",
+                "mongodb+srv://u:p@cluster0.example.net/db"
+            )])),
+            Some("mongodb+srv://u:p@cluster0.example.net/db".to_string())
+        );
+        let url = spring_mongodb_url(&entries(&[
+            ("spring.data.mongodb.host", "mongo"),
+            ("spring.data.mongodb.database", "app"),
+            ("spring.data.mongodb.username", "admin@corp"),
+            ("spring.data.mongodb.password", "p@ss/word"),
+        ]))
+        .unwrap();
+        assert_eq!(
+            url,
+            "mongodb://admin%40corp:p%40ss%2Fword@mongo:27017/app?ssl=false"
+        );
+        let parsed = url::Url::parse(&url).unwrap();
+        assert_eq!(url_decode(parsed.username()), "admin@corp");
+        assert_eq!(url_decode(parsed.password().unwrap()), "p@ss/word");
+        assert_eq!(
+            spring_mongodb_url(&entries(&[
+                ("spring.data.mongodb.host", "mongo"),
+                ("spring.data.mongodb.password", "secret"),
+            ])),
+            Some("mongodb://mongo:27017/test?ssl=false".to_string())
+        );
+    }
+
+    #[test]
+    fn test_url_encode_userinfo_round_trip() {
+        for text in ["p@ss", "a:b/c?d#e%f", "中文 密码", "-._~"] {
+            assert_eq!(url_decode(&url_encode_userinfo(text)), text);
+        }
+        assert_eq!(url_encode_userinfo("-._~"), "-._~");
     }
 
     #[test]

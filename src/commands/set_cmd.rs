@@ -2,9 +2,9 @@ use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::framework::detect_framework;
 use crate::commands::{
     adjust_env_key, create_env_file, dotenv_double_quote, get_env_file_arg,
-    get_or_create_public_key_for_file, get_public_key_for_file, is_sensitive_key,
-    is_valid_env_key, properties_escape, replace_key_entries, resign_env_file_if_signed,
-    shell_single_quote, update_env_file,
+    get_or_create_public_key_for_file, get_public_key_for_file, is_sensitive_key, is_valid_env_key,
+    properties_escape, replace_key_entries, resign_env_file_if_signed, shell_single_quote,
+    update_env_file,
 };
 use arboard::Clipboard;
 use clap::ArgMatches;
@@ -159,7 +159,13 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
     };
     if !env_file_exists {
         // create .env file if it does not exist
-        create_env_file(&env_file, &public_key, Some(&make_pair(false)), &None, &None);
+        create_env_file(
+            &env_file,
+            &public_key,
+            Some(&make_pair(false)),
+            &None,
+            &None,
+        );
         println!(
             "Added {key} to {env_file} with {} mode",
             if encrypt_mode { "encrypted" } else { "plain" }
@@ -235,7 +241,10 @@ mod tests {
             format!("{}KEY=\"new\"", if export { "export " } else { "" })
         });
         assert_eq!(replaced, Some("A=1\nexport KEY=\"new\"\nB=2".to_string()));
-        assert_eq!(replace_key_entries(content, ".env", "C", |_| String::new()), None);
+        assert_eq!(
+            replace_key_entries(content, ".env", "C", |_| String::new()),
+            None
+        );
     }
 
     #[test]

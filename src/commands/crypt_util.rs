@@ -480,27 +480,12 @@ mod tests {
         let output_file = dir.path().join("example.decrypted.txt");
         std::fs::copy("tests/example.txt", &input_file)?;
         let password = "your_secure_password";
-        encrypt_file(
-            &input_file,
-            &encrypted_file,
-            password,
-        )?;
+        encrypt_file(&input_file, &encrypted_file, password)?;
         let encrypted = std::fs::read(&encrypted_file)?;
         assert_eq!(&encrypted[0..4], b"DXA1");
-        decrypt_file(
-            &encrypted_file,
-            &output_file,
-            password,
-        )?;
+        decrypt_file(&encrypted_file, &output_file, password)?;
         assert_eq!(std::fs::read(&output_file)?, std::fs::read(&input_file)?);
-        assert!(
-            decrypt_file(
-                &encrypted_file,
-                &output_file,
-                "wrong",
-            )
-            .is_err()
-        );
+        assert!(decrypt_file(&encrypted_file, &output_file, "wrong",).is_err());
         Ok(())
     }
 

@@ -506,7 +506,7 @@ mod tests {
     }
 
     #[test]
-        fn test_completion_accepts_fish() {
+    fn test_completion_accepts_fish() {
         assert!(
             build_dotenvx_app()
                 .try_get_matches_from(["dotenvx", "completion", "--shell", "fish"])

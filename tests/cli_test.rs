@@ -539,18 +539,24 @@ fn encrypt_keeps_unrelated_lines_and_values_verbatim() {
     sb.write(".env", &original);
     sb.ok(&["encrypt"]);
     let content = sb.read(".env");
-    for kept in [
-        "  # indented comment",
-        "APP_NAME_PLAIN=a\\\"b",
-    ] {
-        assert!(content.lines().any(|l| l == kept), "{kept:?} missing in\n{content}");
+    for kept in ["  # indented comment", "APP_NAME_PLAIN=a\\\"b"] {
+        assert!(
+            content.lines().any(|l| l == kept),
+            "{kept:?} missing in\n{content}"
+        );
     }
-    assert!(content.contains("export API_TOKEN=\"encrypted:"), "{content}");
+    assert!(
+        content.contains("export API_TOKEN=\"encrypted:"),
+        "{content}"
+    );
     assert!(content.contains("  DB_PASSWORD=\"encrypted:"), "{content}");
     // the multi-line value is replaced as a whole, no `line2` garbage key is left
     assert!(!content.contains("line2=x"), "{content}");
     for secret in ["secret1", "pass\\\"word", "line1"] {
-        assert!(!content.contains(secret), "{secret} left in plaintext:\n{content}");
+        assert!(
+            !content.contains(secret),
+            "{secret} left in plaintext:\n{content}"
+        );
     }
     let json = parse_json(&sb.ok(&["get", "--format", "json"]));
     assert_eq!(json["API_TOKEN"], "secret1");
@@ -569,7 +575,11 @@ fn encrypt_invalid_env_file_fails_without_changes() {
     sb.write(".env", original);
     let output = sb.run(&["encrypt"]);
     assert_eq!(output.status.code(), Some(1));
-    assert!(stderr(&output).contains("failed to parse"), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("failed to parse"),
+        "{}",
+        stderr(&output)
+    );
     assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
     assert_eq!(sb.read(".env"), original);
 }
@@ -581,7 +591,10 @@ fn decrypt_in_place_keeps_export_prefix() {
     sb.ok(&["encrypt"]);
     sb.ok(&["decrypt"]);
     let content = sb.read(".env");
-    assert!(content.contains("export API_TOKEN=\"secret1\""), "{content}");
+    assert!(
+        content.contains("export API_TOKEN=\"secret1\""),
+        "{content}"
+    );
     assert!(content.contains("  DB_PASSWORD=\"pass1\""), "{content}");
     assert!(!content.contains("encrypted:"), "{content}");
 }
@@ -597,17 +610,26 @@ fn encrypt_properties_keeps_plain_values_and_separators() {
     let content = sb.read("application.properties");
     // non-sensitive values are not quoted or rewritten (Spring would read the quotes)
     assert!(content.lines().any(|l| l == "app.name=demo"), "{content}");
-    assert!(content.lines().any(|l| l == "server.port: 8080"), "{content}");
+    assert!(
+        content.lines().any(|l| l == "server.port: 8080"),
+        "{content}"
+    );
     assert!(content.contains("db.password=encrypted:"), "{content}");
     assert!(content.contains("api.token=encrypted:"), "{content}");
-    assert!(!content.contains("secret1") && !content.contains("token1"), "{content}");
+    assert!(
+        !content.contains("secret1") && !content.contains("token1"),
+        "{content}"
+    );
     let json = parse_json(&sb.ok(&["decrypt", "--stdout", "--format", "json"]));
     assert_eq!(json["db.password"], "secret1");
     assert_eq!(json["api.token"], "token1");
 
     sb.ok(&["decrypt"]);
     let content = sb.read("application.properties");
-    assert!(content.lines().any(|l| l == "db.password=secret1"), "{content}");
+    assert!(
+        content.lines().any(|l| l == "db.password=secret1"),
+        "{content}"
+    );
 }
 
 #[test]
@@ -807,7 +829,11 @@ fn decrypt_remote_env_file() {
     let output = run(&["decrypt", "-f", &url, "--stdout"]);
     assert!(output.status.success(), "{}", stderr(&output));
     let out = stdout(&output);
-    assert_eq!(raw_value(&out, "API_TOKEN").as_deref(), Some("remote-secret"), "{out}");
+    assert_eq!(
+        raw_value(&out, "API_TOKEN").as_deref(),
+        Some("remote-secret"),
+        "{out}"
+    );
     assert_eq!(raw_value(&out, "PORT").as_deref(), Some("8080"), "{out}");
 
     let output = run(&["decrypt", "-f", &url, "--stdout", "--format", "json"]);
@@ -910,7 +936,11 @@ fn encrypt_sign_with_only_other_profile_public_key_stays_valid() {
     assert_eq!(content.matches("# ---").count(), 2, "{content}");
     assert_eq!(content.matches("# sign: ").count(), 1, "{content}");
     assert!(
-        content.lines().filter(|l| l.starts_with("DOTENV_PUBLIC_KEY=")).count() == 1,
+        content
+            .lines()
+            .filter(|l| l.starts_with("DOTENV_PUBLIC_KEY="))
+            .count()
+            == 1,
         "{content}"
     );
     assert!(sb.ok(&["verify"]).contains("is valid"));
@@ -985,7 +1015,10 @@ fn command_flag_runs_command_line_with_injected_variables() {
     assert_eq!(sb.ok(&["-c", "printf", "%s", "${API_TOKEN}"]), "s3cr3t");
     // with a profile
     sb.ok(&["-p", "prod", "set", "API_TOKEN", "prod-token"]);
-    assert_eq!(sb.ok(&["-p", "prod", "-c", "printf %s $API_TOKEN"]), "prod-token");
+    assert_eq!(
+        sb.ok(&["-p", "prod", "-c", "printf %s $API_TOKEN"]),
+        "prod-token"
+    );
 }
 
 #[test]
@@ -1027,10 +1060,19 @@ fn run_uses_same_private_key_lookup_as_cli() {
         "sub/.env",
         &format!("DOTENV_PUBLIC_KEY=\"{pk_hex}\"\nAPI_TOKEN=\"{encrypted}\"\n"),
     );
-    sb.write("sub/.env.keys", &format!("DOTENV_PRIVATE_KEY=\"{sk_hex}\"\n"));
+    sb.write(
+        "sub/.env.keys",
+        &format!("DOTENV_PRIVATE_KEY=\"{sk_hex}\"\n"),
+    );
     let script = "printf %s \"$API_TOKEN\"";
-    assert_eq!(sb.ok(&["get", "-f", "sub/.env", "API_TOKEN"]).trim(), r#"API_TOKEN="sub-secret""#);
-    assert_eq!(sb.ok(&["run", "-f", "sub/.env", "--", "sh", "-c", script]), "sub-secret");
+    assert_eq!(
+        sb.ok(&["get", "-f", "sub/.env", "API_TOKEN"]).trim(),
+        r#"API_TOKEN="sub-secret""#
+    );
+    assert_eq!(
+        sb.ok(&["run", "-f", "sub/.env", "--", "sh", "-c", script]),
+        "sub-secret"
+    );
 
     // only the global key store (legacy format, a comment mentions "version") has the private key
     fs::remove_file(sb.path("sub/.env.keys")).unwrap();
@@ -1042,15 +1084,24 @@ fn run_uses_same_private_key_lookup_as_cli() {
         ),
     )
     .unwrap();
-    assert_eq!(sb.ok(&["get", "-f", "sub/.env", "API_TOKEN"]).trim(), r#"API_TOKEN="sub-secret""#);
-    assert_eq!(sb.ok(&["run", "-f", "sub/.env", "--", "sh", "-c", script]), "sub-secret");
+    assert_eq!(
+        sb.ok(&["get", "-f", "sub/.env", "API_TOKEN"]).trim(),
+        r#"API_TOKEN="sub-secret""#
+    );
+    assert_eq!(
+        sb.ok(&["run", "-f", "sub/.env", "--", "sh", "-c", script]),
+        "sub-secret"
+    );
 
     // without any private key the error tells the reason, not "environment variable not found"
     fs::remove_dir_all(sb.dotenvx_dir()).unwrap();
     let output = sb.run(&["run", "-f", "sub/.env", "--", "sh", "-c", script]);
     assert_eq!(output.status.code(), Some(1));
     let err = stderr(&output);
-    assert!(err.contains("Private key not found for public key"), "{err}");
+    assert!(
+        err.contains("Private key not found for public key"),
+        "{err}"
+    );
 }
 
 // ---------------------------------------------------------------- rotate
@@ -1248,7 +1299,11 @@ fn sync_refuses_encrypted_values_when_target_has_no_public_key() {
 
     let output = sb.run(&["sync", ".env", ".env.prod"]);
     assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
-    assert!(stderr(&output).contains("DATABASE_URL"), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("DATABASE_URL"),
+        "{}",
+        stderr(&output)
+    );
     assert_eq!(sb.read(".env.prod"), "OTHER=1\n");
 }
 
@@ -1267,8 +1322,9 @@ fn sync_new_target_keeps_export_and_multiline_entries() {
     assert!(!target.contains("postgres://"), "{target}");
     assert!(!target.contains("line1"), "{target}");
     assert!(
-        target.lines().any(|l| l.starts_with("export DATABASE_URL=\"encrypted:")
-            && l.ends_with("# main db")),
+        target
+            .lines()
+            .any(|l| l.starts_with("export DATABASE_URL=\"encrypted:") && l.ends_with("# main db")),
         "{target}"
     );
     assert_eq!(
@@ -1509,7 +1565,11 @@ fn doctor_warns_about_plain_sensitive_values_and_adds_metadata() {
         "{}",
         stderr(&output)
     );
-    assert!(stderr(&output).contains("doctor --fix"), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("doctor --fix"),
+        "{}",
+        stderr(&output)
+    );
     // doctor only reports, see review #12
     assert_eq!(sb.read(".env"), original);
 
