@@ -8,8 +8,9 @@ use std::path::Path;
 
 pub fn del_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_file = get_env_file_arg(command_matches, profile);
-    if !env_file.contains(".env") {
-        eprintln!("Error: .env supported only");
+    // `remove_key_entries` handles both `.env` and `.properties`, see review #27
+    if !env_file.contains(".env") && !env_file.ends_with(".properties") {
+        eprintln!("Error: only .env and .properties files are supported");
         return;
     }
     let key_arg = command_matches
@@ -70,6 +71,19 @@ mod tests {
         assert_eq!(
             remove_key_lines(content, ".env", "KEY"),
             Some("OTHER=value\r\n".to_string())
+        );
+    }
+
+    #[test]
+    fn removes_properties_key_with_continuation() {
+        let content = "a=1\nkey = line1 \\\n  line2\nkey.sub=kept\nb: 2\n";
+        assert_eq!(
+            remove_key_lines(content, "application.properties", "key"),
+            Some("a=1\nkey.sub=kept\nb: 2\n".to_string())
+        );
+        assert_eq!(
+            remove_key_lines(content, "application.properties", "b"),
+            Some("a=1\nkey = line1 \\\n  line2\nkey.sub=kept\n".to_string())
         );
     }
 
