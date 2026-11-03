@@ -509,7 +509,8 @@ fn resolve_public_key(
     } else {
         get_private_key(profile_name)?
     };
-    let kp = EcKeyPair::from_secret_key(&private_key_hex);
+    let kp = EcKeyPair::from_secret_key(&private_key_hex)
+        .map_err(|e| format!("{e}: {}", get_private_key_name(profile_name)))?;
     Ok(kp.get_pk_hex())
 }
 

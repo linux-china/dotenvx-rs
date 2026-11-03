@@ -33,14 +33,19 @@ impl EcKeyPair {
         }
     }
 
-    pub fn from_secret_key(sk_hex: &str) -> Self {
-        let sk_bytes = hex::decode(check_sk_hex(&trim_private_key(sk_hex.to_string()))).unwrap();
-        let sk = SecretKey::parse_slice(&sk_bytes).unwrap();
+    /// Parse a private key hex, tolerating the `{...}` suffix and a prefix before the last 64 hex chars.
+    /// Returns an error instead of panicking on an invalid key.
+    pub fn from_secret_key(sk_hex: &str) -> anyhow::Result<Self> {
+        let trimmed = trim_private_key(sk_hex.trim().to_string());
+        let sk_bytes = hex::decode(check_sk_hex(&trimmed))
+            .map_err(|e| anyhow::anyhow!("Invalid private key hex: {e}"))?;
+        let sk =
+            SecretKey::parse_slice(&sk_bytes).map_err(|_| anyhow::anyhow!("Invalid private key"))?;
         let pk = PublicKey::from_secret_key(&sk);
-        EcKeyPair {
+        Ok(EcKeyPair {
             public_key: pk,
             secret_key: sk,
-        }
+        })
     }
 
     pub fn from_input(sk_hex: &str) -> anyhow::Result<Self> {
