@@ -731,6 +731,182 @@ pub fn content_has_key(content: &str, key: &str) -> bool {
     content.lines().any(|line| line_has_key(line, key))
 }
 
+/// 去掉 `.sh`/`.toml`（`# K=...`）和 `.xml`（`<!-- K=... -->`）中嵌入键值对时使用的注释前缀
+fn strip_embedded_pair_prefix<'a>(env_file: &str, line: &'a str) -> &'a str {
+    let trimmed = line.trim_start();
+    if env_file.ends_with(".xml") {
+        trimmed.strip_prefix("<!--").map_or(trimmed, str::trim_start)
+    } else if env_file.ends_with(".sh") || env_file.ends_with(".toml") {
+        trimmed.strip_prefix('#').map_or(trimmed, str::trim_start)
+    } else {
+        trimmed
+    }
+}
+
+/// 判断一行是否定义了 `key`（按文件类型）：
+/// - `.properties`：`K=v`、`K: v`、`K v`
+/// - `.sh`/`.toml`/`.xml`：带注释前缀的 `K=v`
+/// - 其他（dotenv）：与 `line_has_key` 一致，允许 `export ` 前缀和 `=` 两侧空白
+pub fn line_defines_key(env_file: &str, line: &str, key: &str) -> bool {
+    let body = strip_embedded_pair_prefix(env_file, line);
+    if env_file.ends_with(".properties") {
+        body.strip_prefix(key).is_some_and(|rest| {
+            rest.is_empty() || rest.starts_with(['=', ':']) || rest.starts_with(char::is_whitespace)
+        })
+    } else {
+        line_has_key(body, key)
+    }
+}
+
+/// 该行（去掉注释前缀后）是否以 `export ` 开头
+pub fn line_has_export_prefix(env_file: &str, line: &str) -> bool {
+    !env_file.ends_with(".properties")
+        && strip_embedded_pair_prefix(env_file, line).starts_with("export ")
+}
+
+/// 从 `lines[start]` 开始的条目占用的行数：
+/// - dotenv：值以 `"` 或 `'` 开头且当前行没有闭合时，一直到闭合引号所在行（找不到闭合则只算 1 行）
+/// - `.properties`：行尾有奇数个 `\` 时是续行
+///
+/// `lines` 中的元素不应包含换行符。
+pub fn entry_line_count(env_file: &str, lines: &[&str], start: usize) -> usize {
+    if env_file.ends_with(".properties") {
+        let ends_with_continuation = |line: &str| {
+            line.trim_end_matches('\r')
+                .chars()
+                .rev()
+                .take_while(|&c| c == '\\')
+                .count()
+                % 2
+                == 1
+        };
+        let mut end = start;
+        while end + 1 < lines.len() && ends_with_continuation(lines[end]) {
+            end += 1;
+        }
+        return end - start + 1;
+    }
+    let body = strip_embedded_pair_prefix(env_file, lines[start]);
+    let Some((_, value)) = body.split_once('=') else {
+        return 1;
+    };
+    let value = value.trim_start();
+    let Some(quote) = value.chars().next().filter(|c| *c == '"' || *c == '\'') else {
+        return 1;
+    };
+    // 返回 `s` 中是否出现了未转义的闭合引号（单引号内不处理转义）
+    let has_closing_quote = |s: &str| {
+        let mut chars = s.chars();
+        while let Some(c) = chars.next() {
+            if c == '\\' && quote == '"' {
+                chars.next();
+            } else if c == quote {
+                return true;
+            }
+        }
+        false
+    };
+    if has_closing_quote(&value[1..]) {
+        return 1;
+    }
+    (start + 1..lines.len())
+        .find(|&i| has_closing_quote(lines[i]))
+        .map_or(1, |end| end - start + 1)
+}
+
+/// 删除 `content` 中所有定义了 `key` 的条目（包括多行值的续行），保留其余行的换行符。
+/// 没有找到 `key` 时返回 `None`。
+pub fn remove_key_entries(content: &str, env_file: &str, key: &str) -> Option<String> {
+    let raw_lines: Vec<&str> = content.split_inclusive('\n').collect();
+    let lines: Vec<&str> = raw_lines
+        .iter()
+        .map(|l| l.trim_end_matches(['\r', '\n']))
+        .collect();
+    let mut new_content = String::with_capacity(content.len());
+    let mut removed = false;
+    let mut i = 0;
+    while i < lines.len() {
+        if line_defines_key(env_file, lines[i], key) {
+            i += entry_line_count(env_file, &lines, i);
+            removed = true;
+        } else {
+            new_content.push_str(raw_lines[i]);
+            i += 1;
+        }
+    }
+    removed.then_some(new_content)
+}
+
+/// 把 `content` 中所有定义了 `key` 的条目（包括多行值的续行）替换成 `make_pair(has_export)` 生成的行。
+/// 没有找到 `key` 时返回 `None`。
+pub fn replace_key_entries(
+    content: &str,
+    env_file: &str,
+    key: &str,
+    make_pair: impl Fn(bool) -> String,
+) -> Option<String> {
+    let lines: Vec<&str> = content.lines().collect();
+    let mut new_lines: Vec<String> = Vec::with_capacity(lines.len());
+    let mut replaced = false;
+    let mut i = 0;
+    while i < lines.len() {
+        if line_defines_key(env_file, lines[i], key) {
+            new_lines.push(make_pair(line_has_export_prefix(env_file, lines[i])));
+            i += entry_line_count(env_file, &lines, i);
+            replaced = true;
+        } else {
+            new_lines.push(lines[i].to_string());
+            i += 1;
+        }
+    }
+    replaced.then(|| new_lines.join("\n"))
+}
+
+/// Escape a value for a `.properties` file so that `java.util.Properties` (and Spring) read back `value`.
+///
+/// Escapes `\`, newlines, tabs and leading spaces; no quotes are added.
+pub fn properties_escape(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    let mut leading = true;
+    for c in value.chars() {
+        match c {
+            '\\' => escaped.push_str(r"\\"),
+            '\n' => escaped.push_str(r"\n"),
+            '\r' => escaped.push_str(r"\r"),
+            '\t' => escaped.push_str(r"\t"),
+            '\x0c' => escaped.push_str(r"\f"),
+            ' ' if leading => escaped.push_str(r"\ "),
+            _ => escaped.push(c),
+        }
+        if c != ' ' {
+            leading = false;
+        }
+    }
+    escaped
+}
+
+/// 文件原来带签名时，修改后重新签名；拿不到匹配的私钥时提示签名已失效。
+pub fn resign_env_file_if_signed(env_file: &str, original_content: &str) {
+    if model::get_signature(original_content).is_none() {
+        return;
+    }
+    let result = fs::read_to_string(env_file)
+        .map_err(|e| e.into())
+        .and_then(|content| encrypt::add_or_replace_signature(env_file, &content))
+        .and_then(|signed| {
+            let signed = if signed.ends_with('\n') { signed } else { format!("{signed}\n") };
+            fs::write(env_file, signed).map_err(|e| e.into())
+        });
+    match result {
+        Ok(()) => println!("{}", format!("✔ signature updated ({env_file})").green()),
+        Err(e) => eprintln!(
+            "{}",
+            format!("Warning: failed to re-sign {env_file}, the existing signature is now invalid: {e}")
+                .yellow()
+        ),
+    }
+}
+
 /// 读取 `key` 对应的值（去掉两侧引号），不存在返回 None
 fn get_key_value_in_content(content: &str, key: &str) -> Option<String> {
     content
@@ -1162,6 +1338,31 @@ pub fn is_valid_env_key(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// Helpers shared by the unit tests.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::path::PathBuf;
+
+    /// The global store directory, if `DOTENVX_DIR` points somewhere other than the real
+    /// `$HOME/.dotenvx`. Tests that write the global key store must skip otherwise
+    /// (see AGENTS.md: run them with `DOTENVX_DIR=$HOME/.dotenvx2`).
+    pub(crate) fn isolated_dotenvx_dir() -> Option<PathBuf> {
+        let Some(dir) = std::env::var_os("DOTENVX_DIR").map(PathBuf::from) else {
+            eprintln!("skip: DOTENVX_DIR not set");
+            return None;
+        };
+        let real = dirs::home_dir()?.join(".dotenvx");
+        let same = |a: &PathBuf, b: &PathBuf| {
+            a == b || matches!((a.canonicalize(), b.canonicalize()), (Ok(x), Ok(y)) if x == y)
+        };
+        if same(&dir, &real) {
+            eprintln!("skip: DOTENVX_DIR points to the real global store {}", real.display());
+            return None;
+        }
+        Some(dir)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1342,8 +1543,7 @@ mod tests {
     #[test]
     fn test_write_private_key_with_profile_key_present() {
         // write_private_key_to_file also writes the global key store, only run when isolated
-        if std::env::var("DOTENVX_DIR").is_err() {
-            eprintln!("skip: DOTENVX_DIR not set");
+        if test_support::isolated_dotenvx_dir().is_none() {
             return;
         }
         let dir = std::env::temp_dir().join(format!("dotenvx_sk_test_{}", uuid::Uuid::now_v7()));
@@ -1421,60 +1621,96 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "depends on the local .env.keys / DOTENV_PRIVATE_KEY of this machine"]
     fn test_get_private_key() {
-        let profile_name = None;
-        let private_key = get_private_key(&profile_name);
-        println!("private key: {}", private_key.unwrap());
+        let private_key = get_private_key(&None).unwrap();
+        assert!(EcKeyPair::from_secret_key(&private_key).is_ok());
     }
 
     #[test]
     fn test_get_public_key() {
-        let profile_name = Some("example".to_owned());
-        let public_key = get_public_key(&profile_name);
-        println!("public key: {}", public_key.unwrap());
+        // .env.example is checked into the repository
+        let public_key = get_public_key(&Some("example".to_owned())).unwrap();
+        assert_eq!(
+            public_key,
+            "039dd52f537a84a560fd18600ff40856f3bfcc103e70f329acc21327622042b195"
+        );
     }
 
     #[test]
     fn test_write_public_key() {
-        let public_key = "xxxx";
-        let env_file = PathBuf::from(".env.test");
-        write_public_key_to_file(&env_file, public_key).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let env_file = dir.path().join(".env.test");
+        let public_key = EcKeyPair::generate().get_pk_hex();
+        write_public_key_to_file(&env_file, &public_key).unwrap();
+        let content = fs::read_to_string(&env_file).unwrap();
+        assert!(content.contains(&format!("DOTENV_PUBLIC_KEY_TEST=\"{public_key}\"")));
+        assert_eq!(
+            get_public_key_for_file(env_file.to_str().unwrap()).unwrap(),
+            public_key
+        );
     }
 
     #[test]
     fn test_write_private_key() {
-        let env_file = PathBuf::from(KEYS_FILE_NAME);
-        let key_pair = KeyPair::new("xxxx", "yyyyy", &None);
-        write_private_key_to_file(&env_file, "DOTENV_PRIVATE_KEY_TEST", &key_pair).unwrap();
+        // write_private_key_to_file also writes the global key store, only run when isolated
+        let Some(dotenvx_dir) = test_support::isolated_dotenvx_dir() else {
+            return;
+        };
+        let dir = tempfile::tempdir().unwrap();
+        // an existing .env.keys: a new file would also update the ignore files in the cwd
+        let keys_file = dir.path().join(KEYS_FILE_NAME);
+        fs::write(&keys_file, "# keys\n").unwrap();
+        let pair = EcKeyPair::generate();
+        let key_pair = KeyPair::new(&pair.get_pk_hex(), &pair.get_sk_hex(), &None);
+        write_private_key_to_file(&keys_file, "DOTENV_PRIVATE_KEY_TEST", &key_pair).unwrap();
+        let content = fs::read_to_string(&keys_file).unwrap();
+        assert!(content.contains(&format!("DOTENV_PRIVATE_KEY_TEST=\"{}\"", pair.get_sk_hex())));
+        // the key pair went to the isolated global store, remove it again
+        assert!(DotenvxKeyStore::global_path().starts_with(&dotenvx_dir));
+        let removed = DotenvxKeyStore::update_global(|store| {
+            let removed = store.keys.remove(&pair.get_pk_hex()).is_some();
+            Ok((removed, removed))
+        })
+        .unwrap();
+        assert!(removed, "key pair not written to the global key store");
     }
 
     #[test]
+    #[ignore = "depends on a hard-coded file in the developer's home directory"]
     fn test_get_public_key_for_file() {
-        let env_file = "/Users/linux_china/.dotenvx/.env.g_default";
-        let public_key = get_public_key_for_file(env_file);
-        println!("public key: {}", public_key.unwrap());
+        let env_file = get_dotenvx_home().join(".env.g_default");
+        let public_key = get_public_key_for_file(env_file.to_str().unwrap()).unwrap();
+        assert!(!public_key.is_empty());
     }
 
     #[test]
     fn test_get_public_key_from_xml() {
-        let file_path = "tests/demo.xml";
-        let public_key = get_public_key_from_text_file(file_path).unwrap();
-        println!("public key: {public_key}");
+        let public_key = get_public_key_from_text_file("tests/demo.xml").unwrap();
+        assert_eq!(
+            public_key,
+            "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0"
+        );
     }
 
     #[test]
     fn test_get_public_key_from_json() {
-        let file_path = "tests/demo.json";
-        let public_key = get_public_key_from_text_file(file_path).unwrap();
-        println!("public key: {public_key}");
+        let public_key = get_public_key_from_text_file("tests/demo.json").unwrap();
+        assert_eq!(
+            public_key,
+            "02e8d78f0da7fc3b529d503edd933ed8cdc79dbe5fd5d9bd480f1e63a09905f3b3"
+        );
     }
 
     #[test]
-    fn tes_find_private_key() {
-        let private_key = find_private_key_from_home(
-            "028d59ff8bc98e7bfb7d7a0a6f511a653907cd3135db9ead01f293bcb7beb3ecd3",
+    #[ignore = "depends on the global key store of this machine"]
+    fn test_find_private_key_from_home() {
+        let public_key = "028d59ff8bc98e7bfb7d7a0a6f511a653907cd3135db9ead01f293bcb7beb3ecd3";
+        let private_key = find_private_key_from_home(public_key).unwrap();
+        assert_eq!(
+            EcKeyPair::from_secret_key(&private_key).unwrap().get_pk_hex(),
+            public_key
         );
-        println!("private key: {private_key:?}")
     }
 
     use crate::commands::crypt_util::{decrypt_env_item, encrypt_env_item};

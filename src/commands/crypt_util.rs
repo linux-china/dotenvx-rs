@@ -468,28 +468,39 @@ mod tests {
             "iss": "dotenvx"
         });
         let jwt_token = generate_jwt_token(private_key, claims).unwrap();
-        println!("JWT: {jwt_token}");
+        assert_eq!(jwt_token.split('.').count(), 3, "JWT: {jwt_token}");
     }
 
     #[test]
-    fn test_encrypt_file() -> TestResult {
-        // Input file and password
-        let input_file = "tests/example.txt";
-        let output_file = "tests/example.txt.aes";
+    fn test_encrypt_decrypt_file_round_trip() -> TestResult {
+        // work on copies in a temp dir: never write next to the fixtures in tests/
+        let dir = tempfile::tempdir()?;
+        let input_file = dir.path().join("example.txt");
+        let encrypted_file = dir.path().join("example.txt.aes");
+        let output_file = dir.path().join("example.decrypted.txt");
+        std::fs::copy("tests/example.txt", &input_file)?;
         let password = "your_secure_password";
-        // Encrypt the file
-        encrypt_file(input_file, output_file, password)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_decrypt_file() -> TestResult {
-        // Input file and password
-        let encrypted_file = "tests/example.txt.aes";
-        let output_file = "tests/example.txt";
-        let password = "your_secure_password";
-        // Encrypt the file
-        decrypt_file(encrypted_file, output_file, password)?;
+        encrypt_file(
+            &input_file,
+            &encrypted_file,
+            password,
+        )?;
+        let encrypted = std::fs::read(&encrypted_file)?;
+        assert_eq!(&encrypted[0..4], b"DXA1");
+        decrypt_file(
+            &encrypted_file,
+            &output_file,
+            password,
+        )?;
+        assert_eq!(std::fs::read(&output_file)?, std::fs::read(&input_file)?);
+        assert!(
+            decrypt_file(
+                &encrypted_file,
+                &output_file,
+                "wrong",
+            )
+            .is_err()
+        );
         Ok(())
     }
 

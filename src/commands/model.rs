@@ -594,26 +594,37 @@ mod tests {
 
     #[test]
     fn test_from_file() {
+        // .env.example is checked into the repository
         let env_file = super::EnvFile::from(".env.example").unwrap();
-        println!("{env_file:?}");
+        assert_eq!(
+            env_file.get_public_key().as_deref(),
+            Some("039dd52f537a84a560fd18600ff40856f3bfcc103e70f329acc21327622042b195")
+        );
     }
 
     #[test]
+    #[ignore = "depends on the global key store of this machine"]
     fn test_global() {
-        let store = DotenvxKeyStore::load_global().unwrap();
-        println!("{store:?}");
+        DotenvxKeyStore::load_global().unwrap();
+    }
+
+    /// sign -> embed -> verify, on generated keys: no dependency on the repository's .env
+    #[test]
+    fn test_sign_and_verify_file_signature() {
+        let pair = crate::commands::crypt_util::EcKeyPair::generate();
+        let content = "# ---\n# uuid: test\n# ---\n\nA=1\nB=2\n";
+        let signature = sign_message(&pair.get_sk_hex(), content).unwrap();
+        let signed = super::update_signature(content, &signature);
+        assert_eq!(super::get_signature(&signed).as_deref(), Some(signature.as_str()));
+        let message = super::remove_signature(&signed);
+        assert!(verify_signature(&pair.get_pk_hex(), &message, &signature).unwrap());
+        // a tampered file fails verification
+        let tampered = super::remove_signature(&signed.replace("A=1", "A=2"));
+        assert!(!verify_signature(&pair.get_pk_hex(), &tampered, &signature).unwrap_or(false));
     }
 
     #[test]
-    fn test_generate_signature() {
-        let private_key = "9e70188d351c25d0714929205df9b8f4564b6b859966bdae7aef7f752a749d8b";
-        let env_file_content = std::fs::read_to_string(".env").unwrap();
-        let message = super::remove_signature(&env_file_content);
-        let signature = sign_message(private_key, &message).unwrap();
-        println!("{signature}");
-    }
-
-    #[test]
+    #[ignore = "depends on the signature in the repository's .env being up to date"]
     fn test_verify_file_signature() {
         let public_key = "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0";
         let env_file_content = std::fs::read_to_string(".env").unwrap();
@@ -646,7 +657,14 @@ mod tests {
     fn test_update_signature() {
         let content = std::fs::read_to_string(".env.example").unwrap();
         let updated_content = super::update_signature(&content, "your_signature_here");
-        println!("{updated_content}");
+        assert_eq!(
+            super::get_signature(&updated_content).as_deref(),
+            Some("your_signature_here")
+        );
+        // replacing again keeps a single signature line
+        let updated_again = super::update_signature(&updated_content, "second");
+        assert_eq!(super::get_signature(&updated_again).as_deref(), Some("second"));
+        assert_eq!(updated_again.matches("sign:").count(), 1);
     }
 
     #[test]

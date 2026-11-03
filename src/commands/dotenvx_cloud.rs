@@ -112,6 +112,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "needs network access and a dotenvx cloud key pair in the global key store"]
     fn test_fetch_self_info() {
         let key_pair = find_dotenvx_cloud_key_pair().unwrap();
         let self_info = fetch_self_info(&key_pair.private_key).unwrap();
@@ -119,6 +120,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "needs a dotenvx cloud key pair in the global key store"]
     fn test_jwt_token() {
         let key_pair = find_dotenvx_cloud_key_pair().unwrap();
         let jwt_token = generate_request_token(&key_pair.private_key).unwrap();

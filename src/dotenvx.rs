@@ -466,6 +466,7 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
+    #[ignore = "needs the private key of the repository's .env and mutates the process environment"]
     fn test_load() {
         unsafe {
             set_var("HELLO", "Jackie");
@@ -491,21 +492,23 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "depends on the global key store of this machine"]
     fn test_load_global() {
-        let store = DotenvxKeyStore::load_global().unwrap();
-        println!("{:#?}", store);
+        DotenvxKeyStore::load_global().unwrap();
     }
 
     #[test]
+    #[ignore = "needs the private key of the repository's .env"]
     fn test_ecies_decrypt() {
         let encrypted_text = "encrypted:BNexEwjKwt87k9aEgaSng1JY6uW8OkwMYEFTwEy/xyzDrQwQSDIUEXNlcwWi6rnvR1Q60G35NO4NWwhUYAaAON1LOnvMk+tJjTQJaM8DPeX2AJ8IzoTV44FLJsbOiMa77RLrnBv7";
         let private_key = get_private_key(&None, &None).unwrap();
         println!("private_key: {private_key}");
         let text = decrypt_dotenvx_item(&private_key, encrypted_text).unwrap();
-        println!("{text}");
+        assert_eq!(text, "World");
     }
 
     #[test]
+    #[ignore = "needs the private key of the repository's .env and mutates the process environment"]
     fn test_load_from_reader() {
         let dotenv_content = fs::read_to_string(".env").unwrap();
         let reader = Cursor::new(dotenv_content.as_bytes());
@@ -514,18 +517,25 @@ mod tests {
         // Assuming the private key is set correctly in the environment,
         // The decryption will depend on the actual private key used
     }
+    /// self-contained: generated key pair, the private key is passed via `DOTENV_PRIVATE_KEY`
+    /// (verified against the public key, so it can't be picked up by other tests by mistake)
     #[test]
     fn test_load_from_reader_iterator() {
-        let dotenv_content = fs::read_to_string(".env").unwrap();
-        let reader = Cursor::new(dotenv_content.as_bytes());
-        for (key, value) in from_read_iter(reader).unwrap() {
-            println!("{key}: {value}");
-        }
-        // Assuming the private key is set correctly in the environment
-        // The decryption will depend on the actual private key used
+        let (sk, pk) = ecies::utils::generate_keypair();
+        let sk_hex = hex::encode(sk.serialize());
+        let pk_hex = hex::encode(pk.serialize_compressed());
+        let encrypted = encrypt_dotenvx_item(&pk_hex, "World").unwrap();
+        let content = format!("DOTENV_PUBLIC_KEY={pk_hex}\nHELLO={encrypted}\nPLAIN=text\n");
+        unsafe { env::set_var("DOTENV_PRIVATE_KEY", &sk_hex) };
+        let items = from_read_iter(Cursor::new(content.as_bytes()));
+        unsafe { env::remove_var("DOTENV_PRIVATE_KEY") };
+        let items: HashMap<String, String> = items.unwrap().into_iter().collect();
+        assert_eq!(items.get("HELLO").map(String::as_str), Some("World"));
+        assert_eq!(items.get("PLAIN").map(String::as_str), Some("text"));
     }
 
     #[test]
+    #[ignore = "depends on the repository's .env.keys of this machine"]
     fn test_find_private_key() {
         // the public key declared in the project's .env, its private key lives in .env.keys
         let public_key = "02b4972559803fa3c2464e93858f80c3a4c86f046f725329f8975e007b393dc4f0";
@@ -556,6 +566,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "depends on the global key store of this machine"]
     fn test_keystore() {
         DotenvxKeyStore::load_global().expect("Failed to load global keystore");
     }

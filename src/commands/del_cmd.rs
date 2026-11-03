@@ -1,4 +1,7 @@
-use crate::commands::{adjust_env_key, get_env_file_arg, is_valid_env_key};
+use crate::commands::{
+    adjust_env_key, get_env_file_arg, is_valid_env_key, remove_key_entries,
+    resign_env_file_if_signed,
+};
 use clap::ArgMatches;
 use std::fs;
 use std::path::Path;
@@ -26,8 +29,12 @@ pub fn del_command(command_matches: &ArgMatches, profile: &Option<String>) {
             env_file_content = file_content;
         }
     }
-    if let Some(new_content) = remove_key_lines(&env_file_content, &env_file, &key) {
-        fs::write(&env_file, new_content).unwrap();
+    if let Some(new_content) = remove_key_entries(&env_file_content, &env_file, &key) {
+        if let Err(e) = fs::write(&env_file, new_content) {
+            eprintln!("Error: failed to write {env_file}: {e}");
+            std::process::exit(1);
+        }
+        resign_env_file_if_signed(&env_file, &env_file_content);
         println!("{key} deleted from {env_file}");
     } else {
         eprintln!("Key '{key}' not found in {env_file}");
@@ -42,27 +49,9 @@ pub fn validate_key_name(key: &str, env_file: &str) -> bool {
     }
 }
 
-fn remove_key_lines(content: &str, _env_file: &str, key: &str) -> Option<String> {
-    let line_prefix = format!("{key}=");
-    let mut removed = false;
-    let new_content = content
-        .split_inclusive('\n')
-        .filter(|line| {
-            let matches = line
-                .trim_end_matches(['\r', '\n'])
-                .trim_start()
-                .starts_with(&line_prefix);
-            removed |= matches;
-            !matches
-        })
-        .collect();
-
-    removed.then_some(new_content)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::remove_key_lines;
+    use crate::commands::remove_key_entries as remove_key_lines;
 
     #[test]
     fn removes_only_exact_env_key_lines() {
@@ -87,5 +76,33 @@ mod tests {
     #[test]
     fn returns_none_when_key_is_absent() {
         assert_eq!(remove_key_lines("OTHER=value\n", ".env", "KEY"), None);
+    }
+
+    #[test]
+    fn removes_spaced_and_exported_keys() {
+        let content = "KEY = v1\nexport KEY=v2\nOTHER=1\n# KEY=commented\n";
+        assert_eq!(
+            remove_key_lines(content, ".env", "KEY"),
+            Some("OTHER=1\n# KEY=commented\n".to_string())
+        );
+    }
+
+    #[test]
+    fn removes_multiline_value_continuations() {
+        let content = "A=1\nKEY=\"line1\nline2\nline3\"\nB='x\ny'\nC=2\n";
+        assert_eq!(
+            remove_key_lines(content, ".env", "KEY"),
+            Some("A=1\nB='x\ny'\nC=2\n".to_string())
+        );
+        assert_eq!(
+            remove_key_lines(content, ".env", "B"),
+            Some("A=1\nKEY=\"line1\nline2\nline3\"\nC=2\n".to_string())
+        );
+    }
+
+    #[test]
+    fn escaped_quote_does_not_close_value() {
+        let content = "KEY=\"a\\\"b\nc\"\nC=2\n";
+        assert_eq!(remove_key_lines(content, ".env", "KEY"), Some("C=2\n".to_string()));
     }
 }
