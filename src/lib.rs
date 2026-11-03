@@ -18,4 +18,6 @@
 pub mod common;
 pub mod dotenvx;
 
-pub use dotenvx::{dotenv, from_path, dotenv_entries, decrypt_dotenvx_item, encrypt_dotenvx_item, get_private_key};
+pub use dotenvx::{
+    decrypt_dotenvx_item, dotenv, dotenv_entries, encrypt_dotenvx_item, from_path, get_private_key,
+};

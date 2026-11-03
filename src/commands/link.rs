@@ -1,5 +1,5 @@
-use clap::ArgMatches;
 use crate::commands::shell_single_quote;
+use clap::ArgMatches;
 use colored::Colorize;
 use std::fs::Permissions;
 use std::path::{Path, PathBuf};
@@ -130,13 +130,19 @@ mod tests {
     #[test]
     fn test_link_twice_does_not_create_recursive_wrapper() {
         let (_dir, python, real) = make_venv();
-        assert_eq!(replace_python_with_wrapper(&python), Ok(LinkOutcome::Replaced));
+        assert_eq!(
+            replace_python_with_wrapper(&python),
+            Ok(LinkOutcome::Replaced)
+        );
         let first = std::fs::read_to_string(&python).unwrap();
         assert!(first.contains(PYTHON_WRAPPER_MARKER));
         assert!(first.contains(&format!("exec '{}' \"$@\"", real.display())));
         assert!(first.contains(r#"eval "$( dotenvx decrypt --stdout --format shell )""#));
 
-        assert_eq!(replace_python_with_wrapper(&python), Ok(LinkOutcome::AlreadyLinked));
+        assert_eq!(
+            replace_python_with_wrapper(&python),
+            Ok(LinkOutcome::AlreadyLinked)
+        );
         assert_eq!(std::fs::read_to_string(&python).unwrap(), first);
     }
 
@@ -154,6 +160,11 @@ mod tests {
         let (_dir, python, real) = make_venv();
         std::fs::remove_file(&real).unwrap();
         assert!(replace_python_with_wrapper(&python).is_err());
-        assert!(std::fs::symlink_metadata(&python).unwrap().file_type().is_symlink());
+        assert!(
+            std::fs::symlink_metadata(&python)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
     }
 }

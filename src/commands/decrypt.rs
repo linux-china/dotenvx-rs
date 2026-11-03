@@ -118,20 +118,20 @@ pub fn decrypt_env_entries(
     if env_file.ends_with(".properties") {
         let f = File::open(env_file)?;
         let reader = BufReader::new(f);
-        PropertiesIter::new(reader)
-            .read_into(|key, value| {
-                let value = if value.starts_with('"') {
-                    value[1..value.len() - 1].to_string()
-                } else {
-                    value
-                };
-                if value.starts_with("encrypted:") {
-                    let decrypted_text = decrypt_env_item(private_key.as_ref().unwrap(), &value).unwrap();
-                    entries.insert(key.clone(), decrypted_text);
-                } else {
-                    entries.insert(key.clone(), value.clone());
-                }
-            })?;
+        PropertiesIter::new(reader).read_into(|key, value| {
+            let value = if value.starts_with('"') {
+                value[1..value.len() - 1].to_string()
+            } else {
+                value
+            };
+            if value.starts_with("encrypted:") {
+                let decrypted_text =
+                    decrypt_env_item(private_key.as_ref().unwrap(), &value).unwrap();
+                entries.insert(key.clone(), decrypted_text);
+            } else {
+                entries.insert(key.clone(), value.clone());
+            }
+        })?;
     } else {
         let items = if env_file.starts_with("http://") || env_file.starts_with("https://") {
             read_dotenv_url(env_file, None)?
@@ -145,7 +145,8 @@ pub fn decrypt_env_entries(
         };
         for (key, value) in items {
             if value.starts_with("encrypted:") {
-                let decrypted_text = decrypt_env_item(private_key.as_ref().map_err(|e| e.clone())?, &value)?;
+                let decrypted_text =
+                    decrypt_env_item(private_key.as_ref().map_err(|e| e.clone())?, &value)?;
                 entries.insert(key.clone(), decrypted_text);
             } else {
                 entries.insert(key.clone(), value.clone());

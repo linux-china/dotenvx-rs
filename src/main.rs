@@ -4,8 +4,8 @@ use crate::commands::completion::completion_command;
 use crate::commands::crypt_util::{
     decrypt_file_to_bytes, encrypt_bytes_to_file, encrypt_file, write_file_atomic,
 };
-use crate::commands::{get_dotenvx_home, merge_env_keys_text, merge_sealed_key_store};
 use crate::commands::decrypt::decrypt_command;
+use crate::commands::del_cmd::del_command;
 use crate::commands::diff::diff_command;
 use crate::commands::doctor::doctor_command;
 use crate::commands::encrypt::encrypt_command;
@@ -20,12 +20,12 @@ use crate::commands::run::{run_command, run_command_line};
 use crate::commands::set_cmd::set_command;
 use crate::commands::sync::sync_command;
 use crate::commands::verify::verify_command;
+use crate::commands::{get_dotenvx_home, merge_env_keys_text, merge_sealed_key_store};
 use crate::shims::{is_shim_command, run_shim};
 use clap::ArgMatches;
 use dotenvx_rs::common::get_profile_name_from_env;
 use std::env;
 use std::ffi::OsString;
-use crate::commands::del_cmd::del_command;
 
 mod clap_app;
 pub mod commands;
@@ -191,7 +191,8 @@ fn seal_env_keys(
                 encrypted_file_path.display()
             )
         })?;
-        let (merged, conflicts) = merge_env_keys_text(&plain_text, &String::from_utf8(sealed_bytes)?);
+        let (merged, conflicts) =
+            merge_env_keys_text(&plain_text, &String::from_utf8(sealed_bytes)?);
         warn_env_keys_conflicts(&conflicts);
         plain_text = merged;
     }

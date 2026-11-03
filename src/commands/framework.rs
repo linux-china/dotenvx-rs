@@ -79,7 +79,8 @@ mod tests {
         let gradle_path = temp_dir.path().join("build.gradle");
 
         let mut file = fs::File::create(&gradle_path).unwrap();
-        file.write_all(b"plugins {\n    id 'org.springframework.boot' version '3.2.0'\n}\n").unwrap();
+        file.write_all(b"plugins {\n    id 'org.springframework.boot' version '3.2.0'\n}\n")
+            .unwrap();
 
         let result = detect_framework_in_dir(temp_dir.path());
 
@@ -92,7 +93,8 @@ mod tests {
         let gradle_kts_path = temp_dir.path().join("build.gradle.kts");
 
         let mut file = fs::File::create(&gradle_kts_path).unwrap();
-        file.write_all(b"plugins {\n    id(\"org.springframework.boot\") version \"3.2.0\"\n}\n").unwrap();
+        file.write_all(b"plugins {\n    id(\"org.springframework.boot\") version \"3.2.0\"\n}\n")
+            .unwrap();
 
         let result = detect_framework_in_dir(temp_dir.path());
 
@@ -105,7 +107,8 @@ mod tests {
         let go_mod_path = temp_dir.path().join("go.mod");
 
         let mut file = fs::File::create(&go_mod_path).unwrap();
-        file.write_all(b"module example.com/myapp\n\nrequire gofr.dev v1.0.0\n").unwrap();
+        file.write_all(b"module example.com/myapp\n\nrequire gofr.dev v1.0.0\n")
+            .unwrap();
 
         let result = detect_framework_in_dir(temp_dir.path());
 
@@ -118,7 +121,8 @@ mod tests {
         let pyproject_path = temp_dir.path().join("pyproject.toml");
 
         let mut file = fs::File::create(&pyproject_path).unwrap();
-        file.write_all(b"[project]\ndependencies = [\"fastapi[standard]\"]\n").unwrap();
+        file.write_all(b"[project]\ndependencies = [\"fastapi[standard]\"]\n")
+            .unwrap();
 
         let result = detect_framework_in_dir(temp_dir.path());
 
@@ -131,7 +135,8 @@ mod tests {
         let pyproject_path = temp_dir.path().join("pyproject.toml");
 
         let mut file = fs::File::create(&pyproject_path).unwrap();
-        file.write_all(b"[project]\ndependencies = [\"flask\"]\n").unwrap();
+        file.write_all(b"[project]\ndependencies = [\"flask\"]\n")
+            .unwrap();
 
         let result = detect_framework_in_dir(temp_dir.path());
 
@@ -156,7 +161,9 @@ mod tests {
         let gradle_kts_path = temp_dir.path().join("build.gradle.kts");
 
         let mut file1 = fs::File::create(&gradle_path).unwrap();
-        file1.write_all(b"plugins {\n    id 'org.springframework.boot' version '3.2.0'\n}\n").unwrap();
+        file1
+            .write_all(b"plugins {\n    id 'org.springframework.boot' version '3.2.0'\n}\n")
+            .unwrap();
 
         let mut file2 = fs::File::create(&gradle_kts_path).unwrap();
         file2.write_all(b"// Kotlin DSL file\n").unwrap();

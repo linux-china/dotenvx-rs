@@ -1,6 +1,6 @@
 use crate::commands::crypt_util::{generate_jwt_token, sha256};
-use crate::commands::{find_all_keys, http_agent};
 use crate::commands::model::KeyPair;
+use crate::commands::{find_all_keys, http_agent};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 

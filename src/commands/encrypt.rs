@@ -1,8 +1,8 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
-    adjust_env_key, construct_env_file_header, get_env_file_arg, get_private_key,
-    get_or_create_public_key_for_file, get_public_key_name_for_file, is_public_key_included, update_env_file,
+    adjust_env_key, construct_env_file_header, get_env_file_arg, get_or_create_public_key_for_file,
+    get_private_key, get_public_key_name_for_file, is_public_key_included, update_env_file,
     write_public_key_to_file,
 };
 use clap::ArgMatches;
@@ -143,22 +143,21 @@ pub fn encrypt_env_entries(
         ];
         let f = File::open(env_file)?;
         let reader = BufReader::new(f);
-        PropertiesIter::new(reader)
-            .read_into(|key, value| {
-                if !value.starts_with("encrypted:") {
-                    if encrypted_patterns
-                        .iter()
-                        .any(|pattern| key.contains(pattern))
-                    {
-                        let encrypted_text = encrypt_env_item(public_key, &value).unwrap();
-                        entries.insert(key, encrypted_text);
-                    } else {
-                        entries.insert(key, value);
-                    }
+        PropertiesIter::new(reader).read_into(|key, value| {
+            if !value.starts_with("encrypted:") {
+                if encrypted_patterns
+                    .iter()
+                    .any(|pattern| key.contains(pattern))
+                {
+                    let encrypted_text = encrypt_env_item(public_key, &value).unwrap();
+                    entries.insert(key, encrypted_text);
                 } else {
                     entries.insert(key, value);
                 }
-            })?;
+            } else {
+                entries.insert(key, value);
+            }
+        })?;
     } else {
         for item in dotenvy::from_filename_iter(env_file)? {
             let (key, value) = &item?;

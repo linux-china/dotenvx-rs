@@ -1,7 +1,7 @@
 use crate::clap_app::build_dotenvx_app;
 use clap::ArgMatches;
 use clap_complete::Shell::{Bash, Fish, PowerShell, Zsh};
-use clap_complete::{generate, Shell};
+use clap_complete::{Shell, generate};
 use std::io::stdout;
 
 pub fn completion_command(command_matches: &ArgMatches) {

@@ -7,8 +7,8 @@ use crate::commands::{
 use clap::ArgMatches;
 use colored::Colorize;
 use colored_json::to_colored_json_auto;
-use dotenvx_rs::common::get_profile_name_from_file;
 use comfy_table::Table;
+use dotenvx_rs::common::get_profile_name_from_file;
 
 pub fn keypair_command(command_matches: &ArgMatches, profile: &Option<String>) {
     // import private key

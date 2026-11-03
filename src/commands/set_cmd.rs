@@ -1,6 +1,10 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::framework::detect_framework;
-use crate::commands::{adjust_env_key, create_env_file, line_has_key, dotenv_double_quote, get_env_file_arg, shell_single_quote, get_or_create_public_key_for_file, is_sensitive_key, is_valid_env_key, update_env_file};
+use crate::commands::{
+    adjust_env_key, create_env_file, dotenv_double_quote, get_env_file_arg,
+    get_or_create_public_key_for_file, is_sensitive_key, is_valid_env_key, line_has_key,
+    shell_single_quote, update_env_file,
+};
 use arboard::Clipboard;
 use clap::ArgMatches;
 use std::io::Read;
@@ -101,7 +105,10 @@ pub fn set_command(command_matches: &ArgMatches, profile: &Option<String>) {
         println!("export {key}={}", shell_single_quote(&stored_value));
         return;
     }
-    let pair = adjust_pair_for_file(&env_file, format!("{key}={}", dotenv_double_quote(&stored_value)));
+    let pair = adjust_pair_for_file(
+        &env_file,
+        format!("{key}={}", dotenv_double_quote(&stored_value)),
+    );
     if !env_file_exists {
         // create .env file if it does not exist
         if let Some(framework) = detect_framework()

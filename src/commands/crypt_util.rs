@@ -407,7 +407,11 @@ fn write_and_sync(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
 fn sync_parent_dir(path: &Path) {
     #[cfg(unix)]
     if let Some(parent) = path.parent() {
-        let parent = if parent.as_os_str().is_empty() { Path::new(".") } else { parent };
+        let parent = if parent.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            parent
+        };
         if let Ok(dir) = File::open(parent) {
             let _ = dir.sync_all();
         }

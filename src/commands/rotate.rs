@@ -2,8 +2,9 @@ use crate::commands::decrypt::decrypt_env_entries;
 use crate::commands::encrypt::encrypt_env_entries;
 use crate::commands::model::KeyPair;
 use crate::commands::{
-    dotenv_double_quote, get_env_file_arg, get_private_key_name_for_file, write_key_pair,
-    write_private_key_to_file, write_public_key_to_file, EcKeyPair, KEYS_FILE_NAME,
+    EcKeyPair, KEYS_FILE_NAME, dotenv_double_quote, get_env_file_arg,
+    get_private_key_name_for_file, write_key_pair, write_private_key_to_file,
+    write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;

@@ -1,7 +1,7 @@
 use base64ct::{Base64, Encoding};
 use ecies::utils::generate_keypair;
-use ecies::{decrypt, encrypt, PublicKey, SecretKey};
-use k256::ecdsa::{signature::Signer, signature::Verifier, Signature, SigningKey, VerifyingKey};
+use ecies::{PublicKey, SecretKey, decrypt, encrypt};
+use k256::ecdsa::{Signature, SigningKey, VerifyingKey, signature::Signer, signature::Verifier};
 
 #[test]
 fn test_generate_key_pair() {

@@ -495,126 +495,151 @@ impl DuckSecret {
     }
 
     fn to_sql(&self) -> Option<String> {
+        if self.variables.is_empty() {
+            return None;
+        }
         let child_type = self.child_type.as_deref();
-        if self.obj_type == "secret" && !self.variables.is_empty() {
+        if self.obj_type == "secret" {
+            let Some(child_type) = child_type else {
+                eprintln!(
+                    "{} DUCKDB__{}__TYPE is missing, secret '{}' skipped.",
+                    "✖ ".red(),
+                    self.name.to_uppercase(),
+                    self.name
+                );
+                return None;
+            };
             let variables = self
                 .variables
                 .iter()
-                .map(|(k, v)| format!("{} '{}'", k, v.replace('\'', "''")))
+                .map(|(k, v)| format!("{k} {}", sql_quote(v)))
                 .collect::<Vec<String>>()
                 .join(", ");
             return Some(format!(
-                "CREATE SECRET {} ( TYPE {}, {});",
-                self.name,
-                child_type.unwrap(),
-                variables
+                "CREATE SECRET {} ( TYPE {child_type}, {variables});",
+                self.name
             ));
-        } else if self.obj_type == "attach" && !self.variables.is_empty() {
+        } else if self.obj_type == "attach" {
             let mut db_variables = self.variables.clone();
             let db_url = db_variables.remove("URL").unwrap_or_default();
-            if db_variables.is_empty() {
-                return if let Some(child_type_text) = child_type {
-                    Some(format!(
-                        "ATTACH '{}' AS {} (TYPE {});",
-                        db_url.trim_matches('\''),
-                        self.name,
-                        child_type_text
-                    ))
-                } else {
-                    Some(format!(
-                        "ATTACH '{}' AS {};",
-                        db_url.trim_matches('\''),
-                        self.name,
-                    ))
-                };
-            } else {
-                let other_variables = db_variables
-                    .iter()
-                    .map(|(k, v)| {
-                        if v == "true" || v == "false" {
-                            format!("{k} {v}")
-                        } else {
-                            format!("{k} '{v}'")
-                        }
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                return if let Some(child_type_text) = child_type {
-                    Some(format!(
-                        "ATTACH '{}' AS {} (TYPE {}, {});",
-                        db_url.trim_matches('\''),
-                        self.name,
-                        child_type_text,
-                        other_variables
-                    ))
-                } else {
-                    Some(format!(
-                        "ATTACH '{}' AS {} ({});",
-                        db_url.trim_matches('\''),
-                        self.name,
-                        other_variables
-                    ))
-                };
+            let mut options: Vec<String> = Vec::new();
+            if let Some(child_type) = child_type {
+                options.push(format!("TYPE {child_type}"));
             }
+            options.extend(db_variables.iter().map(|(k, v)| {
+                if v == "true" || v == "false" {
+                    format!("{k} {v}")
+                } else {
+                    format!("{k} {}", sql_quote(v))
+                }
+            }));
+            let options = if options.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", options.join(", "))
+            };
+            return Some(format!(
+                "ATTACH {} AS {}{options};",
+                sql_quote(db_url.trim_matches('\'')),
+                self.name
+            ));
         }
         None
     }
 }
+
+/// Quotes a value as a SQL string literal, escaping embedded single quotes.
+fn sql_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+/// `DUCKDB__PARQUET__<NAME>=<key>` → `PRAGMA add_parquet_key('<name>', '<key>');`
+fn parquet_key_sql(key_name: &str, aes_key: &str) -> String {
+    format!(
+        "PRAGMA add_parquet_key({}, {});",
+        sql_quote(key_name),
+        sql_quote(aes_key)
+    )
+}
+
+/// `DUCKDB__ENCRYPTED__<NAME>=<aes_key>@<db_path>` →
+/// `ATTACH '<db_path>' AS <name> (ENCRYPTION_KEY '<aes_key>');`
+fn encrypted_attach_sql(db_name: &str, value: &str) -> Option<String> {
+    let (aes_key, db_path) = value.split_once('@')?;
+    if aes_key.is_empty() || db_path.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "ATTACH {} AS {db_name} (ENCRYPTION_KEY {});",
+        sql_quote(db_path),
+        sql_quote(aes_key)
+    ))
+}
+
+/// `DUCKDB__DUCKLAKE__<NAME>=<catalog_url> [(<options>)]` →
+/// `ATTACH '<catalog_url>' AS <name> [(<options>)];`
+///
+/// The options are raw SQL (e.g. `DATA_PATH 's3://bucket/'`) and are passed through unchanged.
+fn ducklake_attach_sql(db_name: &str, value: &str) -> Option<String> {
+    let value = value.trim();
+    let (catalog_db_url, options) = match value.find('(') {
+        Some(pos) => {
+            let options = value[pos + 1..].trim_end().strip_suffix(')')?.trim();
+            (value[..pos].trim(), options)
+        }
+        None => (value, ""),
+    };
+    let catalog_db_url = catalog_db_url.trim_matches('\'');
+    if catalog_db_url.is_empty() {
+        return None;
+    }
+    let options = if options.is_empty() {
+        String::new()
+    } else {
+        format!(" ({options})")
+    };
+    Some(format!(
+        "ATTACH {} AS {db_name}{options};",
+        sql_quote(catalog_db_url)
+    ))
+}
+
 fn get_duckdb_args() -> Vec<String> {
     let mut args: Vec<String> = vec![];
     let mut obj_names: Vec<String> = Vec::new();
     let mut misc_sql_sentences: Vec<String> = Vec::new();
     let mut encrypt_db_included = false;
     for (key, value) in env::vars() {
-        if key.starts_with("DUCKDB__PARQUET__") {
+        if let Some(parquet_key_name) = key.strip_prefix("DUCKDB__PARQUET__") {
             // https://duckdb.org/docs/stable/data/parquet/encryption
-            let parquet_key_name = key
-                .strip_prefix("DUCKDB__PARQUET__")
-                .unwrap()
-                .to_lowercase();
-            misc_sql_sentences.push(format!(
-                "PRAGMA add_parquet_key('{parquet_key_name}', '{value}');"
-            ));
-        } else if key.starts_with("DUCKDB__ENCRYPTED__") {
+            misc_sql_sentences.push(parquet_key_sql(&parquet_key_name.to_lowercase(), &value));
+        } else if let Some(db_name) = key.strip_prefix("DUCKDB__ENCRYPTED__") {
             // https://duckdb.org/docs/stable/sql/statements/attach#database-encryption
-            let db_name = key
-                .strip_prefix("DUCKDB__ENCRYPTED__")
-                .unwrap()
-                .to_lowercase();
-            let parts = value.split('@').collect::<Vec<&str>>();
-            let aes_key = parts.first().unwrap();
-            let db_path = parts.get(1).unwrap();
-            // SQL example: "ATTACH 'encrypted.db' AS enc_db (ENCRYPTION_KEY 'quack_quack');"
-            misc_sql_sentences.push(format!(
-                "ATTACH '{db_path}' AS {db_name} (ENCRYPTION_KEY '{aes_key}');"
-            ));
-            encrypt_db_included = true;
-        } else if key.starts_with("DUCKDB__DUCKLAKE__") {
-            // https://duckdb.org/docs/stable/sql/statements/attach#database-encryption
-            let db_name = key
-                .strip_prefix("DUCKDB__DUCKLAKE__")
-                .unwrap()
-                .to_lowercase();
-            let mut ducklake_options = "".to_owned();
-            let mut catalog_db_url = if let Some(pos) = value.find('(') {
-                ducklake_options = value[pos + 1..value.len() - 1].to_owned();
-                value[pos + 1..].to_owned()
+            if let Some(sql) = encrypted_attach_sql(&db_name.to_lowercase(), &value) {
+                misc_sql_sentences.push(sql);
+                encrypt_db_included = true;
             } else {
-                value.clone()
-            };
-            if !catalog_db_url.starts_with("'") {
-                catalog_db_url = format!("'{catalog_db_url}'");
+                eprintln!(
+                    "{} {key} should be in format '<aes_key>@<db_path>', skipped.",
+                    "✖ ".red()
+                );
             }
-            // SQL example: "ATTACH 'encrypted.db' AS enc_db (ENCRYPTION_KEY 'quack_quack');"
-            misc_sql_sentences.push(format!(
-                "ATTACH {catalog_db_url} AS {db_name} {ducklake_options};"
-            ));
-        } else if key.starts_with("DUCKDB__") {
-            if let Some(secret_name) = key.split("__").nth(1) {
-                let name = secret_name.to_string();
-                if !obj_names.contains(&name) {
-                    obj_names.push(name);
-                }
+        } else if let Some(db_name) = key.strip_prefix("DUCKDB__DUCKLAKE__") {
+            // https://ducklake.select/docs/stable/duckdb/usage/connecting
+            if let Some(sql) = ducklake_attach_sql(&db_name.to_lowercase(), &value) {
+                misc_sql_sentences.push(sql);
+            } else {
+                eprintln!(
+                    "{} {key} should be in format '<catalog_url> (<options>)', skipped.",
+                    "✖ ".red()
+                );
+            }
+        } else if key.starts_with("DUCKDB__")
+            && let Some(secret_name) = key.split("__").nth(1)
+        {
+            let name = secret_name.to_string();
+            if !obj_names.contains(&name) {
+                obj_names.push(name);
             }
         }
     }
@@ -626,19 +651,17 @@ fn get_duckdb_args() -> Vec<String> {
         args.push("--cmd".to_string());
         args.push(misc_sql_sentences.join(" "));
     }
-    if !obj_names.is_empty() {
-        for secret_name in obj_names {
-            if let Some(duck_obj) = DuckSecret::from_env(secret_name) {
-                if duck_obj.obj_type == "secret" {
-                    println!("{} secret of '{}' created.", "✔ ".green(), duck_obj.name);
-                } else if duck_obj.obj_type == "attach" {
-                    println!("{} database of '{}' attached.", "✔ ".green(), duck_obj.name);
-                }
-                if let Some(sql) = duck_obj.to_sql() {
-                    args.push("--cmd".to_string());
-                    args.push(sql);
-                }
+    for secret_name in obj_names {
+        if let Some(duck_obj) = DuckSecret::from_env(secret_name)
+            && let Some(sql) = duck_obj.to_sql()
+        {
+            if duck_obj.obj_type == "secret" {
+                println!("{} secret of '{}' created.", "✔ ".green(), duck_obj.name);
+            } else if duck_obj.obj_type == "attach" {
+                println!("{} database of '{}' attached.", "✔ ".green(), duck_obj.name);
             }
+            args.push("--cmd".to_string());
+            args.push(sql);
         }
     }
     args
@@ -664,9 +687,110 @@ mod tests {
         assert!(path.is_some());
     }
 
+    fn duck_obj(obj_type: &str, child_type: Option<&str>, vars: &[(&str, &str)]) -> DuckSecret {
+        DuckSecret {
+            name: "demo".to_string(),
+            obj_type: obj_type.to_string(),
+            child_type: child_type.map(str::to_string),
+            variables: vars
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn test_duckdb_ducklake_sql() {
+        assert_eq!(
+            ducklake_attach_sql("lake", "ducklake:metadata.ducklake (DATA_PATH 'data/')").unwrap(),
+            "ATTACH 'ducklake:metadata.ducklake' AS lake (DATA_PATH 'data/');"
+        );
+        assert_eq!(
+            ducklake_attach_sql("lake", "'ducklake:a.ducklake'").unwrap(),
+            "ATTACH 'ducklake:a.ducklake' AS lake;"
+        );
+        assert_eq!(
+            ducklake_attach_sql("lake", "ducklake:o'k.ducklake").unwrap(),
+            "ATTACH 'ducklake:o''k.ducklake' AS lake;"
+        );
+        assert!(ducklake_attach_sql("lake", "ducklake:x (DATA_PATH 'a'").is_none());
+        assert!(ducklake_attach_sql("lake", "(DATA_PATH 'a')").is_none());
+    }
+
+    #[test]
+    fn test_duckdb_encrypted_sql() {
+        assert_eq!(
+            encrypted_attach_sql("enc", "k'ey@my db.duckdb").unwrap(),
+            "ATTACH 'my db.duckdb' AS enc (ENCRYPTION_KEY 'k''ey');"
+        );
+        assert!(encrypted_attach_sql("enc", "no-at-sign").is_none());
+        assert!(encrypted_attach_sql("enc", "@path.db").is_none());
+        assert!(encrypted_attach_sql("enc", "key@").is_none());
+    }
+
+    #[test]
+    fn test_duckdb_parquet_sql() {
+        assert_eq!(
+            parquet_key_sql("k1", "ab'c"),
+            "PRAGMA add_parquet_key('k1', 'ab''c');"
+        );
+    }
+
+    #[test]
+    fn test_duckdb_secret_sql() {
+        // missing __TYPE: skipped instead of panicking
+        assert!(
+            duck_obj("secret", None, &[("BEARER_TOKEN", "x")])
+                .to_sql()
+                .is_none()
+        );
+        assert_eq!(
+            duck_obj("secret", Some("http"), &[("BEARER_TOKEN", "a'b")])
+                .to_sql()
+                .unwrap(),
+            "CREATE SECRET demo ( TYPE http, BEARER_TOKEN 'a''b');"
+        );
+    }
+
+    #[test]
+    fn test_duckdb_attach_sql() {
+        assert_eq!(
+            duck_obj("attach", Some("duckdb"), &[("URL", "o'k.db")])
+                .to_sql()
+                .unwrap(),
+            "ATTACH 'o''k.db' AS demo (TYPE duckdb);"
+        );
+        assert_eq!(
+            duck_obj(
+                "attach",
+                None,
+                &[("URL", "a.db"), ("ENCRYPTION_KEY", "p'w")]
+            )
+            .to_sql()
+            .unwrap(),
+            "ATTACH 'a.db' AS demo (ENCRYPTION_KEY 'p''w');"
+        );
+        assert_eq!(
+            duck_obj(
+                "attach",
+                Some("duckdb"),
+                &[("URL", "'a.db'"), ("READ_ONLY", "true")]
+            )
+            .to_sql()
+            .unwrap(),
+            "ATTACH 'a.db' AS demo (TYPE duckdb, READ_ONLY true);"
+        );
+    }
+
     #[test]
     fn test_is_shim_command() {
-        for name in ["dotenvx", "dotenvx.exe", "dotenvx-aarch64", "dotenvx_v1.exe", "DotEnvX"] {
+        for name in [
+            "dotenvx",
+            "dotenvx.exe",
+            "dotenvx-aarch64",
+            "dotenvx_v1.exe",
+            "DotEnvX",
+        ] {
             assert!(!is_shim_command(name), "{name} should be dotenvx itself");
         }
         for name in ["mysql", "psql.exe", "redis-cli", "python", "mydotenvx"] {
@@ -706,10 +830,16 @@ mod tests {
         exe(&real.join("mysql"));
         let paths = std::env::join_paths([&a, &b, &c, &real]).unwrap();
         let found = find_command_path_in("mysql", &paths, root.clone(), Some(&dotenvx));
-        assert_eq!(found, Some(real.join("mysql").to_string_lossy().to_string()));
+        assert_eq!(
+            found,
+            Some(real.join("mysql").to_string_lossy().to_string())
+        );
         // only dotenvx entries -> not found
         let paths = std::env::join_paths([&a, &b, &c, &d]).unwrap();
-        assert_eq!(find_command_path_in("mysql", &paths, root, Some(&dotenvx)), None);
+        assert_eq!(
+            find_command_path_in("mysql", &paths, root, Some(&dotenvx)),
+            None
+        );
     }
 
     fn env_pair(k: &str, v: &str) -> (String, String) {

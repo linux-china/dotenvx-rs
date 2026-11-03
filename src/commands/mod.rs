@@ -144,8 +144,9 @@ pub fn merge_sealed_key_store(encrypted_file_path: &Path, password: &str) -> any
 /// not in `current` is appended. Returns the merged text and the keys present in both
 /// with different values (the `current` value is kept for those).
 pub fn merge_env_keys_text(current: &str, sealed: &str) -> (String, Vec<String>) {
-    let current_entries: HashMap<String, String> =
-        dotenvy::from_read_iter(current.as_bytes()).flatten().collect();
+    let current_entries: HashMap<String, String> = dotenvy::from_read_iter(current.as_bytes())
+        .flatten()
+        .collect();
     let mut merged = current.to_owned();
     let mut conflicts = Vec::new();
     for line in sealed.lines() {
@@ -660,10 +661,13 @@ pub fn content_has_key(content: &str, key: &str) -> bool {
 
 /// 读取 `key` 对应的值（去掉两侧引号），不存在返回 None
 fn get_key_value_in_content(content: &str, key: &str) -> Option<String> {
-    content.lines().find(|line| line_has_key(line, key)).map(|line| {
-        let value = line.split_once('=').map(|(_, v)| v).unwrap_or("").trim();
-        value.trim_matches(|c| c == '"' || c == '\'').to_string()
-    })
+    content
+        .lines()
+        .find(|line| line_has_key(line, key))
+        .map(|line| {
+            let value = line.split_once('=').map(|(_, v)| v).unwrap_or("").trim();
+            value.trim_matches(|c| c == '"' || c == '\'').to_string()
+        })
 }
 
 pub fn construct_env_file_header(
@@ -1075,17 +1079,26 @@ mod tests {
 
     #[test]
     fn test_public_and_private_key_from_file_in_sub_dir() {
-        let dir = std::env::temp_dir().join(format!("dotenvx_file_key_test_{}", uuid::Uuid::now_v7()));
+        let dir =
+            std::env::temp_dir().join(format!("dotenvx_file_key_test_{}", uuid::Uuid::now_v7()));
         let sub_dir = dir.join("sub").join("dir");
         fs::create_dir_all(&sub_dir).unwrap();
         let kp = EcKeyPair::generate();
         let other = EcKeyPair::generate();
         let env_file = sub_dir.join(".env.prod");
-        fs::write(&env_file, format!("DOTENV_PUBLIC_KEY_PROD=\"{}\"\nA=1\n", kp.get_pk_hex())).unwrap();
+        fs::write(
+            &env_file,
+            format!("DOTENV_PUBLIC_KEY_PROD=\"{}\"\nA=1\n", kp.get_pk_hex()),
+        )
+        .unwrap();
         // the key for the profile lives in the .env.keys next to the file, a stale default key is ignored
         fs::write(
             sub_dir.join(KEYS_FILE_NAME),
-            format!("DOTENV_PRIVATE_KEY={}\nDOTENV_PRIVATE_KEY_PROD={}\n", other.get_sk_hex(), kp.get_sk_hex()),
+            format!(
+                "DOTENV_PRIVATE_KEY={}\nDOTENV_PRIVATE_KEY_PROD={}\n",
+                other.get_sk_hex(),
+                kp.get_sk_hex()
+            ),
         )
         .unwrap();
         let env_file = env_file.to_str().unwrap();
@@ -1093,29 +1106,55 @@ mod tests {
         assert_eq!(get_private_key_for_file(env_file).unwrap(), kp.get_sk_hex());
         // a file name without profile: its own declared key is used
         let app_env = sub_dir.join("app.env");
-        fs::write(&app_env, format!("DOTENV_PUBLIC_KEY_PROD={}\n", kp.get_pk_hex())).unwrap();
-        assert_eq!(get_public_key_for_file(app_env.to_str().unwrap()).unwrap(), kp.get_pk_hex());
+        fs::write(
+            &app_env,
+            format!("DOTENV_PUBLIC_KEY_PROD={}\n", kp.get_pk_hex()),
+        )
+        .unwrap();
+        assert_eq!(
+            get_public_key_for_file(app_env.to_str().unwrap()).unwrap(),
+            kp.get_pk_hex()
+        );
         // properties file
         let props = sub_dir.join("application-prod.properties");
-        fs::write(&props, format!("dotenv.public.key.prod={}\na=1\n", kp.get_pk_hex())).unwrap();
-        assert_eq!(get_public_key_for_file(props.to_str().unwrap()).unwrap(), kp.get_pk_hex());
+        fs::write(
+            &props,
+            format!("dotenv.public.key.prod={}\na=1\n", kp.get_pk_hex()),
+        )
+        .unwrap();
+        assert_eq!(
+            get_public_key_for_file(props.to_str().unwrap()).unwrap(),
+            kp.get_pk_hex()
+        );
         // a private key that doesn't match the public key is rejected
-        fs::write(sub_dir.join(KEYS_FILE_NAME), format!("DOTENV_PRIVATE_KEY_PROD={}\n", other.get_sk_hex())).unwrap();
+        fs::write(
+            sub_dir.join(KEYS_FILE_NAME),
+            format!("DOTENV_PRIVATE_KEY_PROD={}\n", other.get_sk_hex()),
+        )
+        .unwrap();
         assert!(get_private_key_for_file(env_file).is_err());
         fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn test_public_key_for_missing_properties_file_no_panic() {
-        let file = std::env::temp_dir().join(format!("dotenvx_missing_{}", uuid::Uuid::now_v7())).join("application.properties");
+        let file = std::env::temp_dir()
+            .join(format!("dotenvx_missing_{}", uuid::Uuid::now_v7()))
+            .join("application.properties");
         let _ = get_public_key_for_file(file.to_str().unwrap());
     }
 
     #[test]
     fn test_line_has_key_exact_match() {
-        assert!(line_has_key("DOTENV_PUBLIC_KEY=\"abc\"", "DOTENV_PUBLIC_KEY"));
+        assert!(line_has_key(
+            "DOTENV_PUBLIC_KEY=\"abc\"",
+            "DOTENV_PUBLIC_KEY"
+        ));
         assert!(line_has_key("  export KEY = 1", "KEY"));
-        assert!(!line_has_key("DOTENV_PUBLIC_KEY_PROD=\"abc\"", "DOTENV_PUBLIC_KEY"));
+        assert!(!line_has_key(
+            "DOTENV_PUBLIC_KEY_PROD=\"abc\"",
+            "DOTENV_PUBLIC_KEY"
+        ));
         assert!(!line_has_key("MY_KEY=1", "KEY"));
         assert!(!line_has_key("# KEY=1", "KEY"));
         assert!(content_has_key("A=1\nKEY=2\n", "KEY"));
@@ -1298,7 +1337,11 @@ mod tests {
                 .output()
                 .unwrap();
             assert!(output.status.success(), "script {script:?} failed");
-            assert_eq!(String::from_utf8(output.stdout).unwrap(), *value, "script {script:?}");
+            assert_eq!(
+                String::from_utf8(output.stdout).unwrap(),
+                *value,
+                "script {script:?}"
+            );
         }
         assert!(!Path::new("/tmp/dotenvx_pwned").exists());
     }
@@ -1315,7 +1358,10 @@ mod tests {
         assert_eq!(conflicts, vec!["DOTENV_PRIVATE_KEY".to_owned()]);
         // nothing to merge into: the sealed keys are restored as-is
         let (merged, conflicts) = merge_env_keys_text("", sealed);
-        assert_eq!(merged, "DOTENV_PRIVATE_KEY=\"a1\"\nDOTENV_PRIVATE_KEY_OLD=\"old\"\n");
+        assert_eq!(
+            merged,
+            "DOTENV_PRIVATE_KEY=\"a1\"\nDOTENV_PRIVATE_KEY_OLD=\"old\"\n"
+        );
         assert!(conflicts.is_empty());
     }
 }

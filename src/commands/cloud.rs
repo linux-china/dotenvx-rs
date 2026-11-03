@@ -1,4 +1,4 @@
-use crate::commands::crypt_util::{encrypt_env_item, EcKeyPair};
+use crate::commands::crypt_util::{EcKeyPair, encrypt_env_item};
 use crate::commands::dotenvx_cloud::find_dotenvx_cloud_key_pair;
 use crate::commands::model::KeyPair;
 use crate::commands::{

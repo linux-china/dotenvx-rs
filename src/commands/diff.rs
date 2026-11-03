@@ -1,8 +1,8 @@
 use crate::commands::crypt_util::decrypt_env_item;
 use crate::commands::{get_private_key_for_file, list_env_files, read_dotenv_file};
 use clap::ArgMatches;
-use dotenvx_rs::common::get_profile_name_from_file;
 use comfy_table::Table;
+use dotenvx_rs::common::get_profile_name_from_file;
 use std::io;
 
 pub fn diff_command(command_matches: &ArgMatches) {
