@@ -108,6 +108,26 @@ pub fn restrict_file_permissions<P: AsRef<Path>>(path: P) {
     let _ = path;
 }
 
+/// Write a file holding secrets (private keys, decrypted plaintext) without ever exposing it
+/// to other users: a new file is created as 0600 directly (not umask-default then chmod), and
+/// an existing file is restricted to 0600 BEFORE the new content is written.
+pub fn write_private_file<P: AsRef<Path>>(path: P, bytes: &[u8]) -> io::Result<()> {
+    let path = path.as_ref();
+    if path.exists() {
+        restrict_file_permissions(path);
+    }
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    io::Write::write_all(&mut file, bytes)?;
+    Ok(())
+}
+
 pub fn write_key_pair(key_pair: &KeyPair) -> anyhow::Result<()> {
     write_key_pairs(&vec![key_pair.clone()])
 }
@@ -781,7 +801,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
             private_key_name,
             private_key_value
         );
-        fs::write(&env_keys_file, file_content.trim_start().as_bytes())?;
+        write_private_file(&env_keys_file, file_content.trim_start().as_bytes())?;
 
         println!(
             "{}",
@@ -800,7 +820,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
                 private_key_name,
                 private_key_value
             );
-            fs::write(&env_keys_file, new_content.as_bytes())?;
+            write_private_file(&env_keys_file, new_content.as_bytes())?;
             println!(
                 "{}",
                 format!("✔ private key({private_key_short}...) added in {file_name}").green()
@@ -821,7 +841,7 @@ pub fn write_private_key_to_file<P: AsRef<Path>>(
                     fs::create_dir_all(parent_dir).unwrap();
                 }
             }
-            fs::write(&env_keys_file, new_content.as_bytes())?;
+            write_private_file(&env_keys_file, new_content.as_bytes())?;
             println!(
                 "{}",
                 format!("✔ private key({private_key_short}...) updated in {file_name}").green()
@@ -974,6 +994,22 @@ pub fn dotenv_double_quote(value: &str) -> String {
     escaped
 }
 
+/// Return the ignore file content with `file_name` appended as its own line, or `None` if a line
+/// already equals `file_name` exactly (so `foo.env.keys` does not count as `.env.keys`, and a last
+/// line without trailing newline is still detected).
+fn append_ignore_entry(content: &str, file_name: &str) -> Option<String> {
+    if content.lines().any(|line| line.trim() == file_name) {
+        return None;
+    }
+    let mut new_content = content.to_owned();
+    if !new_content.is_empty() && !new_content.ends_with('\n') {
+        new_content.push('\n');
+    }
+    new_content.push_str(file_name);
+    new_content.push('\n');
+    Some(new_content)
+}
+
 pub fn append_to_ignores(file_name: &str) {
     // git repository but no .gitignore file
     if Path::new(".git").exists() && !Path::new(".gitignore").exists() {
@@ -983,10 +1019,9 @@ pub fn append_to_ignores(file_name: &str) {
     for ignore_file in &ignore_files {
         let path = PathBuf::from(ignore_file);
         if path.exists() {
-            let mut content = fs::read_to_string(&path).unwrap_or_default();
-            if !content.contains(format!("{file_name}\n").as_str()) {
-                content.push_str(&format!("\n{file_name}"));
-                fs::write(&path, content).expect("Failed to write to ignore file");
+            let content = fs::read_to_string(&path).unwrap_or_default();
+            if let Some(new_content) = append_ignore_entry(&content, file_name) {
+                fs::write(&path, new_content).expect("Failed to write to ignore file");
                 println!(
                     "{}",
                     format!("✔ {file_name} added to {ignore_file}").green()
@@ -1198,6 +1233,53 @@ mod tests {
         assert!(content.contains("DOTENV_PRIVATE_KEY_PROD=\"prod_sk\""));
         assert!(content.contains("DOTENV_PRIVATE_KEY=\"default_sk_test\""));
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_write_private_file_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir();
+        // new file: created as 0600 directly
+        let new_file = dir.join(format!("dotenvx_private_new_{}", uuid::Uuid::now_v7()));
+        write_private_file(&new_file, b"DOTENV_PRIVATE_KEY=secret").unwrap();
+        let new_mode = fs::metadata(&new_file).unwrap().permissions().mode() & 0o777;
+        // existing world-readable file: restricted, content replaced
+        let old_file = dir.join(format!("dotenvx_private_old_{}", uuid::Uuid::now_v7()));
+        fs::write(&old_file, b"old").unwrap();
+        fs::set_permissions(&old_file, fs::Permissions::from_mode(0o644)).unwrap();
+        write_private_file(&old_file, b"new").unwrap();
+        let old_mode = fs::metadata(&old_file).unwrap().permissions().mode() & 0o777;
+        let old_content = fs::read_to_string(&old_file).unwrap();
+        fs::remove_file(&new_file).ok();
+        fs::remove_file(&old_file).ok();
+        assert_eq!(new_mode, 0o600);
+        assert_eq!(old_mode, 0o600);
+        assert_eq!(old_content, "new");
+    }
+
+    #[test]
+    fn test_append_ignore_entry() {
+        // last line without trailing newline: already present, not appended again
+        assert_eq!(append_ignore_entry("target\n.env.keys", ".env.keys"), None);
+        assert_eq!(append_ignore_entry("  .env.keys  \n", ".env.keys"), None);
+        // `foo.env.keys` is not `.env.keys`
+        assert_eq!(
+            append_ignore_entry("foo.env.keys\n", ".env.keys").as_deref(),
+            Some("foo.env.keys\n.env.keys\n")
+        );
+        // no trailing newline: entry goes on its own line
+        assert_eq!(
+            append_ignore_entry("target", ".env.keys").as_deref(),
+            Some("target\n.env.keys\n")
+        );
+        assert_eq!(
+            append_ignore_entry("", ".env.keys").as_deref(),
+            Some(".env.keys\n")
+        );
+        // idempotent
+        let once = append_ignore_entry("target", ".env.keys").unwrap();
+        assert_eq!(append_ignore_entry(&once, ".env.keys"), None);
     }
 
     #[cfg(unix)]

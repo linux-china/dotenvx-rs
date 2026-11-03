@@ -35,10 +35,16 @@ impl DotenvxKeyStore {
 
     /// Parse key store json, compatible with the legacy format (plain `{public_key: KeyPair}` map).
     pub fn from_json(file_content: &str) -> anyhow::Result<DotenvxKeyStore> {
-        if file_content.contains("\"version\"") {
-            Ok(serde_json::from_str(file_content)?)
+        // decide the format by the top-level `version` field, not by a substring match:
+        // a legacy entry whose name/comment contains "version" must not be mistaken for the new format
+        let json_value: serde_json::Value = serde_json::from_str(file_content)?;
+        let is_new_format = json_value
+            .as_object()
+            .is_some_and(|obj| obj.contains_key("version"));
+        if is_new_format {
+            Ok(serde_json::from_value(json_value)?)
         } else {
-            let keys: HashMap<String, KeyPair> = serde_json::from_str(file_content)?;
+            let keys: HashMap<String, KeyPair> = serde_json::from_value(json_value)?;
             let mut metadata = HashMap::new();
             metadata.insert("uuid".to_owned(), uuid::Uuid::now_v7().to_string());
             Ok(DotenvxKeyStore {
@@ -274,8 +280,7 @@ impl EnvKeys {
             .source
             .as_ref()
             .ok_or_else(|| anyhow!("Source path is not set"))?;
-        fs::write(file_path, content)?;
-        crate::commands::restrict_file_permissions(file_path);
+        crate::commands::write_private_file(file_path, content.as_bytes())?;
         Ok(())
     }
 }
@@ -560,6 +565,20 @@ impl EnvFile {
 mod tests {
     use crate::commands::crypt_util::{sign_message, verify_signature};
     use crate::commands::model::DotenvxKeyStore;
+
+    #[test]
+    fn test_key_store_from_json_format_detection() {
+        // legacy format whose values contain the word "version"
+        let legacy = r#"{"pk1": {"public_key": "pk1", "private_key": "sk1", "name": "\"version\" app", "comment": "version 2"}}"#;
+        let store = DotenvxKeyStore::from_json(legacy).unwrap();
+        assert_eq!(store.version, "0.1.0");
+        assert_eq!(store.find_private_key("pk1").as_deref(), Some("sk1"));
+        // new format
+        let new_format = serde_json::to_string(&store).unwrap();
+        let reloaded = DotenvxKeyStore::from_json(&new_format).unwrap();
+        assert_eq!(reloaded.metadata.get("uuid"), store.metadata.get("uuid"));
+        assert_eq!(reloaded.find_private_key("pk1").as_deref(), Some("sk1"));
+    }
 
     #[test]
     fn test_from_file() {
