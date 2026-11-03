@@ -42,6 +42,9 @@ pub mod sync;
 const KEYS_FILE_NAME: &str = ".env.keys";
 
 pub fn get_dotenvx_home() -> PathBuf {
+    if let Ok(dotenvx_dir) = env::var("DOTENVX_DIR") {
+        return PathBuf::from(dotenvx_dir);
+    }
     dirs::home_dir().unwrap().join(".dotenvx")
 }
 
