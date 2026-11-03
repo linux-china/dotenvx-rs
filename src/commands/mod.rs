@@ -1196,6 +1196,22 @@ pub fn adjust_env_key(key: &str, env_file: &str) -> String {
         key.to_string()
     }
 }
+/// Compile the `--keys` glob patterns given on the command line.
+///
+/// Each key is normalized with [`adjust_env_key`] first; an invalid glob (e.g. `[`)
+/// is reported as an error instead of panicking.
+pub fn compile_key_patterns<'a>(
+    keys: impl IntoIterator<Item = &'a String>,
+    env_file: &str,
+) -> Result<Vec<glob::Pattern>, String> {
+    keys.into_iter()
+        .map(|key| {
+            let adjusted = adjust_env_key(key, env_file);
+            glob::Pattern::new(&adjusted)
+                .map_err(|e| format!("invalid key pattern '{key}': {}", e.msg))
+        })
+        .collect()
+}
 /// Quote a value for a POSIX shell `export K=...` line.
 ///
 /// The whole value is wrapped in single quotes, so nothing inside (`$`, `` ` ``, `"`, `\`,
@@ -1377,6 +1393,17 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_compile_key_patterns() {
+        let keys = vec!["db-*".to_string(), "API_KEY".to_string()];
+        let patterns = compile_key_patterns(&keys, ".env").unwrap();
+        assert!(patterns[0].matches("DB_HOST"));
+        assert!(patterns[1].matches("API_KEY"));
+        let invalid = vec!["[".to_string()];
+        let err = compile_key_patterns(&invalid, ".env").unwrap_err();
+        assert!(err.contains("invalid key pattern '['"), "{err}");
+    }
 
     #[test]
     fn test_public_and_private_key_from_file_in_sub_dir() {

@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::{decrypt_env_item, decrypt_value};
 use crate::commands::model::EnvFile;
 use crate::commands::{
-    adjust_env_key, dotenv_double_quote, entry_line_count, get_env_file_arg, get_private_key,
+    compile_key_patterns, dotenv_double_quote, entry_line_count, get_env_file_arg, get_private_key,
     get_private_key_for_file, get_private_key_for_public_key, get_public_key_from_text_file,
     get_public_key_name_for_file, is_encrypted_value_text, is_public_key_name, is_remote_env_file,
     properties_escape, read_content_from_dotenv_url, resign_env_file_if_signed, split_assignment,
@@ -10,7 +10,6 @@ use crate::commands::{
 use clap::ArgMatches;
 use colored::Colorize;
 use dotenvx_rs::common::get_profile_name_from_file;
-use glob::Pattern;
 use java_properties::PropertiesIter;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
@@ -74,10 +73,13 @@ pub fn decrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_keys = command_matches.get_many::<String>("keys");
     let mut hint = format!(".env file({env_file})");
     if let Some(keys) = env_keys {
-        let patterns: Vec<Pattern> = keys
-            .map(|x| adjust_env_key(x, &env_file))
-            .map(|x| Pattern::new(&x).unwrap())
-            .collect();
+        let patterns = match compile_key_patterns(keys, &env_file) {
+            Ok(patterns) => patterns,
+            Err(e) => {
+                eprintln!("{}", format!("✘ {e}").red());
+                std::process::exit(1);
+            }
+        };
         entries.retain(|key, _| patterns.iter().any(|pattern| pattern.matches(key)));
         hint = format!("keys in .env file: {env_file}");
     }

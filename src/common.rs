@@ -365,10 +365,21 @@ mod tests {
         let env_file = dir.join(".env");
         std::fs::write(&env_file, "A=1\n").unwrap();
         // only an invalid candidate: not returned
-        std::fs::write(dir.join(KEYS_FILE_NAME), format!("{key_name}=\"not-a-key\"\n")).unwrap();
+        std::fs::write(
+            dir.join(KEYS_FILE_NAME),
+            format!("{key_name}=\"not-a-key\"\n"),
+        )
+        .unwrap();
         assert!(find_private_key(None, &profile, Some(&env_file)).is_err());
-        std::fs::write(dir.join(KEYS_FILE_NAME), format!("{key_name}=\"{sk_hex}\"\n")).unwrap();
-        assert_eq!(find_private_key(None, &profile, Some(&env_file)).unwrap(), sk_hex);
+        std::fs::write(
+            dir.join(KEYS_FILE_NAME),
+            format!("{key_name}=\"{sk_hex}\"\n"),
+        )
+        .unwrap();
+        assert_eq!(
+            find_private_key(None, &profile, Some(&env_file)).unwrap(),
+            sk_hex
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

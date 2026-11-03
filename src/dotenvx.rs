@@ -140,8 +140,11 @@ fn from_path_with_dotenvx<P: AsRef<Path>>(env_file: P, is_override: bool) -> dot
         if dotenv_content.contains("encrypted:") {
             let public_key = get_public_key(&env_file);
             let profile_name = profile_name_of_path(env_file.as_ref());
-            let private_key = Ok(private_key_for_file(&public_key, &profile_name, env_file.as_ref())
-                .map_err(private_key_not_found)?);
+            let private_key =
+                Ok(
+                    private_key_for_file(&public_key, &profile_name, env_file.as_ref())
+                        .map_err(private_key_not_found)?,
+                );
             for item in dotenvy::from_filename_iter(&env_file)? {
                 let (key, value) = item?;
                 let env_value = check_and_decrypt(&private_key, &public_key, value)?;
@@ -176,7 +179,10 @@ fn from_read_with_dotenvx<R: Read>(reader: R) -> dotenvy::Result<()> {
     let entries = dotenvy::from_read_iter(reader).collect::<dotenvy::Result<Vec<_>>>()?;
     let public_key = get_public_key_from_entries(&entries);
     // only look up the private key when there is something to decrypt, like `from_path` (review #12)
-    let private_key = if entries.iter().any(|(_, value)| value.starts_with("encrypted:")) {
+    let private_key = if entries
+        .iter()
+        .any(|(_, value)| value.starts_with("encrypted:"))
+    {
         get_private_key(&public_key, &get_profile_name_from_env()).map_err(|e| e.to_string())
     } else {
         Err("no encrypted value".to_owned())

@@ -377,7 +377,14 @@ mod tests {
         );
         assert_eq!(
             normalize(&["dotenvx", "--profile", "dev", "get", "KEY", "-pp"]),
-            ["dotenvx", "--profile", "dev", "get", "KEY", "--pretty-print"]
+            [
+                "dotenvx",
+                "--profile",
+                "dev",
+                "get",
+                "KEY",
+                "--pretty-print"
+            ]
         );
     }
 

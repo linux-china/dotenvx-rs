@@ -1,10 +1,10 @@
 use crate::commands::crypt_util::encrypt_env_item;
 use crate::commands::model::sign_and_update_env_file_content;
 use crate::commands::{
-    adjust_env_key, construct_env_file_header, content_has_key, entry_line_count, get_env_file_arg,
-    get_or_create_public_key_for_file, get_private_key_for_file, get_public_key_name_for_file,
-    is_encrypted_value_text, is_public_key_name, split_assignment, update_env_file,
-    write_public_key_to_file,
+    compile_key_patterns, construct_env_file_header, content_has_key, entry_line_count,
+    get_env_file_arg, get_or_create_public_key_for_file, get_private_key_for_file,
+    get_public_key_name_for_file, is_encrypted_value_text, is_public_key_name, split_assignment,
+    update_env_file, write_public_key_to_file,
 };
 use clap::ArgMatches;
 use colored_json::Paint;
@@ -20,6 +20,16 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
     let env_keys = command_matches.get_many::<String>("keys");
     let is_stdout = command_matches.get_flag("stdout");
     let is_sign_required = command_matches.get_flag("sign");
+    // validate the key patterns before touching any file or key
+    let patterns: Option<Vec<Pattern>> =
+        match env_keys.map(|keys| compile_key_patterns(keys, &env_file)) {
+            Some(Ok(patterns)) => Some(patterns),
+            Some(Err(e)) => {
+                eprintln!("Error: {e}");
+                std::process::exit(1);
+            }
+            None => None,
+        };
     let env_file_path = std::path::PathBuf::from(&env_file);
     if !env_file_path.exists() {
         // create default env file if it does not exist
@@ -39,12 +49,9 @@ pub fn encrypt_command(command_matches: &ArgMatches, profile: &Option<String>) {
         }
     };
     let mut hint = format!(".env file({env_file})");
-    let patterns: Option<Vec<Pattern>> = env_keys.map(|keys| {
+    if patterns.is_some() {
         hint = format!("keys in .env file: {env_file}");
-        keys.map(|x| adjust_env_key(x, &env_file))
-            .map(|x| Pattern::new(&x).unwrap())
-            .collect()
-    });
+    }
     let (new_lines, is_changed) =
         encrypt_content(&env_file, &file_content, entries, patterns.as_deref());
     if is_stdout {
