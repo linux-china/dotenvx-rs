@@ -1,7 +1,7 @@
 use crate::commands::crypt_util::{
     decrypt_env_item, encrypt_env_item, sign_message, verify_signature,
 };
-use crate::commands::{get_dotenvx_home, is_public_key_name};
+use crate::commands::{get_dotenvx_home, get_public_key_name_for_file, is_public_key_name};
 use anyhow::anyhow;
 use chrono::{DateTime, Local};
 use dotenvx_rs::common::get_profile_name_from_file;
@@ -345,20 +345,29 @@ impl EnvFile {
 
 impl EnvFile {
     pub fn is_signed(&self) -> bool {
-        self.content.contains("# sign:") || self.content.contains("#sign:")
+        get_signature(&self.content).is_some()
     }
 
     pub fn get_uuid(&self) -> Option<&String> {
         self.metadata.get("uuid")
     }
 
+    /// Returns the public key matching this file's profile (e.g. `DOTENV_PUBLIC_KEY_PROD`
+    /// for `.env.prod`). Falls back to the only public key in the file; if the file holds
+    /// several public keys and none matches the profile, returns `None` instead of guessing.
     pub fn get_public_key(&self) -> Option<String> {
-        for (key, value) in &self.entries {
-            if is_public_key_name(key) {
-                return Some(value.clone());
-            }
+        let expected_name = get_public_key_name_for_file(&self.name);
+        if let Some(value) = self.entries.get(&expected_name) {
+            return Some(value.clone());
         }
-        None
+        let mut public_keys = self
+            .entries
+            .iter()
+            .filter(|(key, _)| is_public_key_name(key));
+        match (public_keys.next(), public_keys.next()) {
+            (Some((_, value)), None) => Some(value.clone()),
+            _ => None,
+        }
     }
 
     pub fn is_verified(&self) -> bool {
@@ -450,8 +459,11 @@ pub fn sign_available(env_file_content: &str) -> bool {
 pub fn get_signature(env_file_content: &str) -> Option<String> {
     // Find the signature line
     for line in env_file_content.lines() {
-        if line.starts_with("# sign:") || line.starts_with("#sign:") {
-            return Some(line.trim_start_matches("# sign:").trim().to_string());
+        if let Some(signature) = line
+            .strip_prefix("# sign:")
+            .or_else(|| line.strip_prefix("#sign:"))
+        {
+            return Some(signature.trim().to_string());
         }
     }
     None
@@ -635,5 +647,52 @@ mod tests {
         let content = std::fs::read_to_string(".env.example").unwrap();
         let updated_content = super::update_signature(&content, "your_signature_here");
         println!("{updated_content}");
+    }
+
+    #[test]
+    fn test_get_signature_prefix_variants() {
+        assert_eq!(
+            super::get_signature("A=1\n# sign: abc\n").as_deref(),
+            Some("abc")
+        );
+        assert_eq!(
+            super::get_signature("A=1\n#sign:abc\n").as_deref(),
+            Some("abc")
+        );
+        assert_eq!(super::get_signature("A=1\n"), None);
+    }
+
+    #[test]
+    fn test_is_signed_only_matches_signature_line() {
+        let read = |name: &str, content: &str| {
+            super::EnvFile::from_read(name, None, content.as_bytes()).unwrap()
+        };
+        assert!(read(".env", "A=1\n#sign:abc\n").is_signed());
+        assert!(read(".env", "A=1\n# sign: abc\n").is_signed());
+        assert!(!read(".env", "A=\"x # sign: y\"\n# note: # sign: here\n").is_signed());
+    }
+
+    #[test]
+    fn test_get_public_key_prefers_profile_key() {
+        let read = |name: &str, content: &str| {
+            super::EnvFile::from_read(name, None, content.as_bytes()).unwrap()
+        };
+        let content = "DOTENV_PUBLIC_KEY=default_key\nDOTENV_PUBLIC_KEY_PROD=prod_key\n";
+        assert_eq!(
+            read(".env.prod", content).get_public_key().as_deref(),
+            Some("prod_key")
+        );
+        assert_eq!(
+            read(".env", content).get_public_key().as_deref(),
+            Some("default_key")
+        );
+        // ambiguous: several keys, none matching the profile
+        assert_eq!(read(".env.test", content).get_public_key(), None);
+        // single key is used as fallback
+        let single = "DOTENV_PUBLIC_KEY_PROD=prod_key\n";
+        assert_eq!(
+            read(".env.test", single).get_public_key().as_deref(),
+            Some("prod_key")
+        );
     }
 }
