@@ -1,9 +1,8 @@
 use crate::commands::trim_private_key;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
-use argon2::password_hash::phc::{Salt};
 use argon2::password_hash::try_generate_salt;
-use argon2::{self, Argon2, PasswordHasher};
+use argon2::{Algorithm, Argon2, Params, Version};
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
 use colored::Colorize;
 use dotenvx_rs::dotenvx::get_private_key;
@@ -185,36 +184,142 @@ pub fn generate_jwt_token(
 }
 
 //============= aes_gcm =======
+//
+// Encrypted file layout (v1, self-describing KDF parameters):
+//
+//   b"DXA1" | m_cost u32 LE | t_cost u32 LE | p_cost u32 LE | salt[16] | nonce[12] | ciphertext
+//
+// KDF is always Argon2id v0x13 with a 32-byte output for format v1.
+//
+// Legacy layout (no magic): salt[16] | nonce[12] | ciphertext, derived with the
+// argon2 0.5/0.6 defaults (Argon2id v0x13, m=19456, t=2, p=1). Those values are
+// pinned below so that legacy files remain decryptable even if the crate's
+// defaults change.
+
+const AES_FILE_MAGIC_V1: &[u8; 4] = b"DXA1";
+const SALT_LEN: usize = 16;
+const NONCE_LEN: usize = 12;
+const KEY_LEN: usize = 32;
+
+/// Argon2 parameters used when writing new files.
+const KDF_M_COST: u32 = 19 * 1024;
+const KDF_T_COST: u32 = 2;
+const KDF_P_COST: u32 = 1;
+
+/// Argon2 parameters of the legacy (header-less) format, pinned forever.
+const LEGACY_M_COST: u32 = 19 * 1024;
+const LEGACY_T_COST: u32 = 2;
+const LEGACY_P_COST: u32 = 1;
+
+/// Upper bounds for parameters read from a file, so a crafted file cannot make us
+/// allocate unbounded memory or spin forever.
+const MAX_M_COST: u32 = 4 * 1024 * 1024; // 4 GiB
+const MAX_T_COST: u32 = 64;
+const MAX_P_COST: u32 = 64;
+
+fn derive_aes_key(
+    password: &str,
+    salt: &[u8],
+    m_cost: u32,
+    t_cost: u32,
+    p_cost: u32,
+) -> anyhow::Result<Key<Aes256Gcm>> {
+    if m_cost > MAX_M_COST || t_cost > MAX_T_COST || p_cost > MAX_P_COST {
+        return Err(anyhow::anyhow!(
+            "Invalid encrypted file: Argon2 parameters out of range (m={m_cost}, t={t_cost}, p={p_cost})"
+        ));
+    }
+    let params = Params::new(m_cost, t_cost, p_cost, Some(KEY_LEN))
+        .map_err(|e| anyhow::anyhow!("Invalid Argon2 parameters: {e}"))?;
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let mut key = [0u8; KEY_LEN];
+    argon2
+        .hash_password_into(password.as_bytes(), salt, &mut key)
+        .map_err(|e| anyhow::anyhow!("Argon2 key derivation failed: {e}"))?;
+    Ok(Key::<Aes256Gcm>::from(key))
+}
+
+fn aes_decrypt(
+    key: &Key<Aes256Gcm>,
+    nonce_bytes: &[u8],
+    ciphertext: &[u8],
+) -> anyhow::Result<Vec<u8>> {
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::try_from(nonce_bytes)?;
+    cipher
+        .decrypt(&nonce, ciphertext)
+        .map_err(|e| anyhow::anyhow!("Failed to decrypt file: {e}"))
+}
+
+fn read_u32_le(bytes: &[u8]) -> u32 {
+    u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])
+}
+
+/// Encrypt bytes into the v1 self-describing format.
+pub fn encrypt_bytes(plain_bytes: &[u8], password: &str) -> anyhow::Result<Vec<u8>> {
+    let salt: [u8; SALT_LEN] = try_generate_salt()?;
+    let aes_key = derive_aes_key(password, &salt, KDF_M_COST, KDF_T_COST, KDF_P_COST)?;
+    let cipher = Aes256Gcm::new(&aes_key);
+
+    let random_nonce = rand::random::<[u8; NONCE_LEN]>();
+    let nonce = Nonce::from(random_nonce);
+    let ciphertext = cipher
+        .encrypt(&nonce, plain_bytes)
+        .map_err(|e| anyhow::anyhow!("Failed to encrypt file: {e}"))?;
+
+    let mut output = Vec::with_capacity(4 + 12 + SALT_LEN + NONCE_LEN + ciphertext.len());
+    output.extend_from_slice(AES_FILE_MAGIC_V1);
+    output.extend_from_slice(&KDF_M_COST.to_le_bytes());
+    output.extend_from_slice(&KDF_T_COST.to_le_bytes());
+    output.extend_from_slice(&KDF_P_COST.to_le_bytes());
+    output.extend_from_slice(&salt);
+    output.extend_from_slice(&random_nonce);
+    output.extend_from_slice(&ciphertext);
+    Ok(output)
+}
+
+/// Decrypt bytes produced by [`encrypt_bytes`], or by the legacy header-less format.
+pub fn decrypt_bytes(encrypted: &[u8], password: &str) -> anyhow::Result<Vec<u8>> {
+    const V1_HEADER_LEN: usize = 4 + 12 + SALT_LEN + NONCE_LEN;
+    if encrypted.len() >= V1_HEADER_LEN && encrypted.starts_with(AES_FILE_MAGIC_V1) {
+        let m_cost = read_u32_le(&encrypted[4..8]);
+        let t_cost = read_u32_le(&encrypted[8..12]);
+        let p_cost = read_u32_le(&encrypted[12..16]);
+        let salt = &encrypted[16..16 + SALT_LEN];
+        let nonce_bytes = &encrypted[16 + SALT_LEN..V1_HEADER_LEN];
+        let ciphertext = &encrypted[V1_HEADER_LEN..];
+        let v1_result = derive_aes_key(password, salt, m_cost, t_cost, p_cost)
+            .and_then(|key| aes_decrypt(&key, nonce_bytes, ciphertext));
+        match v1_result {
+            Ok(plain) => return Ok(plain),
+            // A legacy file has a random salt, which may start with the magic by chance
+            // (probability 2^-32). Fall back to the legacy layout before giving up.
+            Err(e) => return decrypt_legacy_bytes(encrypted, password).map_err(|_| e),
+        }
+    }
+    decrypt_legacy_bytes(encrypted, password)
+}
+
+fn decrypt_legacy_bytes(encrypted: &[u8], password: &str) -> anyhow::Result<Vec<u8>> {
+    if encrypted.len() < SALT_LEN + NONCE_LEN {
+        return Err(anyhow::anyhow!("Invalid encrypted file: too short"));
+    }
+    let salt = &encrypted[0..SALT_LEN];
+    let nonce_bytes = &encrypted[SALT_LEN..SALT_LEN + NONCE_LEN];
+    let ciphertext = &encrypted[SALT_LEN + NONCE_LEN..];
+    let aes_key = derive_aes_key(password, salt, LEGACY_M_COST, LEGACY_T_COST, LEGACY_P_COST)?;
+    aes_decrypt(&aes_key, nonce_bytes, ciphertext)
+}
+
 pub fn encrypt_file<P: AsRef<Path>>(
     input_file: P,
     output_file: P,
     password: &str,
 ) -> anyhow::Result<()> {
     let plain_bytes = fs::read(input_file)?;
-    // password hashing with Argon2
-    let argon2 = Argon2::default();
-    let salt = try_generate_salt()?;
-    let password_hash = argon2.hash_password_with_salt(password.as_bytes(), &salt)?;
-    let hash = password_hash.hash.unwrap();
-
-    // Initialize AES-GCM with the derived key
-    let aes_key = Key::<Aes256Gcm>::try_from(hash.as_bytes())?; // Use the first 32 bytes of the hash
-    let cipher = Aes256Gcm::new(&aes_key);
-
-    // Generate a random nonce
-    let random_nonce = rand::random::<[u8; 12]>();
-    // Encrypt the plaintext
-    let nonce = Nonce::try_from(random_nonce)?;
-    let ciphertext = cipher
-        .encrypt(&nonce, plain_bytes.as_ref())
-        .expect("encryption failure!");
-
-    // // Write the salt, nonce, and ciphertext to the output file
+    let encrypted = encrypt_bytes(&plain_bytes, password)?;
     let mut output = File::create(&output_file)?;
-    let salt_bytes: [u8; 16] = salt.clone();
-    output.write_all(&salt_bytes)?; // First 16 bytes: salt
-    output.write_all(&random_nonce)?; // Next 12 bytes: nonce
-    output.write_all(&ciphertext)?; // Remaining bytes: ciphertext
+    output.write_all(&encrypted)?;
     crate::commands::restrict_file_permissions(&output_file);
     Ok(())
 }
@@ -236,33 +341,8 @@ pub fn decrypt_file_to_bytes<P: AsRef<Path>>(
     encrypted_file: P,
     password: &str,
 ) -> anyhow::Result<Vec<u8>> {
-    // Read the encrypted file
     let encrypted_file_content = fs::read(encrypted_file)?;
-    if encrypted_file_content.len() < 28 {
-        return Err(anyhow::anyhow!("Invalid encrypted file: too short"));
-    }
-
-    // Extract the salt, nonce, and ciphertext
-    let salt_bytes = &encrypted_file_content[0..16]; // First 16 bytes: salt
-    let salt = Salt::new(salt_bytes).unwrap();
-    let nonce_bytes = &encrypted_file_content[16..28]; // Next 12 bytes: nonce
-    let ciphertext = &encrypted_file_content[28..]; // Remaining bytes: ciphertext
-
-    // password hashing with Argon2
-    let argon2 = Argon2::default();
-    let password_hash = argon2.hash_password_with_salt(password.as_bytes(), &salt).unwrap();
-    let hash = password_hash.hash.unwrap();
-
-    // Initialize AES-GCM with the derived key
-    let aes_key = Key::<Aes256Gcm>::try_from(hash.as_bytes())?;
-    let cipher = Aes256Gcm::new(&aes_key);
-
-    // Decrypt the ciphertext
-    let nonce = Nonce::try_from(nonce_bytes)?;
-    let plain_bytes = cipher
-        .decrypt(&nonce, ciphertext)
-        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-    Ok(plain_bytes)
+    decrypt_bytes(&encrypted_file_content, password)
 }
 
 pub fn generate_totp_password(totp_url: &str) -> anyhow::Result<String> {
@@ -323,5 +403,62 @@ mod tests {
         // Encrypt the file
         decrypt_file(encrypted_file, output_file, password)?;
         Ok(())
+    }
+
+    /// Legacy (header-less) file produced by the previous implementation with
+    /// `Argon2::default()`; content is "Hello World\n", password "your_secure_password".
+    const LEGACY_AES_HEX: &str = "510781d1a75dd63b51192e6713d940a7a9644bf6535a3661f54a298e77de829eb758980aead4088bb392774707c4608b2d686f0561a99207";
+
+    #[test]
+    fn test_decrypt_legacy_format() -> TestResult {
+        let encrypted = hex::decode(LEGACY_AES_HEX)?;
+        let plain = decrypt_bytes(&encrypted, "your_secure_password")?;
+        assert_eq!(plain, b"Hello World\n");
+        assert!(decrypt_bytes(&encrypted, "wrong").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_encrypt_bytes_v1_roundtrip() -> TestResult {
+        let encrypted = encrypt_bytes(b"secret data", "pwd")?;
+        assert_eq!(&encrypted[0..4], b"DXA1");
+        assert_eq!(read_u32_le(&encrypted[4..8]), KDF_M_COST);
+        assert_eq!(read_u32_le(&encrypted[8..12]), KDF_T_COST);
+        assert_eq!(read_u32_le(&encrypted[12..16]), KDF_P_COST);
+        assert_eq!(decrypt_bytes(&encrypted, "pwd")?, b"secret data");
+        assert!(decrypt_bytes(&encrypted, "wrong").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_decrypt_v1_uses_params_from_header() -> TestResult {
+        // Build a v1 file with non-default parameters; decryption must honour the header.
+        let (m, t, p) = (8 * 1024u32, 3u32, 2u32);
+        let salt = [7u8; SALT_LEN];
+        let nonce = [9u8; NONCE_LEN];
+        let key = derive_aes_key("pwd", &salt, m, t, p)?;
+        let ct = Aes256Gcm::new(&key)
+            .encrypt(&Nonce::from(nonce), b"custom".as_ref())
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let mut file = b"DXA1".to_vec();
+        for v in [m, t, p] {
+            file.extend_from_slice(&v.to_le_bytes());
+        }
+        file.extend_from_slice(&salt);
+        file.extend_from_slice(&nonce);
+        file.extend_from_slice(&ct);
+        assert_eq!(decrypt_bytes(&file, "pwd")?, b"custom");
+        Ok(())
+    }
+
+    #[test]
+    fn test_decrypt_rejects_bad_input() {
+        assert!(decrypt_bytes(b"short", "pwd").is_err());
+        let mut file = b"DXA1".to_vec();
+        for v in [u32::MAX, 2, 1] {
+            file.extend_from_slice(&v.to_le_bytes());
+        }
+        file.extend_from_slice(&[0u8; SALT_LEN + NONCE_LEN + 16]);
+        assert!(decrypt_bytes(&file, "pwd").is_err());
     }
 }
