@@ -164,7 +164,7 @@ fn encrypt_content(
 }
 
 /// The trailing inline comment (`# note`) of a .env entry, `value_text` is the raw text after `=`.
-fn inline_comment(value_text: &str) -> Option<&str> {
+pub(crate) fn inline_comment(value_text: &str) -> Option<&str> {
     let rest = match value_text.chars().next() {
         Some(quote @ ('"' | '\'')) => {
             let mut chars = value_text.char_indices().skip(1);

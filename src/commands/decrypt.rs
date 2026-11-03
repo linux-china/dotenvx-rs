@@ -173,6 +173,22 @@ pub fn decrypt_env_entries(
     decrypt_env_content(env_file, &content)
 }
 
+/// The raw (not decrypted) entries of `env_file`: `encrypted:` values are kept as they are.
+pub fn read_env_items(
+    env_file: &str,
+) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    let content = read_env_content(env_file)?;
+    parse_env_content(&content, env_file_name(env_file).ends_with(".properties"))
+}
+
+/// Parse the text of a single entry (continuation lines included), `None` if it holds no assignment.
+pub fn parse_env_entry(entry_text: &str, is_properties: bool) -> Option<String> {
+    parse_env_content(entry_text, is_properties)
+        .ok()?
+        .into_values()
+        .next()
+}
+
 /// Parse `content` (the content of `env_file`, a local path or a URL) and decrypt its `encrypted:` values.
 fn decrypt_env_content(
     env_file: &str,

@@ -1213,6 +1213,94 @@ fn sync_creates_target_with_new_key_pair_then_adds_missing_keys() {
 }
 
 #[test]
+fn sync_keeps_encrypted_values_encrypted_in_existing_target() {
+    // review 1.2: DATABASE_URL is not a "sensitive" key name, but it is encrypted in the source
+    let sb = Sandbox::new();
+    sb.write(".env", "DATABASE_URL=postgres://u:pw@h/db\n");
+    sb.write(".env.keys", "");
+    sb.ok(&["encrypt"]);
+    sb.ok(&["init", "-f", ".env.prod"]);
+    sb.ok(&["-p", "prod", "set", "--plain", "OTHER", "1"]);
+
+    let out = sb.ok(&["sync", ".env", ".env.prod"]);
+    assert!(out.contains("DATABASE_URL"), "{out}");
+    let target = sb.read(".env.prod");
+    assert!(!target.contains("postgres://"), "{target}");
+    assert!(
+        raw_value(&target, "DATABASE_URL")
+            .unwrap()
+            .starts_with("encrypted:"),
+        "{target}"
+    );
+    assert_eq!(
+        sb.ok(&["-p", "prod", "get", "DATABASE_URL"]).trim(),
+        r#"DATABASE_URL="postgres://u:pw@h/db""#
+    );
+}
+
+#[test]
+fn sync_refuses_encrypted_values_when_target_has_no_public_key() {
+    let sb = Sandbox::new();
+    sb.write(".env", "DATABASE_URL=postgres://u:pw@h/db\n");
+    sb.write(".env.keys", "");
+    sb.ok(&["encrypt"]);
+    sb.write(".env.prod", "OTHER=1\n");
+
+    let output = sb.run(&["sync", ".env", ".env.prod"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(stderr(&output).contains("DATABASE_URL"), "{}", stderr(&output));
+    assert_eq!(sb.read(".env.prod"), "OTHER=1\n");
+}
+
+#[test]
+fn sync_new_target_keeps_export_and_multiline_entries() {
+    let sb = Sandbox::new();
+    sb.write(
+        ".env",
+        "export DATABASE_URL=postgres://u:pw@h/db # main db\nCERT=\"line1\nline2\"\nHOST=localhost\n",
+    );
+    sb.write(".env.keys", "");
+    sb.ok(&["encrypt"]);
+    sb.ok(&["sync", ".env", ".env.test"]);
+
+    let target = sb.read(".env.test");
+    assert!(!target.contains("postgres://"), "{target}");
+    assert!(!target.contains("line1"), "{target}");
+    assert!(
+        target.lines().any(|l| l.starts_with("export DATABASE_URL=\"encrypted:")
+            && l.ends_with("# main db")),
+        "{target}"
+    );
+    assert_eq!(
+        sb.ok(&["-p", "test", "get", "DATABASE_URL"]).trim(),
+        r#"DATABASE_URL="postgres://u:pw@h/db""#
+    );
+    assert_eq!(
+        sb.ok(&["-p", "test", "get", "CERT"]).trim(),
+        r#"CERT="line1\nline2""#
+    );
+    assert_eq!(
+        sb.ok(&["-p", "test", "get", "HOST"]).trim(),
+        r#"HOST="localhost""#
+    );
+}
+
+#[test]
+fn sync_without_source_private_key_fails_without_panic() {
+    let sb = Sandbox::new();
+    sb.write(".env", "DATABASE_URL=postgres://u:pw@h/db\n");
+    sb.write(".env.keys", "");
+    sb.ok(&["encrypt"]);
+    fs::remove_file(sb.path(".env.keys")).unwrap();
+    let _ = fs::remove_dir_all(sb.dotenvx_dir());
+
+    let output = sb.run(&["sync", ".env", ".env.test"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("panicked"), "{}", stderr(&output));
+    assert!(!sb.path(".env.test").exists());
+}
+
+#[test]
 fn sync_missing_source_fails() {
     let sb = Sandbox::new();
     let output = sb.run(&["sync", ".env.none", ".env.test"]);
