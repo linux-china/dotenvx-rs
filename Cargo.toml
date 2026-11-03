@@ -27,7 +27,7 @@ aes-gcm = "0.11.0"
 argon2 = { version = "0.6" }
 totp-rs = { version = "6.0", features = ["otpauth", "gen_secret"] }
 rand = "0.10"
-uuid = { version = "1.28", features = ["v4", "v7"] }
+uuid = { version = "1.29", features = ["v4", "v7"] }
 base64ct = "1.8.3"
 #keyring = { version = "4.2" }
 hex = "0.4.3"
@@ -55,7 +55,7 @@ dotenv-analyzer = "0.1"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std", "serde"] }
 regex = "1.13"
 anyhow = "1.0"
-ureq = { version = "3.4", default-features = false, features = ["rustls", "json", "platform-verifier"] }
+ureq = { version = "3.5", default-features = false, features = ["rustls", "json", "platform-verifier"] }
 which = "8.0"
 symlink = "0.1.0"
 url = "2.5"
@@ -89,5 +89,5 @@ inherits = "release"
 lto = "fat"
 
 [dev-dependencies]
-testresult = "0.4.1"
+testresult = "0.4.2"
 tempfile = "3.27"
