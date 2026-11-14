@@ -23,7 +23,7 @@ dotenvy = "0.15.7"
 ecies = { version = "0.2.14", default-features = false, features = ["std", "aes-rust"] }
 k256 = { version = "0.14.0", default-features = false, features = ["arithmetic", "critical-section", "ecdsa", "ecdsa-core"] }
 sha2 = "0.11"
-aes-gcm = "0.11.0"
+aes-gcm = "0.11.1"
 argon2 = { version = "0.6" }
 totp-rs = { version = "6.0", features = ["otpauth", "gen_secret"] }
 rand = "0.10"
@@ -33,7 +33,7 @@ base64ct = "1.8.3"
 hex = "0.4.3"
 # cli
 shlex = "2.0"
-rpassword = "7.5.4"
+rpassword = "7.5.5"
 rprompt = "2.2.0"
 glob = "0.3"
 dirs = "7"
