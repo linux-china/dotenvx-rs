@@ -8,7 +8,6 @@ keywords = ["dotenv", "dotenvx", "secret", "vault"]
 categories = ["command-line-utilities"]
 documentation = "https://github.com/linux-china/dotenvx-rs"
 readme = "README.md"
-homepage = "https://github.com/linux-china/dotenvx-rs"
 repository = "https://github.com/linux-china/dotenvx-rs"
 license = "MIT"
 
@@ -20,7 +19,7 @@ path = "src/main.rs"
 [dependencies]
 ## core and encryption
 dotenvy = "0.15.7"
-ecies = { version = "0.2.14", default-features = false, features = ["std", "aes-rust"] }
+ecies = { version = "0.2.15", default-features = false, features = ["std", "aes-rust"] }
 k256 = { version = "0.14.0", default-features = false, features = ["arithmetic", "critical-section", "ecdsa", "ecdsa-core"] }
 sha2 = "0.11"
 aes-gcm = "0.11.1"
